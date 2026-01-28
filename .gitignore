@@ -1,0 +1,10 @@
+# Ignore opencode directories
+opencode/
+opencode_python/
+
+# Ignore IDE configs
+.idea/
+
+# Ignore runtime dirs
+.opencode/
+.sisyphus/
