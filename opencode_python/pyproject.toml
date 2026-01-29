@@ -24,19 +24,19 @@ classifiers = [
   "Topic :: Software Development",
 ]
 
-dependencies = [
+ dependencies = [
     "aiofiles>=24.0",
     "aiohttp>=3.10",
-    "asyncio-extras>=0.21",
+    "asyncio-extras>=0.22.0",
     "click>=8.0",
     "gitpython>=3.1",
     "httpx>=0.28.1",
     "pendulum>=3.0",
     "pydantic>=2.12",
     "pydantic-settings>=2.0",
+    "python-frontmatter>=1.0",
     "rich>=13.0",
     "ripgrep>=14.0",
-    "textual>=0.60",
     "tiktoken>=0.8.0",
 ]
 
