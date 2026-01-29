@@ -1,56 +1,55 @@
 """OpenCode Python - Built-in tools (bash, read, write, grep, glob)"""
 from __future__ import annotations
-from typing import Dict, List, Optional
-from pathlib import Path
-import subprocess
+
 import logging
+import subprocess
+from pathlib import Path
+from typing import Dict, Optional, Any
+
+from pydantic import BaseModel, Field
 
 from opencode_python.tools.framework import Tool, ToolContext, ToolResult
-from opencode_python.core.models import FilePart
-from opencode_python.context.pipeline import GitManager
-
+from opencode_python.tools.prompts import get_prompt
 
 logger = logging.getLogger(__name__)
 
 
+class BashToolArgs(BaseModel):
+    """Arguments for Bash tool"""
+    command: str = Field(description="Command to execute")
+    description: Optional[str] = Field(default=None, description="Description for UI")
+    cwd: Optional[str] = Field(default=".", description="Working directory")
+
+
 class BashTool(Tool):
-    """Execute shell commands"""
-
     id = "bash"
-    description = "Execute shell commands in the project directory"
+    description = get_prompt("bash")
+    category = "execution"
+    tags = ["shell", "command-line", "git"]
+    dependencies = ["read", "write", "glob", "grep"]
+    examples = ["Execute shell command", "Run git status"]
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    def parameters(self) -> Dict[str, Any]:
+        """Get JSON schema for bash tool parameters"""
+        return BashToolArgs.model_json_schema()
+
+    async def execute(self, args: BashToolArgs, ctx: ToolContext) -> ToolResult:
         """Execute a bash command
 
         Args:
-            args: {
-                "command": str,  # Command to execute
-                "description": Optional[str],  # Description for UI
-                "cwd": Optional[str],  # Working directory
-            }
+            args: BashToolArgs validated by Pydantic
             ctx: Tool execution context
 
         Returns:
             ToolResult with output, title, and metadata
         """
-        command = args.get("command", "")
-        description = args.get("description", command)
-        cwd = args.get("cwd", ".")
-
-        if not command:
-            return ToolResult(
-                title="No command",
-                output="",
-                metadata={"error": "Command is required"},
-            )
-
-        logger.info(f"Executing: {command}")
+        logger.info(f"Executing: {args.command}")
 
         try:
             result = subprocess.run(
-                [command],
+                [args.command],
                 shell=True,
-                cwd=ctx.session_id if cwd == "." else cwd,
+                cwd=ctx.session_id if args.cwd == "." else args.cwd,
                 capture_output=True,
                 text=True,
                 check=True,
@@ -66,44 +65,47 @@ class BashTool(Tool):
                 full_output = output
 
             return ToolResult(
-                title=description or command,
+                title=args.description or args.command,
                 output=full_output,
                 metadata={
                     "exit_code": result.returncode,
-                    "description": description,
+                    "description": args.description,
                 },
             )
 
         except Exception as e:
             logger.error(f"Bash tool failed: {e}")
             return ToolResult(
-                title=f"Error: {command}",
+                title=f"Error: {args.command}",
                 output=str(e),
                 metadata={"error": str(e)},
             )
+
+
+class ReadToolArgs(BaseModel):
+    """Arguments for Read tool"""
+    file: str = Field(description="Path to file (relative to project)")
+    limit: Optional[int] = Field(default=2000, description="Max lines to read")
+    offset: Optional[int] = Field(default=0, description="Line number to start from")
 
 
 class ReadTool(Tool):
     """Read file contents"""
 
     id = "read"
-    description = "Read file contents with optional line numbering and diff support"
+    description = get_prompt("read")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: ReadToolArgs, ctx: ToolContext) -> ToolResult:
         """Read a file
 
         Args:
-            args: {
-                "file": str,  # Path to file (relative to project)
-                "limit": Optional[int],  # Max lines to read
-                "offset": Optional[int],  # Line number to start from
-            }
+            args: ReadToolArgs validated by Pydantic
             ctx: Tool execution context
 
         Returns:
             ToolResult with file content
         """
-        file_path = args.get("file", "")
+        file_path = args.file
 
         if not file_path:
             return ToolResult(
@@ -112,8 +114,8 @@ class ReadTool(Tool):
                 metadata={"error": "File path is required"},
             )
 
-        limit = args.get("limit", 2000)
-        offset = args.get("offset", 0)
+        limit = args.limit
+        offset = args.offset
 
         try:
             full_path = Path(ctx.session_id if ctx.session_id.startswith("/") else "") / file_path
@@ -132,7 +134,6 @@ class ReadTool(Tool):
             start_line = max(0, offset - 1)
             end_line = min(start_line + limit, len(all_lines))
             lines = all_lines[start_line:end_line]
-
             content = "".join(lines)
 
             metadata = {
@@ -157,36 +158,32 @@ class ReadTool(Tool):
             )
 
 
+class WriteToolArgs(BaseModel):
+    """Arguments for Write tool"""
+    file: str = Field(description="Path to file (relative to project)")
+    content: str = Field(description="Content to write")
+    create: bool = Field(default=False, description="Create parent directories if needed")
+
+
 class WriteTool(Tool):
     """Write content to files"""
 
     id = "write"
-    description = "Write content to files"
+    description = get_prompt("write")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: WriteToolArgs, ctx: ToolContext) -> ToolResult:
         """Write content to a file
 
         Args:
-            args: {
-                "file": str,  # Path to file (relative to project)
-                "content": str,  # Content to write
-                "create": bool,  # Create directories if needed
-            }
+            args: WriteToolArgs validated by Pydantic
             ctx: Tool execution context
 
         Returns:
             ToolResult with operation result
         """
-        file_path = args.get("file", "")
-        content = args.get("content", "")
-        create_dirs = args.get("create", False)
-
-        if not file_path:
-            return ToolResult(
-                title="No file specified",
-                output="",
-                metadata={"error": "File path is required"},
-            )
+        file_path = args.file
+        content = args.content
+        create_dirs = args.create
 
         try:
             full_path = Path(ctx.session_id if ctx.session_id.startswith("/") else "") / file_path
@@ -195,13 +192,14 @@ class WriteTool(Tool):
             if create_dirs:
                 full_path.parent.mkdir(parents=True, exist_ok=True)
 
+            # Write content
             with open(full_path, "w") as f:
                 f.write(content)
 
             return ToolResult(
                 title=f"Write: {file_path}",
                 output=f"Wrote {len(content)} bytes",
-                metadata={"path": str(file_path), "bytes": len(content)},
+                metadata={"path": str(full_path), "bytes": len(content)},
             )
 
         except Exception as e:
@@ -213,29 +211,32 @@ class WriteTool(Tool):
             )
 
 
+class GrepToolArgs(BaseModel):
+    """Arguments for Grep tool"""
+    query: str = Field(description="Regex pattern to search")
+    file_pattern: Optional[str] = Field(default="*", description="Glob pattern for files")
+    max_results: int = Field(default=100, description="Max results to return")
+
+
 class GrepTool(Tool):
-    """Search file contents using ripgrep"""
+    """Search file contents using regex patterns"""
 
     id = "grep"
-    description = "Search file contents using regex patterns"
+    description = get_prompt("grep")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: GrepToolArgs, ctx: ToolContext) -> ToolResult:
         """Search for patterns in files
 
         Args:
-            args: {
-                "query": str,  # Regex pattern to search
-                "file_pattern": Optional[str],  # Glob pattern for files
-                "max_results": int = 100,  # Max results
-            }
+            args: GrepToolArgs validated by Pydantic
             ctx: Tool execution context
 
         Returns:
             ToolResult with search results
         """
-        query = args.get("query", "")
-        file_pattern = args.get("file_pattern", "*")
-        max_results = args.get("max_results", 100)
+        query = args.query
+        file_pattern = args.file_pattern
+        max_results = args.max_results
 
         if not query:
             return ToolResult(
@@ -249,7 +250,7 @@ class GrepTool(Tool):
         try:
             # Build ripgrep command
             cmd = ["ripgrep", "-e", query, file_pattern]
-            
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
@@ -282,27 +283,30 @@ class GrepTool(Tool):
             )
 
 
+class GlobToolArgs(BaseModel):
+    """Arguments for Glob tool"""
+    pattern: str = Field(description="Glob pattern")
+    max_results: int = Field(default=100, description="Max results to return")
+
+
 class GlobTool(Tool):
     """Find files using glob patterns"""
 
     id = "glob"
-    description = "Find files matching glob patterns"
+    description = get_prompt("glob")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
-        """Find files using glob patterns
+    async def execute(self, args: GlobToolArgs, ctx: ToolContext) -> ToolResult:
+        """Find files matching glob patterns
 
         Args:
-            args: {
-                "pattern": str,  # Glob pattern
-                "max_results": int = 100,  # Max results
-            }
+            args: GlobToolArgs validated by Pydantic
             ctx: Tool execution context
 
         Returns:
             ToolResult with matching files
         """
-        pattern = args.get("pattern", "*")
-        max_results = args.get("max_results", 100)
+        pattern = args.pattern
+        max_results = args.max_results
 
         if not pattern:
             return ToolResult(
@@ -316,7 +320,7 @@ class GlobTool(Tool):
         try:
             # Use ripgrep --files with glob
             cmd = ["ripgrep", "--glob", pattern]
-            
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,

@@ -1,37 +1,17 @@
 """OpenCode Python - Core Session Management"""
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pathlib import Path
 from datetime import datetime
 import uuid
-import pydantic as pd
+import logging
 
 from opencode_python.storage.store import SessionStorage
 from opencode_python.core.event_bus import bus, Events
+from opencode_python.core.models import Session, Message, MessageSummary, SessionShare, SessionRevert
 
 
 logger = logging.getLogger(__name__)
-
-
-class Session(pd.BaseModel):
-    """Session model"""
-    id: str
-    slug: str
-    project_id: str
-    directory: str
-    parent_id: Optional[str] = None
-    title: str
-    version: str
-    summary: Optional["SessionSummary"] = None
-    share: Optional["SessionShare"] = None
-    time_created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
-    time_updated: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
-    time_compacting: Optional[float] = None
-    time_archived: Optional[float] = None
-    permission: Optional[List[pd.Field]] = None
-    revert: Optional["SessionRevert"] = None
-
-    model_config = pd.ConfigDict(extra="forbid")
 
 
 class SessionManager:
@@ -50,7 +30,7 @@ class SessionManager:
         title: str,
         parent_id: Optional[str] = None,
         version: str = "1.0.0",
-        summary: Optional["SessionSummary"] = None,
+        summary: Optional["MessageSummary"] = None,
     ) -> Session:
         """Create a new session"""
         session_id = str(uuid.uuid4())
@@ -126,19 +106,19 @@ class SessionManager:
 
     async def list_sessions(self) -> List[Session]:
         """List all sessions for a project"""
-        sessions = await self.storage.list_sessions(self.project_id)
+        sessions = await self.storage.list_sessions(self.project_dir.name)
         return sessions
 
     async def create_message(
         self,
         session_id: str,
-        role: str,
+        role: Literal["user", "assistant", "system"],
         text: str = "",
         **kwargs,
     ) -> None:
         """Create a message in a session"""
         # Create message
-        message = opencode_python.core.models.Message(
+        message = Message(
             id=str(uuid.uuid4()),
             session_id=session_id,
             role=role,

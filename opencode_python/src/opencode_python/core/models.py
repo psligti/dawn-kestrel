@@ -19,6 +19,7 @@ class ToolState(pd.BaseModel):
     metadata: Dict[str, Any] = pd.Field(default_factory=dict)
     time_start: Optional[float] = None
     time_end: Optional[float] = None
+    error: Optional[str] = None
 
 
 class FileInfo(pd.BaseModel):
@@ -174,6 +175,19 @@ class Message(pd.BaseModel):
 
 
 class MessageSummary(pd.BaseModel):
+    """Message summary info"""
+    title: Optional[str] = None
+    body: Optional[str] = None
+    diffs: Optional[List[Dict[str, Any]]] = None
+
+
+class UserMessage(Message):
+    """User message - alias for Message with role='user'"""
+    pass
+
+
+class AssistantMessage(Message):
+    """Assistant message - alias for Message with role='assistant'"""
     """Message summary info"""
     title: Optional[str] = None
     body: Optional[str] = None

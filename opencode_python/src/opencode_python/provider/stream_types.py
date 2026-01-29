@@ -1,7 +1,8 @@
 """OpenCode Python - Stream Types and Events"""
-from __future__ import annotations
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from typing import Literal, Dict, Any, Optional
+from pydantic import BaseModel
+from typing import Literal, Dict, Any, Optional, Union
 import uuid
 import logging
 
@@ -9,14 +10,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class StreamEvent:
+
+class StreamEvent(BaseModel):
     """Base class for all stream events"""
-    type: str
-    id: Optional[str] = None
+    id: Optional[str] = Field(default=None)
 
 
-@dataclass
+
 class TextStartEvent(StreamEvent):
     """Text content starts"""
     type: Literal["text-start"] = "text-start"
@@ -24,31 +24,31 @@ class TextStartEvent(StreamEvent):
     parent_id: Optional[str] = None
 
 
-@dataclass
+
 class TextDeltaEvent(StreamEvent):
     """Text content delta (incremental)"""
     type: Literal["text-delta"] = "text-delta"
     id: str
-    text: str
+    text: str = Field(default="")
 
 
-@dataclass
+
 class TextEndEvent(StreamEvent):
     """Text content ends"""
     type: Literal["text-end"] = "text-end"
     id: str
 
 
-@dataclass
+
 class ReasoningStartEvent(StreamEvent):
     """Reasoning/thinking starts"""
     type: Literal["reasoning-start"] = "reasoning-start"
     id: str
     parent_id: Optional[str] = None
-    provider_metadata: Optional[Dict[str, Any]] = None
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class ReasoningDeltaEvent(StreamEvent):
     """Reasoning/thinking delta"""
     type: Literal["reasoning-delta"] = "reasoning-delta"
@@ -56,14 +56,14 @@ class ReasoningDeltaEvent(StreamEvent):
     text: str
 
 
-@dataclass
+
 class ReasoningEndEvent(StreamEvent):
     """Reasoning/thinking ends"""
     type: Literal["reasoning-end"] = "reasoning-end"
     id: str
 
 
-@dataclass
+
 class ToolInputStartEvent(StreamEvent):
     """Tool input starts"""
     type: Literal["tool-input-start"] = "tool-input-start"
@@ -71,10 +71,10 @@ class ToolInputStartEvent(StreamEvent):
     tool_call_id: str
     tool: str
     input: Dict[str, Any]
-    provider_metadata: Optional[Dict[str, Any]] = None
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class ToolInputDeltaEvent(StreamEvent):
     """Tool input delta"""
     type: Literal["tool-input-delta"] = "tool-input-delta"
@@ -82,14 +82,14 @@ class ToolInputDeltaEvent(StreamEvent):
     input_delta: Dict[str, Any]
 
 
-@dataclass
+
 class ToolInputEndEvent(StreamEvent):
     """Tool input ends"""
     type: Literal["tool-input-end"] = "tool-input-end"
     id: str
 
 
-@dataclass
+
 class ToolCallEvent(StreamEvent):
     """Tool is called"""
     type: Literal["tool-call"] = "tool-call"
@@ -97,10 +97,10 @@ class ToolCallEvent(StreamEvent):
     tool_call_id: str
     tool_name: str
     input: Dict[str, Any]
-    provider_metadata: Optional[Dict[str, Any]] = None
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class ToolResultEvent(StreamEvent):
     """Tool execution result"""
     type: Literal["tool-result"] = "tool-result"
@@ -109,10 +109,10 @@ class ToolResultEvent(StreamEvent):
     tool_name: str
     output: str
     error: Optional[str] = None
-    provider_metadata: Optional[Dict[str, Any]] = None
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class ToolErrorEvent(StreamEvent):
     """Tool execution error"""
     type: Literal["tool-error"] = "tool-error"
@@ -120,27 +120,27 @@ class ToolErrorEvent(StreamEvent):
     tool_call_id: str
     tool_name: str
     error: str
-    provider_metadata: Optional[Dict[str, Any]] = None
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class FinishStepEvent(StreamEvent):
     """LLM turn completes"""
     type: Literal["finish-step"] = "finish-step"
     id: str
     finish_reason: Optional[str] = None
-    usage: Optional[Dict[str, Any]] = None
-    provider_metadata: Optional[Dict[str, Any]] = None
+    usage: Optional[Dict[str, Any]] = Field(default=None)
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
-@dataclass
+
 class FinishEvent(StreamEvent):
     """Full response completes"""
     type: Literal["finish"] = "finish"
     id: str
     finish_reason: Optional[str] = None
-    usage: Optional[Dict[str, Any]] = None
-    provider_metadata: Optional[Dict[str, Any]] = None
+    usage: Optional[Dict[str, Any]] = Field(default=None)
+    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
 
 
 StreamEvent = (

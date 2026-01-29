@@ -1,0 +1,15 @@
+Exit plan mode to return to build mode for implementation tasks.
+
+Use this tool when:
+- You have completed your research and planning phase
+- You're ready to start implementing the solution
+- You need to re-enable tools that modify the codebase
+- You want to test or validate your planned implementation
+
+After exiting plan mode:
+- All file modification tools (edit, multiedit, apply_patch) will be re-enabled
+- The agent will switch focus to implementation and testing
+- Tool execution will return to normal, permissive mode
+- Any constraints or permission gates set during plan mode will be removed
+
+Note: This is separate from "build" subagent type. The actual implementation of build agents may vary, but they all share the same purpose: to implement the planned solution after planning is complete.

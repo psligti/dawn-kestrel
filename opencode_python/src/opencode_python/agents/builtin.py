@@ -1,6 +1,6 @@
 """OpenCode Python - Agent definitions"""
 from __future__ import annotations
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 from opencode_python.core.models import Session, Message

@@ -7,7 +7,7 @@ from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
 
-__all__ = ["Settings", "get_settings"]
+__all__ = ["Settings", "get_settings", "settings"]
 
 
 class Settings(pydantic_settings.BaseSettings):
@@ -20,6 +20,7 @@ class Settings(pydantic_settings.BaseSettings):
 
     # API credentials (secrets)
     api_key: SecretStr = Field(default_factory=lambda: SecretStr(""), alias="API_KEY")
+    api_keys: Dict[str, SecretStr] = Field(default_factory=dict, alias="API_KEYS")
     api_endpoint: str = Field(
         default="https://api.open-code.ai/v1",
         alias="API_ENDPOINT"
@@ -87,6 +88,9 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+settings: Settings = get_settings()
 
 
 def reload_settings() -> Settings:

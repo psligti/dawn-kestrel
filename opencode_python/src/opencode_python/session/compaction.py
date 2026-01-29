@@ -81,7 +81,7 @@ async def prune(session_id: str) -> int:
         if turns < 2:
             continue  # Always keep last 2 turns
         if msg.get("role") == "assistant" and msg.get("summary"):
-            break loop  # Stop at compaction
+            break  # Stop at compaction
         
         # Find completed tool calls
         for part_index in range(len(msg.get("parts", [])) - 1, -1, -1):
@@ -92,8 +92,8 @@ async def prune(session_id: str) -> int:
                 
                 time_compacted = part.get("state", {}).get("time_compacted")
                 if time_compacted:
-                    break loop  # Already compacted
-                
+                    break  # Already compacted
+
                 # Estimate tokens (simple char/4 heuristic)
                 output = part.get("state", {}).get("output", "")
                 estimate = len(output) // 4

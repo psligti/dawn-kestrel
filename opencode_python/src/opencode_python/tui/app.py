@@ -1,28 +1,41 @@
 """OpenCode Python - Main TUI Application"""
-from textual.app import App, ComposeResult
-from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
-from textual.widgets import (
-    Header, Footer, Button, Static, Input, 
-    DataTable, Tabs, TabPane
-)
-from textual.binding import Binding
-from textual.reactive import reactive
-import logging
-import pendulum
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
+
 import asyncio
+import logging
+import pendulum  # type: ignore[import-not-found]
 import uuid
-from typing import Optional, Dict, Any, List
+
+from textual.app import App, ComposeResult  # type: ignore[import-not-found]
+from textual.binding import Binding  # type: ignore[import-not-found]
+from textual.containers import Container, Horizontal, ScrollableContainer, Vertical  # type: ignore[import-not-found]
+from textual.reactive import reactive  # type: ignore[import-not-found]
+from textual.widgets import (  # type: ignore[import-not-found]
+    Button,
+    DataTable,
+    Footer,
+    Header,
+    Input,
+    Static,
+    TabPane,
+    Tabs,
+)
 
 from opencode_python.core.settings import get_settings
 from opencode_python.tui.message_view import MessageView, MessagePartView
-from opencode_python.core.models import Session, Message, TextPart, ToolPart
+from opencode_python.core.models import Session as ModelSession, Message, TextPart, ToolPart
+from opencode_python.tui.screens.message_screen import MessageScreen
+from opencode_python.tui.screens.diff_viewer import DiffViewer
+from opencode_python.tui.screens.context_browser import ContextBrowser
 
 
 logger = logging.getLogger(__name__)
 
 
-class OpenCodeTUI(App):
+class OpenCodeTUI(App):  # type: ignore[misc]
     """OpenCode Textual TUI application"""
 
     CSS = """
@@ -98,11 +111,7 @@ class OpenCodeTUI(App):
 
                 # Actions pane with input and buttons
                 with TabPane("Actions", id="actions-pane"):
-                    yield Input(
-                        placeholder="Enter your command...",
-                        id="command-input",
-                    )
-                    yield Button("Run", variant="primary", id="run-btn")
+                    yield Button("Open Chat", variant="primary", id="chat-btn")
                     yield Button("List Sessions", id="list-btn")
 
         yield Footer()
@@ -141,7 +150,7 @@ class OpenCodeTUI(App):
         """Get current session title"""
         if not self.current_session_id:
             return "No active session"
-        return self.current_session_id
+        return self.current_session_id  # type: ignore[no-any-return]
 
     def _get_context_info(self) -> str:
         """Get context usage info"""
@@ -154,6 +163,39 @@ class OpenCodeTUI(App):
             self._handle_run_command()
         elif event.button.id == "list-btn":
             asyncio.create_task(self._load_sessions())
+        elif event.button.id == "chat-btn":
+            self._open_message_screen()
+
+    def on_data_table_row_selected(self, event: Any) -> None:
+        """Handle session row selection"""
+        row_key = event.row_key
+        if row_key:
+            self.current_session_id = str(row_key)
+            self._open_message_screen()
+
+    def _open_message_screen(self) -> None:
+        """Open message screen for current session"""
+        if not self.current_session_id:
+            self.notify("[yellow]No session selected[/yellow]")
+            return
+        
+        from opencode_python.storage.store import SessionStorage
+        from opencode_python.core.settings import get_storage_dir
+        from pathlib import Path
+        
+        try:
+            storage_dir = get_storage_dir()
+            storage = SessionStorage(storage_dir)
+
+            session_data = asyncio.run(storage.get_session(self.current_session_id))
+            if session_data:
+                session = ModelSession(**session_data)  # type: ignore[arg-type]
+                self.push_screen(MessageScreen(session))
+            else:
+                self.notify(f"[red]Session not found: {self.current_session_id}[/red]")
+        except Exception as e:
+            logger.error(f"Error opening message screen: {e}")
+            self.notify(f"[red]Error: {e}[/red]")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle command input"""
@@ -161,7 +203,7 @@ class OpenCodeTUI(App):
         self.command_history.value = self.command_history.value + [command]
         self._handle_run_command(command)
 
-    def _handle_run_command(self, command: str = None) -> None:
+    def _handle_run_command(self, command: str | None = None) -> None:
         """Handle run command"""
         if command:
             # Get from input widget
@@ -174,7 +216,7 @@ class OpenCodeTUI(App):
             if input_widget:
                 self.notify(f"[cyan]Would run:[/cyan] {input_widget.value}")
 
-    async def _add_message(self, role: str, text: str) -> None:
+    async def _add_message(self, role: Literal["user", "assistant", "system"], text: str) -> None:
         """Add a message to the timeline"""
         from opencode_python.core.models import Message, TextPart
         
@@ -186,6 +228,7 @@ class OpenCodeTUI(App):
             id=str(uuid.uuid4()),
             message_id=message_id,
             session_id=session_id,
+            part_type="text",
             text=text,
         )
         
@@ -202,7 +245,7 @@ class OpenCodeTUI(App):
         self.messages.value = self.messages.value + [message]
         
         # Render message
-        message_view = MessageView(message={"role": role, "time": message.time, "parts": [text_part]})
+        message_view = MessageView(message_data={"role": role, "time": message.time, "parts": [text_part]})
         await self.messages_container.mount(message_view)
 
     def _now(self) -> int:

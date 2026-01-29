@@ -1,0 +1,13 @@
+Switch to plan mode for research and planning tasks. In plan mode, tools that modify the codebase are disabled to prevent accidental changes.
+
+Use this tool when:
+- You need to perform extensive research or analysis before making changes
+- You're in the initial planning phase and want to document your findings
+- You need to explore multiple options or approaches before committing to implementation
+
+After entering plan mode:
+- All file modification tools (edit, multiedit, apply_patch) will be disabled or have strict permission gates
+- The agent will focus on research, documentation gathering, and architectural planning
+- Tool execution will be more conservative, requiring explicit confirmation for high-impact operations
+
+Note: This is separate from "plan" subagent type. The actual implementation of plan agents may vary, but they all share the same purpose: to research and plan before building.
