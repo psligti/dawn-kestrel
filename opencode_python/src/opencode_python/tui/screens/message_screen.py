@@ -10,22 +10,21 @@ Provides a complete message display screen with:
 """
 
 from textual.screen import Screen
-from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Input, Button, Markdown
+from textual.containers import Vertical, Horizontal, ScrollableContainer
+from textual.widgets import Static, Input, Button
 from textual.app import ComposeResult
 from textual.reactive import reactive
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 import asyncio
 import logging
 import pendulum
-from pydantic import SecretStr
 
 from opencode_python.core.models import (
     Message, Part, TextPart, ToolPart, FilePart, ReasoningPart,
     SnapshotPart, PatchPart, AgentPart, SubtaskPart, RetryPart, CompactionPart,
     ToolState, Session
 )
-from opencode_python.tui.message_view import MessageView, MessagePartView
+from opencode_python.tui.message_view import MessageView
 from opencode_python.ai_session import AISession
 from opencode_python.providers import get_provider, ProviderID
 from opencode_python.providers.base import StreamEvent

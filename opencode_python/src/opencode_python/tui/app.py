@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, List, Literal
 
 import asyncio
 import logging
@@ -11,7 +11,7 @@ import uuid
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
+from textual.containers import Container, ScrollableContainer, Vertical
 from textual.reactive import reactive, Reactive
 from textual.widgets import (
     Button,
@@ -24,12 +24,9 @@ from textual.widgets import (
     Tabs,
 )
 
-from opencode_python.core.settings import get_settings
-from opencode_python.tui.message_view import MessageView, MessagePartView
-from opencode_python.core.models import Session as ModelSession, Message, TextPart, ToolPart
+from opencode_python.tui.message_view import MessageView
+from opencode_python.core.models import Message, TextPart
 from opencode_python.tui.screens.message_screen import MessageScreen
-from opencode_python.tui.screens.diff_viewer import DiffViewer
-from opencode_python.tui.screens.context_browser import ContextBrowser
 
 
 logger = logging.getLogger(__name__)
@@ -187,7 +184,6 @@ class OpenCodeTUI(App[None]):
         
         from opencode_python.storage.store import SessionStorage
         from opencode_python.core.settings import get_storage_dir
-        from pathlib import Path
         
         try:
             storage_dir = get_storage_dir()
@@ -223,7 +219,7 @@ class OpenCodeTUI(App[None]):
 
     async def _add_message(self, role: Literal["user", "assistant", "system"], text: str) -> None:
         """Add a message to the timeline"""
-        from opencode_python.core.models import Message, TextPart
+        from opencode_python.core.models import Message
 
         message_id = str(uuid.uuid4())
         session_id = self.current_session_id or ""

@@ -1,12 +1,11 @@
 """OpenCode Python - Message and Part rendering for TUI"""
 from __future__ import annotations
 
-from typing import Any, Iterator
+from typing import Any
 
-from textual.containers import Container, Vertical, Horizontal
-from textual.widgets import Static, Markdown, Button, Input
+from textual.containers import Container, Horizontal
+from textual.widgets import Static
 from textual.app import ComposeResult
-from textual.reactive import reactive
 import logging
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,7 @@ class MessagePartView(Container):
                 
                 output = state.get("output", "")
                 if output:
-                    yield Static(f"[dim]Output:[/dim]", classes="part-header")
+                    yield Static("[dim]Output:[/dim]", classes="part-header")
                     lines = output.split("\n")[:10]
                     for line in lines:
                         yield Static(f"[dim]  {line}[/dim]", classes="part-content")
@@ -99,7 +98,7 @@ class MessagePartView(Container):
         
         elif self.part_type == "reasoning":
             text = self.part_data.get("text", "")
-            yield Static(f"[bold yellow]💭 Thinking[/bold yellow]", classes="part-header")
+            yield Static("[bold yellow]💭 Thinking[/bold yellow]", classes="part-header")
             yield Static(f"[dim]{text}[/dim]", classes="part-content")
         
         elif self.part_type == "snapshot":

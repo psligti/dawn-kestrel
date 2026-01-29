@@ -10,13 +10,12 @@ Provides a context browsing screen with:
 """
 
 from textual.screen import Screen
-from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Button, Tabs, Tab, TabbedContent, TabPane, Input, Tree
+from textual.containers import Vertical, Horizontal, ScrollableContainer
+from textual.widgets import Static, Button, Tabs, TabbedContent, TabPane, Input, Tree
 from textual.widgets._tree import TreeNode
 from textual.app import ComposeResult
 from textual.reactive import reactive
-from textual import on
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import Optional, List, Dict, Any
 import logging
 import asyncio
 import subprocess
