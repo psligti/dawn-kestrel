@@ -4,6 +4,7 @@ from typing import Optional, List, Literal, Dict, Any
 from pathlib import Path
 from datetime import datetime
 import uuid
+import asyncio
 import logging
 
 from opencode_python.storage.store import SessionStorage
@@ -29,6 +30,7 @@ class SessionManager:
     ):
         self.storage = storage
         self.project_dir = project_dir
+        self._lock = asyncio.Lock()
 
     @property
     def directory(self) -> str:
@@ -42,32 +44,33 @@ class SessionManager:
         version: str = "1.0.0",
         summary: Optional["MessageSummary"] = None,
     ) -> Session:
-        """Create a new session"""
-        session_id = str(uuid.uuid4())
-        
-        # Generate slug from title
-        slug = title.lower().replace(" ", "-")
-        
-        session = Session(
-            id=session_id,
-            slug=slug,
-            project_id=self.project_dir.name,
-            directory=str(self.project_dir),
-            parent_id=parent_id,
-            title=title,
-            version=version,
-            summary=summary,
-        )
-        
-        # Persist
-        created = await self.storage.create_session(session)
-        
-        logger.info(f"Created session: {session_id} ({title})")
-        
-        # Emit event
-        await bus.publish(Events.SESSION_CREATED, {"session": session.model_dump()})
-        
-        return session
+        """Create a new session with thread safety"""
+        async with self._lock:
+            session_id = str(uuid.uuid4())
+
+            # Generate slug from title
+            slug = title.lower().replace(" ", "-")
+
+            session = Session(
+                id=session_id,
+                slug=slug,
+                project_id=self.project_dir.name,
+                directory=str(self.project_dir),
+                parent_id=parent_id,
+                title=title,
+                version=version,
+                summary=summary,
+            )
+
+            # Persist
+            created = await self.storage.create_session(session)
+
+            logger.info(f"Created session: {session_id} ({title})")
+
+            # Emit event
+            await bus.publish(Events.SESSION_CREATED, {"session": session.model_dump()})
+
+            return session
 
     async def get_session(self, session_id: str) -> Optional[Session]:
         """Get a session by ID"""
@@ -99,20 +102,21 @@ class SessionManager:
         return session
 
     async def delete_session(self, session_id: str) -> bool:
-        """Delete a session"""
-        session = await self.get_session(session_id)
-        if not session:
-            return False
-        
-        # Delete from storage
-        deleted = await self.storage.delete_session(session_id, session.project_id)
-        
-        # Emit event
-        await bus.publish(Events.SESSION_DELETED, {"session_id": session_id})
-        
-        logger.info(f"Deleted session: {session_id}")
-        
-        return True
+        """Delete a session with thread safety"""
+        async with self._lock:
+            session = await self.get_session(session_id)
+            if not session:
+                return False
+
+            # Delete from storage
+            deleted = await self.storage.delete_session(session_id, session.project_id)
+
+            # Emit event
+            await bus.publish(Events.SESSION_DELETED, {"session_id": session_id})
+
+            logger.info(f"Deleted session: {session_id}")
+
+            return True
 
     async def list_sessions(self) -> List[Session]:
         """List all sessions for a project"""
@@ -148,15 +152,16 @@ class SessionManager:
         logger.debug(f"Created message {message.id} in session {session_id}")
     
     async def create_messages(self, session_id: str, messages: List["Message"]) -> None:
-        """Create multiple messages in a session (preserves original IDs and timestamps)"""
-        from opencode_python.storage.store import MessageStorage
+        """Create multiple messages in a session with thread safety"""
+        async with self._lock:
+            from opencode_python.storage.store import MessageStorage
 
-        message_storage = MessageStorage(self.storage.base_dir)
+            message_storage = MessageStorage(self.storage.base_dir)
 
-        for message in messages:
-            await message_storage.create_message(session_id, message)
+            for message in messages:
+                await message_storage.create_message(session_id, message)
 
-        logger.info(f"Created {len(messages)} messages in session {session_id}")
+            logger.info(f"Created {len(messages)} messages in session {session_id}")
 
     async def list_messages(self, session_id: str) -> List["Message"]:
         """List all messages for a session"""
@@ -205,20 +210,21 @@ class SessionManager:
         return True
 
     async def add_message(self, message: "Message") -> str:
-        """Add a message to a session"""
-        from opencode_python.storage.store import MessageStorage
+        """Add a message to a session with thread safety"""
+        async with self._lock:
+            from opencode_python.storage.store import MessageStorage
 
-        message_storage = MessageStorage(self.storage.base_dir)
+            message_storage = MessageStorage(self.storage.base_dir)
 
-        # Persist message
-        await message_storage.create_message(message.session_id, message)
+            # Persist message
+            await message_storage.create_message(message.session_id, message)
 
-        # Emit event
-        await bus.publish(Events.MESSAGE_CREATED, {"message": message.model_dump()})
+            # Emit event
+            await bus.publish(Events.MESSAGE_CREATED, {"message": message.model_dump()})
 
-        logger.debug(f"Added message {message.id} to session {message.session_id}")
+            logger.debug(f"Added message {message.id} to session {message.session_id}")
 
-        return message.id
+            return message.id
 
     async def add_part(self, part: Part) -> str:
         """Add a part to a message"""

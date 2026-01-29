@@ -146,6 +146,7 @@ class TestExportSessionCommand:
             project_id="test-project",
             directory="/test",
             time_created=1234567890,
+            version="1.0.0",
         )
         mock_service.get_session = AsyncMock(return_value=session)
         mock_service_cls.return_value = mock_service
@@ -214,6 +215,7 @@ class TestExportSessionCommand:
             project_id="test-project",
             directory="/test",
             time_created=1234567890,
+            version="1.0.0",
         )
         mock_service.get_session = AsyncMock(return_value=session)
         mock_service_cls.return_value = mock_service
@@ -392,6 +394,7 @@ class TestBackwardCompatibility:
             project_id="test-project",
             directory="/test",
             time_created=1234567890,
+            version="1.0.0",
         )
         mock_service.list_sessions = AsyncMock(return_value=[session])
         mock_service_cls.return_value = mock_service

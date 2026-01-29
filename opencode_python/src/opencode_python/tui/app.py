@@ -30,6 +30,14 @@ from opencode_python.tui.widgets.footer import SessionFooter
 from opencode_python.tui.message_view import MessageView
 from opencode_python.core.models import Message, TextPart
 from opencode_python.tui.screens.message_screen import MessageScreen
+from opencode_python.core.services.session_service import DefaultSessionService
+from opencode_python.storage.store import SessionStorage
+from opencode_python.core.settings import get_storage_dir
+from opencode_python.tui.handlers import (
+    TUIIOHandler,
+    TUIProgressHandler,
+    TUINotificationHandler,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +45,26 @@ logger = logging.getLogger(__name__)
 
 class OpenCodeTUI(App[None]):
     """OpenCode Textual TUI application"""
+
+    def __init__(self, session_service: DefaultSessionService | None = None):
+        """Initialize TUI app with SessionService.
+
+        Args:
+            session_service: Optional SessionService for session management.
+        """
+        super().__init__()
+
+        storage_dir = get_storage_dir()
+        storage = SessionStorage(storage_dir)
+
+        if session_service is None:
+            self.session_service = DefaultSessionService(storage=storage)
+        else:
+            self.session_service = session_service
+
+        self.io_handler = TUIIOHandler(self)
+        self.progress_handler = TUIProgressHandler(self)
+        self.notification_handler = TUINotificationHandler(self)
 
     CSS = """
     Screen {
@@ -132,19 +160,10 @@ class OpenCodeTUI(App[None]):
 
     async def _load_sessions(self) -> None:
         """Load sessions into table"""
-        from opencode_python.core.session import SessionManager
-        from opencode_python.storage.store import SessionStorage
-        from opencode_python.core.settings import get_storage_dir
-        
-        storage_dir = get_storage_dir()
-        storage = SessionStorage(storage_dir)
-        work_dir = Path.cwd()
-        
-        manager = SessionManager(storage, work_dir)
-        sessions = await manager.list_sessions()
-        
+        sessions = await self.session_service.list_sessions()
+
         self.session_table.clear()
-        
+
         for session in sessions:
             self.session_table.add_row(
                 session.id,
@@ -186,17 +205,11 @@ class OpenCodeTUI(App[None]):
         if not self.current_session_id:
             self.notify("[yellow]No session selected[/yellow]")
             return
-        
-        from opencode_python.storage.store import SessionStorage
-        from opencode_python.core.settings import get_storage_dir
-        
-        try:
-            storage_dir = get_storage_dir()
-            storage = SessionStorage(storage_dir)
 
-            session = asyncio.run(storage.get_session(self.current_session_id))
+        try:
+            session = asyncio.run(self.session_service.get_session(self.current_session_id))
             if session:
-                self.push_screen(MessageScreen(session))
+                self.push_screen(MessageScreen(session, session_service=self.session_service))
             else:
                 self.notify(f"[red]Session not found: {self.current_session_id}[/red]")
         except Exception as e:

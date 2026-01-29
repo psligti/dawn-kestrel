@@ -136,9 +136,10 @@ class MessageScreen(Screen):
     _current_text_part: Optional[TextPart]
     _current_assistant_view: Optional[MessageView]
 
-    def __init__(self, session: Session, **kwargs):
+    def __init__(self, session: Session, session_service: Any | None = None, **kwargs):
         super().__init__(**kwargs)
         self.session = session
+        self.session_service = session_service
         self._current_assistant_message = None
         self._current_text_part = None
         self._current_assistant_view = None
@@ -169,22 +170,26 @@ class MessageScreen(Screen):
         asyncio.create_task(self._load_messages())
 
     async def _load_messages(self) -> None:
-        """Load existing messages for the session"""
+        """Load existing messages for session"""
         from opencode_python.core.session import SessionManager
         from opencode_python.storage.store import SessionStorage
         from opencode_python.core.settings import get_storage_dir
         from pathlib import Path
 
         try:
-            storage_dir = get_storage_dir()
-            storage = SessionStorage(storage_dir)
-            work_dir = Path.cwd()
-            manager = SessionManager(storage, work_dir)
-            
-            messages = await manager.list_messages(self.session.id)
-            self.messages = messages
-            
-            for message in messages:
+            if self.session_service:
+                messages = await self.session_service.get_session(self.session.id)
+                self.messages = messages.messages if messages else []
+            else:
+                storage_dir = get_storage_dir()
+                storage = SessionStorage(storage_dir)
+                work_dir = Path.cwd()
+                manager = SessionManager(storage, work_dir)
+
+                messages = await manager.list_messages(self.session.id)
+                self.messages = messages
+
+            for message in self.messages:
                 await self._display_message(message)
 
             self._scroll_to_bottom()

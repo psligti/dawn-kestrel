@@ -21,6 +21,34 @@ class NotificationType(str, Enum):
     DEBUG = "debug"
 
 
+class ProgressType(str, Enum):
+    """Types of progress operations."""
+
+    SESSION_CREATE = "session_create"
+    MESSAGE_CREATE = "message_create"
+    TOOL_EXEC = "tool_execution"
+    AI_RESPONSE = "ai_response"
+    EXPORT = "export"
+    IMPORT = "import"
+
+
+@dataclass
+class ProgressUpdate:
+    """Progress update data structure.
+
+    Attributes:
+        progress_type: The type of progress operation.
+        current: Current progress value.
+        total: Total progress value.
+        message: Optional status message.
+    """
+
+    progress_type: ProgressType
+    current: int
+    total: int
+    message: str | None = None
+
+
 @dataclass
 class Notification:
     """Notification data structure.
@@ -29,13 +57,16 @@ class Notification:
         notification_type: The type of notification.
         message: The notification message text.
         details: Optional dictionary of additional details.
+        duration: Seconds for TUI (ignored for CLI/SDK).
     """
 
     notification_type: NotificationType
     message: str
     details: dict[str, Any] | None = None
+    duration: int = 3
 
 
+@runtime_checkable
 class IOHandler(Protocol):
     """Protocol for I/O operations.
 
@@ -92,6 +123,7 @@ class IOHandler(Protocol):
         ...
 
 
+@runtime_checkable
 class ProgressHandler(Protocol):
     """Protocol for progress tracking.
 
@@ -126,6 +158,7 @@ class ProgressHandler(Protocol):
         ...
 
 
+@runtime_checkable
 class NotificationHandler(Protocol):
     """Protocol for notification display.
 
@@ -138,6 +171,42 @@ class NotificationHandler(Protocol):
 
         Args:
             notification: The Notification object to display.
+        """
+        ...
+
+
+@runtime_checkable
+class StateHandler(Protocol):
+    """Protocol for UI state management.
+
+    This protocol defines the interface for state handlers that
+    manage UI state like current session and working directory.
+    """
+
+    def get_current_session_id(self) -> str | None:
+        """Get currently selected session ID.
+
+        Returns:
+            Session ID string or None if no session selected.
+        """
+        ...
+
+    def set_current_session_id(self, session_id: str) -> None:
+        """Set currently selected session ID.
+
+        Args:
+            session_id: Session ID string to set as current.
+
+        Note:
+            Should trigger UI update to reflect new selection.
+        """
+        ...
+
+    def get_work_directory(self) -> str:
+        """Get current working directory.
+
+        Returns:
+            Current working directory path.
         """
         ...
 
