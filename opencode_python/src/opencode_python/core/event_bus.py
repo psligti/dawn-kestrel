@@ -28,7 +28,7 @@ class EventSubscription:
 class EventBus:
     """Async event bus for decoupled communication"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize event bus"""
         self._subscriptions: Dict[str, List[EventSubscription]] = defaultdict(list)
         self._lock = asyncio.Lock()
@@ -52,7 +52,7 @@ class EventBus:
         subscription = EventSubscription(event_name=event_name, callback=callback, once=once)
         self._subscriptions[event_name].append(subscription)
 
-        async def unsubscribe():
+        async def unsubscribe() -> None:
             async with self._lock:
                 if subscription in self._subscriptions.get(event_name, []):
                     self._subscriptions[event_name].remove(subscription)
@@ -118,3 +118,8 @@ class Events:
     TOOL_STARTED = "tool.started"
     TOOL_COMPLETED = "tool.completed"
     TOOL_ERROR = "tool.error"
+    AGENT_INITIALIZED = "agent.initialized"
+    AGENT_READY = "agent.ready"
+    AGENT_EXECUTING = "agent.executing"
+    AGENT_ERROR = "agent.error"
+    AGENT_CLEANUP = "agent.cleanup"

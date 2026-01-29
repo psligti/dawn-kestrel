@@ -1,6 +1,6 @@
 """OpenCode Python - Core Session Management"""
 from __future__ import annotations
-from typing import Optional, List, Literal, Dict, Any, Union
+from typing import Optional, List, Literal, Dict, Any
 from pathlib import Path
 from datetime import datetime
 import uuid
@@ -12,8 +12,6 @@ from opencode_python.core.models import (
     Session,
     Message,
     MessageSummary,
-    SessionShare,
-    SessionRevert,
     Part,
 )
 
@@ -78,7 +76,7 @@ class SessionManager:
     async def update_session(
         self,
         session_id: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> Session:
         """Update session metadata"""
         session = await self.get_session(session_id)
@@ -126,7 +124,7 @@ class SessionManager:
         session_id: str,
         role: Literal["user", "assistant", "system"],
         text: str = "",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Create a message in a session"""
         # Create message
@@ -263,7 +261,6 @@ class SessionManager:
 
     async def import_data(self, session_data: Dict[str, Any], project_id: Optional[str] = None) -> Session:
         """Import session data (session + messages)"""
-        from opencode_python.core.models import Session
 
         session_dict = session_data.get("session", {})
         messages_data = session_data.get("messages", [])

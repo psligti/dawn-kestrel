@@ -2,7 +2,6 @@
 from __future__ import annotations
 from typing import Literal, Optional, Union, Any, Dict, List
 from datetime import datetime
-from pathlib import Path
 import logging
 import pydantic as pd
 
@@ -114,7 +113,6 @@ class SubtaskPart(pd.BaseModel):
     session_id: str
     message_id: str
     part_type: Literal["subtask"]
-    session_id: str
     category: str
 
 
@@ -228,8 +226,6 @@ class Session(pd.BaseModel):
     message_counter: int = pd.Field(default=0, description="Counter for generated message IDs")
     message_count: int = pd.Field(default=0, description="Total number of messages in session")
     total_cost: float = pd.Field(default=0.0, description="Total cost of session in USD")
-    permission: Optional[List[Dict[str, Any]]] = None
-    revert: Optional[SessionRevert] = None
 
     model_config = pd.ConfigDict(
         extra="forbid"
