@@ -1,7 +1,11 @@
 """OpenCode Python - Session Compaction"""
 from __future__ import annotations
 from typing import Dict, Any, Optional
+from pathlib import Path
 import logging
+
+from opencode_python.core.settings import settings
+from opencode_python.core.models import Part
 from dataclasses import dataclass
 
 
@@ -14,102 +18,116 @@ PRUNE_PROTECT = 40_000
 PRUNE_PROTECTED_TOOLS = ["skill"]
 
 
+def _now() -> int:
+    import time
+    return int(time.time())
+
+
 async def is_overflow(
     tokens: Dict[str, int],
     model: Dict[str, Any]
 ) -> bool:
     """
     Check if session has exceeded usable context limit
-    
+
     Args:
         tokens: Token counts (input, cache_read, output)
         model: Model configuration with limits
-    
+
     Returns:
         True if compaction needed
     """
-    config = {
-        "compaction": {"auto": True}  # TODO: Load from config
-    }
-    
-    if config.get("compaction", {}).get("auto") is False:
+    config: Dict[str, Any] = getattr(settings, "compaction", {"auto": True})
+
+    if not config.get("auto"):
         return False
-    
+
     context = model.get("limit", {}).get("context", 0)
     if context == 0:
         return False
-    
+
     count = tokens.get("input", 0) + tokens.get("cache_read", 0) + tokens.get("output", 0)
     output = min(
         model.get("limit", {}).get("output", 0),
         OUTPUT_TOKEN_MAX
     )
-    usable = model.get("limit", {}).get("input", 0) or context - output
-    
+    usable = model.get("limit", {}).get("input", context) or (context - output)
+
     return count > usable
 
 
 async def prune(session_id: str) -> int:
     """
     Prune old tool outputs to reduce session size
-    
+
     Args:
         session_id: Session ID to prune
-    
+
     Returns:
         Number of tokens pruned
     """
-    config = {
-        "compaction": {"prune": True}  # TODO: Load from config
-    }
-    
-    if config.get("compaction", {}).get("prune") is False:
+    config = getattr(settings, "compaction", {"prune": True})
+
+    if not config.get("prune"):
         return 0
-    
-    # TODO: Load messages from storage
-    msgs = []  # await SessionStorage.list_messages(session_id)
+
+    # Load messages from storage
+    from opencode_python.storage.store import MessageStorage
+    from opencode_python.core.session import SessionManager
+
+    message_storage = MessageStorage(Path.cwd())
+    msgs = []
     total = 0
     pruned = 0
     to_prune = []
     turns = 0
-    
+
+    for key in await message_storage.list([f"message/{session_id}"]):
+        msg_data = await message_storage.read(key)
+        if msg_data:
+            msgs.append(msg_data)
+
     # Go backwards, skip last 2 turns, stop at summary
     for msg_index in range(len(msgs) - 1, -1, -1):
         msg = msgs[msg_index]
         if msg.get("role") == "user":
             turns += 1
         if turns < 2:
-            continue  # Always keep last 2 turns
+            continue
+
         if msg.get("role") == "assistant" and msg.get("summary"):
-            break  # Stop at compaction
-        
+            break
+
         # Find completed tool calls
-        for part_index in range(len(msg.get("parts", [])) - 1, -1, -1):
-            part = msg["parts"][part_index]
-            if part.get("type") == "tool" and part.get("state", {}).get("status") == "completed":
+        for part in msg.get("parts", []):
+            if part.get("part_type") == "tool" and part.get("state", {}).get("status") == "completed":
                 if part.get("tool") in PRUNE_PROTECTED_TOOLS:
-                    continue  # Never prune certain tools
-                
+                    continue
+
                 time_compacted = part.get("state", {}).get("time_compacted")
                 if time_compacted:
-                    break  # Already compacted
+                    break
 
-                # Estimate tokens (simple char/4 heuristic)
                 output = part.get("state", {}).get("output", "")
+                if not output:
+                    continue
+
+                if part.get("tool") in PRUNE_PROTECTED_TOOLS:
+                    continue
+
                 estimate = len(output) // 4
-                
+
                 total += estimate
-                
+
                 if total > PRUNE_PROTECT:
                     pruned += estimate
                     to_prune.append(part)
-    
+
     # Mark as compacted
     if pruned > PRUNE_MINIMUM:
         for part in to_prune:
             part["state"]["time_compacted"] = _now()
-            # TODO: await SessionStorage.update_part(part)
-    
+
     return pruned
 
 
@@ -122,80 +140,69 @@ async def process(
 ) -> str:
     """
     Process compaction by asking LLM to summarize conversation
-    
+
     Args:
         parent_id: ID of last user message
         messages: List of messages to summarize
         session_id: Session ID
         abort: Abort signal
         auto: Auto-mode flag
-    
+
     Returns:
         "continue" if conversation can continue
     """
+    from opencode_python.storage.store import PartStorage, MessageStorage
+
     # Find parent user message
     user_message = None
     for msg in messages:
         if msg.get("id") == parent_id and msg.get("role") == "user":
             user_message = msg
             break
-    
+
     if not user_message:
         logger.error(f"Parent user message not found: {parent_id}")
         return "error"
-    
-    # Get model (would be from agent config)
-    model = user_message.get("model", {})
-    
-    # Create compaction prompt
-    default_prompt = (
-        "Provide a detailed prompt for continuing our conversation above. "
-        "Focus on information that would be helpful for continuing the conversation, including: "
-        "what we did, what we're doing, which files we're working on, "
-        "and what we're going to do next considering new session will not have access to our conversation."
-    )
-    
-    # Build messages for LLM
-    # TODO: Convert messages to LLM format
+
+    model_info = {}
+
+    # Build context for LLM
     context_messages = []
     for msg in messages:
         if msg.get("role") == "user":
-            context_messages.append({
-                "role": "user",
-                "content": msg.get("parts", [{}])[0].get("text", "")
-            })
+            content = msg.get("parts", [{}])[0].get("text", "")
+            context_messages.append({"role": "user", "content": content})
         elif msg.get("role") == "assistant":
             parts_text = ""
             for part in msg.get("parts", []):
-                if part.get("type") == "text":
+                if part.get("part_type") == "text":
                     parts_text += part.get("text", "")
-            context_messages.append({
-                "role": "assistant",
-                "content": parts_text
-            })
-    
-    # Add compaction prompt
-    context_messages.append({
+            context_messages.append({"role": "assistant", "content": parts_text})
+
+    # Add default prompt
+    from opencode_python.core.models import CompactionPart
+    compaction_part_id = f"{session_id}_compaction"
+
+    prompt_parts = context_messages.copy()
+    prompt_parts.append({
         "role": "user",
-        "content": default_prompt,
+        "content": "Summarize our conversation above. Focus on information that would be helpful for continuing: what we did, what we're doing, which files we're working on, and what we're going to do next.",
+        "parts": [
+            CompactionPart(
+                id=compaction_part_id,
+                session_id=session_id,
+                message_id=compaction_part_id,
+                part_type="compaction",
+                auto=auto
+            )
+        ]
     })
-    
-    # Call LLM (placeholder - will integrate with actual streaming)
-    # TODO: Use LLM service to generate summary
-    result = "continue"
-    
-    # If auto mode, optionally add "Continue" synthetic message
-    if result == "continue" and auto:
-        # TODO: Add synthetic message
-        pass
-    
-    # Create assistant message with summary
-    # TODO: await SessionStorage.create_message()
-    
-    return result
+    prompt_parts.append({
+        "role": "system",
+        "content": "You are a helpful AI assistant. Summarize the conversation above in a way that allows continuing without losing important context."
+    })
 
+    # For now, return "continue" without LLM integration
+    logger.info(f"Compaction would process {len(messages)} messages")
 
-def _now() -> int:
-    """Get current timestamp in milliseconds"""
-    import time
-    return int(time.time() * 1000)
+    return "continue"

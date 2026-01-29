@@ -5,6 +5,8 @@ import asyncio
 import json
 import logging
 
+from . import BaseProvider, UsageInfo
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +35,15 @@ class StreamChunkHandler:
         Process streaming response, yielding converted chunks
         """
         decoder = "utf-8"
-        
+
         async for raw_value in response_stream:
             # Apply binary decoder if available (e.g., AWS Bedrock)
             value = self.binary_decoder(raw_value) if self.binary_decoder else raw_value
             if not value:
                 continue
-            
+
             # Decode and add to buffer
-            text = decoder.decode(value, errors='ignore')
+            text = value.decode(decoder, errors='ignore')
             self.buffer += text
             
             # Split by separator and process complete chunks

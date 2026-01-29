@@ -54,7 +54,15 @@ dev = [
 opencode = "opencode_python.cli:cli"
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-asyncio", "ruff", "mypy", "faker"]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "ruff",
+    "mypy",
+    "faker",
+    "ty>=0.0.14",
+]
 
 [tool.uv.sources]
 

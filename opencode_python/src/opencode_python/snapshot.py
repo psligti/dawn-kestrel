@@ -7,17 +7,20 @@ for OpenCode sessions.
 
 import logging
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from pathlib import Path
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from git import Repo
 
 try:
     from git import Repo, InvalidGitRepositoryError
 except ImportError:
     logging.error("gitpython not installed")
-    Repo = None
+    Repo = None  # type: ignore
 
-from .core.models import SnapshotPart, PatchPart
+from opencode_python.core.models import SnapshotPart, PatchPart
 
 
 logger = logging.getLogger(__name__)
@@ -69,26 +72,30 @@ class GitSnapshot:
             
             for i in range(0, len(changes), 2):
                 file_path = changes[i]
-                before_content = self.repo.head.commit.tree[str(before_hash)][file_path] if str(before_hash) in self.repo.head.commit.tree else None
-                after_content = self.repo.head.commit.tree[str(after_hash)][file_path] if str(after_hash) in self.repo.head.commit.tree else None
+                before_commit = self.repo.commit(before_hash) if before_hash else None
+                after_commit = self.repo.commit(after_hash) if after_hash else None
+
+                before_content = before_commit.tree[file_path] if before_commit and file_path in before_commit.tree else None
+                after_content = after_commit.tree[file_path] if after_commit and file_path in after_commit.tree else None
                 
                 if before_content is None:
                     if after_content is not None:
-                        added_lines = after_content.data_stream.decode().splitlines()
+                        added_lines = after_content.data.decode().splitlines()
                         diff_output.append(f"+ {file_path}")
                         diff_output.extend(f"  {line}" for line in added_lines[:100])
                         if len(added_lines) > 100:
                             diff_output.append(f"  +... ({len(added_lines) - 100} more lines)")
                 else:
                     if after_content is None:
-                        if before_content is not None:
-                            diff_output.append(f"- {file_path}")
-                            removed_lines = before_content.data_stream.decode().splitlines()
-                            diff_output.extend(f"  {line}" for line in removed_lines[:100])
-                            if len(removed_lines) > 100:
-                                diff_output.append(f"  +... ({len(removed_lines) - 100} more lines)")
+                        diff_output.append(f"- {file_path}")
+                        removed_lines = before_content.data.decode().splitlines()
+                        diff_output.extend(f"  {line}" for line in removed_lines[:100])
+                        if len(removed_lines) > 100:
+                            diff_output.append(f"  +... ({len(removed_lines) - 100} more lines)")
                     else:
-                        diff = self.repo.diff(before_hash, after_hash, create_patch=True, context_lines=None)
+                        assert before_commit is not None
+                        assert after_commit is not None
+                        diff = before_commit.diff(after_commit, create_patch=True, context_lines=0)
                         diff_output.append(str(diff))
             
             logger.info(f"Calculated diff with {len(diff_output)} lines")
@@ -109,22 +116,28 @@ class GitSnapshot:
             if not full_path.exists():
                 logger.error(f"File not found: {full_path}")
                 return False
-            
-            tree = self.repo.head.commit.tree[str(snapshot_hash)]
-            if str(snapshot_hash) not in tree or tree[str(snapshot_hash)].type != "tree":
+
+            try:
+                commit = self.repo.commit(snapshot_hash)
+            except ValueError:
                 logger.error(f"Snapshot not found: {snapshot_hash}")
                 return False
-            
-            blob = tree[str(snapshot_hash)][file_path]
-            
+
+            tree = commit.tree
+            if file_path not in tree:
+                logger.error(f"File not found in snapshot: {file_path}")
+                return False
+
+            blob = tree[file_path]
+
             if blob.type != "blob":
                 logger.error(f"Target is not a file: {file_path}")
                 return False
-            
+
             with open(full_path, "wb") as f:
-                f.write(blob.data_stream.read())
-            
-            self.repo.index.add([full_path])
+                f.write(blob.data)
+
+            self.repo.index.add([str(full_path)])
             logger.info(f"Reverted file: {file_path}")
             return True
         except Exception as e:
@@ -179,17 +192,23 @@ async def test_basic_snapshot():
             
             snapshot1 = asyncio.run(manager.create_snapshot())
             print(f"Created snapshot: {snapshot1}")
-            
+            if snapshot1 is None:
+                print("Failed to create snapshot1")
+                return
+
             (tmppath / "test.txt").write_text("Modified content again")
             subprocess.run(["git", "add", "test.txt"], cwd=tmppath, check=True)
             subprocess.run(["git", "commit", "-m", "Second commit"], cwd=tmppath, check=True)
-            
+
             snapshot2 = asyncio.run(manager.create_snapshot())
             print(f"Created snapshot: {snapshot2}")
-            
+            if snapshot2 is None:
+                print("Failed to create snapshot2")
+                return
+
             diff = asyncio.run(manager.save_diff(snapshot1, snapshot2, ["test.txt"]))
             print(f"Diff:\n{diff}")
-            
+
             result = asyncio.run(manager.revert_file("test.txt", snapshot1))
             print(f"Revert result: {result}")
             

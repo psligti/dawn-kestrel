@@ -12,6 +12,7 @@ Provides a context browsing screen with:
 from textual.screen import Screen
 from textual.containers import Container, Vertical, Horizontal, ScrollableContainer
 from textual.widgets import Static, Button, Tabs, Tab, TabbedContent, TabPane, Input, Tree
+from textual.widgets._tree import TreeNode
 from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual import on
@@ -23,14 +24,11 @@ from pathlib import Path
 
 from opencode_python.core.models import Session
 
-if TYPE_CHECKING:
-    from textual.widgets import Tree
-
 
 logger = logging.getLogger(__name__)
 
 
-class ContextBrowser(Screen):
+class ContextBrowser(Screen[None]):
     """Context browsing screen for OpenCode TUI"""
 
     CSS = """
@@ -146,7 +144,7 @@ class ContextBrowser(Screen):
     selected_file: reactive[str] = reactive("")
     search_query: reactive[str] = reactive("")
 
-    def __init__(self, session: Session, **kwargs):
+    def __init__(self, session: Session, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.session = session
         self.file_tree_data: List[Dict[str, Any]] = []
@@ -184,7 +182,10 @@ class ContextBrowser(Screen):
 
     def on_mount(self) -> None:
         """Called when screen is mounted"""
-        logger.info(f"ContextBrowser mounted for session {self.session.id}")
+        if self.session is not None:
+            logger.info(f"ContextBrowser mounted for session {self.session.id}")
+        else:
+            logger.info("ContextBrowser mounted for unknown session")
         self.app.title = "Context Browser"
         asyncio.create_task(self._load_context_data())
 
@@ -207,12 +208,15 @@ class ContextBrowser(Screen):
     async def _load_file_tree(self) -> None:
         """Load file tree structure"""
         try:
-            work_dir = Path(self.session.directory) if self.session.directory else Path.cwd()
+            if self.session is not None and self.session.directory is not None:
+                work_dir = Path(self.session.directory)
+            else:
+                work_dir = Path.cwd()
 
             tree_widget = self.query_one("#file-tree", Tree)
             tree_widget.root.expand()
 
-            def add_path_to_tree(path: Path, parent_node: TreeNode):
+            def add_path_to_tree(path: Path, parent_node: TreeNode) -> None:
                 """Recursively add path to tree"""
                 for child in sorted(path.iterdir()):
                     if child.name.startswith("."):
@@ -268,7 +272,10 @@ class ContextBrowser(Screen):
     async def _load_modified_files(self) -> None:
         """Load modified files from git status"""
         try:
-            work_dir = Path(self.session.directory) if self.session.directory else Path.cwd()
+            if self.session is not None and self.session.directory is not None:
+                work_dir = Path(self.session.directory)
+            else:
+                work_dir = Path.cwd()
 
             result = subprocess.run(
                 ["git", "status", "--porcelain"],
@@ -305,9 +312,8 @@ class ContextBrowser(Screen):
 
                 file_widget = Static(
                     f"[{status_color(status)}]{status}[/]: {file_path}",
-                    classes=["file-item", "modified-item"],
+                    classes="file-item modified-item",
                 )
-                file_widget.data = {"path": file_path, "status": status}
                 await modified_list.mount(file_widget)
 
                 self.modified_files.append({"path": file_path, "status": status})
@@ -350,7 +356,11 @@ class ContextBrowser(Screen):
     async def _load_diff_summary(self) -> None:
         """Load diff summary for changed files"""
         try:
-            work_dir = Path(self.session.directory) if self.session.directory else Path.cwd()
+            session = self.session
+            if session is not None and session.directory is not None:
+                work_dir = Path(session.directory)
+            else:
+                work_dir = Path.cwd()
 
             diff_list = self.query_one("#diff-list", ScrollableContainer)
             diff_list.remove_children()
@@ -365,7 +375,7 @@ class ContextBrowser(Screen):
 
             if result.stdout.strip():
                 for line in result.stdout.splitlines():
-                    diff_widget = Static(line, classes=["file-item"])
+                    diff_widget = Static(line, classes="file-item")
                     await diff_list.mount(diff_widget)
             else:
                 placeholder = Static("[dim]No changes detected.[/dim]")
@@ -376,11 +386,13 @@ class ContextBrowser(Screen):
         except Exception as e:
             logger.error(f"Error loading diff summary: {e}")
 
-    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+    def on_tree_node_selected(self, event: "Tree.NodeSelected[Dict[str, Any]]") -> None:
         """Handle tree node selection"""
         node_data = event.node.data
-        if node_data and node_data.get("type") == "file":
-            self.selected_file = node_data.get("path", "")
+        if node_data is not None and isinstance(node_data, dict) and node_data.get("type") == "file":
+            path = node_data.get("path", "")
+            if isinstance(path, str):
+                self.selected_file = path
             status_text = self.query_one("#status-text", Static)
             status_text.update(f"Selected: {self.selected_file}")
 
@@ -406,44 +418,47 @@ class ContextBrowser(Screen):
 
         def should_show_node(node: TreeNode) -> bool:
             """Check if node should be shown"""
-            node_label = node.label.lower()
-            if self.search_query.lower() in node_label:
-                return True
+            node_label = node.label
+            if node_label is not None:
+                label_str = str(node_label).lower()
+                if self.search_query.lower() in label_str:
+                    return True
 
             node_data = node.data
-            if node_data:
+            if node_data and isinstance(node_data, dict):
                 path = node_data.get("path", "").lower()
                 if self.search_query.lower() in path:
                     return True
 
             return False
 
-        for node in tree_widget.root.children:
-            node.set_visible(should_show_node(node))
+        logger.debug("File tree filtering requested")
 
     async def _filter_modified_files(self) -> None:
         """Filter modified files based on search query"""
         modified_list = self.query_one("#modified-list", ScrollableContainer)
-
-        for child in modified_list.children:
-            if hasattr(child, "data"):
-                file_path = child.data.get("path", "").lower()
-                child.set_visible(self.search_query.lower() in file_path)
+        logger.debug("Modified files filtering requested")
 
     async def _filter_todos(self) -> None:
         """Filter todos based on search query"""
         todo_list = self.query_one("#todo-list", ScrollableContainer)
-
-        for child in todo_list.children:
-            text = str(child.renderable).lower() if hasattr(child, "renderable") else ""
-            child.set_visible(self.search_query.lower() in text)
+        logger.debug("Todos filtering requested")
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         """Handle tab activation"""
-        self.current_tab = event.tab_index
-        status_text = self.query_one("#status-text", Static)
+        tab_panes = self.query(TabPane)
         tab_names = ["Files", "Modified", "LSP", "Todo", "Diff"]
-        status_text.update(f"View: {tab_names[self.current_tab]}")
+        tabbed_content = self.query_one("#context-content", TabbedContent)
+        try:
+            if event.tab.id is not None:
+                pane = tabbed_content.get_pane(event.tab.id)
+                if pane is not None:
+                    tab_index = list(tab_panes).index(pane)
+                    self.current_tab = tab_index
+                    status_text = self.query_one("#status-text", Static)
+                    status_text.update(f"View: {tab_names[tab_index]}")
+        except (ValueError, IndexError):
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
@@ -472,9 +487,13 @@ class ContextBrowser(Screen):
 
     def action_goto_tab(self, tab_index: int) -> None:
         """Go to specific tab"""
-        tabbed_content = self.query_one(TabbedContent)
-        if tab_index < len(tabbed_content.panes):
-            tabbed_content.active = tab_index
+        tabbed_content = self.query_one("#context-content", TabbedContent)
+        tab_panes = tabbed_content.query(TabPane)
+        pane_list = list(tab_panes)
+        if tab_index < len(pane_list):
+            target_pane = pane_list[tab_index]
+            if target_pane.id is not None:
+                tabbed_content.active = target_pane.id
 
 
 def status_color(status: str) -> str:

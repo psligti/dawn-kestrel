@@ -6,13 +6,27 @@ messages with compaction agent, and prunes old tool outputs.
 """
 
 import logging
-from typing import Optional, Dict, Any
-from decimal import Decimal
+import uuid
+from typing import Optional, Dict, Any, List
+from pathlib import Path
 
 from .core.settings import settings
 from .core.event_bus import bus, Events
-from .core.models import Session, Message as MessageModel
-from .agents.builtin import build as AgentCompaction
+from .core.models import (
+    Session,
+    Message as MessageModel,
+    Message,
+    TextPart,
+    FilePart,
+    ToolPart,
+    ReasoningPart,
+    SnapshotPart,
+    PatchPart,
+    AgentPart,
+    SubtaskPart,
+    RetryPart,
+    CompactionPart,
+)
 from .providers import get_available_models
 
 
@@ -35,128 +49,132 @@ class SessionCompactor:
     
     async def compact(self, session: Session, messages: list[MessageModel]) -> Optional[str]:
         """Compact session by creating summary and pruning old messages"""
+        from .storage.store import SessionStorage
         from .core.session import SessionManager
-        
-        session_mgr = SessionManager()
-        
+
+        storage_dir = Path(settings.storage_dir).expanduser()
+        storage = SessionStorage(storage_dir)
+
+        project_dir = Path(session.directory)
+
+        session_mgr = SessionManager(storage=storage, project_dir=project_dir)
+
         if not await self.check_overflow(len(messages), messages):
             logger.info("No overflow detected, skipping compaction")
             return None
-        
+
         logger.info(f"Starting session compaction ({len(messages)} messages)")
-        
+
         compacted_messages = []
         tokens_to_keep = int(self.model_limit * 0.6)
         tokens_pruned = 0
-        
+
         for idx, msg in enumerate(messages):
             if idx < len(messages) - 10:
                 tokens_to_keep += self._count_message_tokens(msg)
             else:
                 tokens_to_keep += self._count_message_tokens(msg)
                 tokens_pruned += self._count_message_tokens(msg)
-        
+
         logger.info(f"Keeping {tokens_to_keep}/{self.last_compaction_tokens} tokens, pruned {tokens_pruned}")
         self.last_compaction_tokens = tokens_to_keep
-        
+
         summary = self._generate_summary(messages)
-        
-        compaction_part = session_mgr.create_part(
+
+        compaction_part = CompactionPart(
+            id=str(uuid.uuid4()),
             session_id=self.session_id,
             message_id=messages[0].id if messages else "",
             part_type="compaction",
-            text=f"Session compacted. {tokens_pruned} tokens pruned, {len(messages) - 10} messages removed. Summary: {summary[:200]}...",
-            metadata={
-                "compaction_id": f"compaction_{self.total_compactions + 1}",
-                "tokens_kept": tokens_to_keep,
-                "tokens_pruned": tokens_pruned,
-                "message_count": len(messages),
-                "tokens_before": len(messages) - len(messages) + tokens_pruned
-                "tokens_after": len(messages)
-            }
+            auto=True,
         )
-        
+
         await session_mgr.add_part(compaction_part)
-        
-        summary_message = session_mgr.create_message(
+
+        summary_part = TextPart(
+            id=str(uuid.uuid4()),
             session_id=self.session_id,
-            role="assistant",
-            role="system",
-            parts=[{
-                "id": f"{self.session_id}_summary",
-                "session_id": self.session_id,
-                "message_id": messages[0].id if messages else "",
-                "part_type": "compaction"
-                "text": f"Session compaction complete. Summary: {summary}"
-            }]
+            message_id=str(uuid.uuid4()),
+            part_type="text",
+            text=f"Session compaction complete. {tokens_pruned} tokens pruned, {len(messages) - 10} messages removed. Summary: {summary}",
         )
-        
+
+        summary_message = Message(
+            id=str(uuid.uuid4()),
+            session_id=self.session_id,
+            role="system",
+            time={"created": __import__("datetime").datetime.now().timestamp()},
+            text=f"Session compaction complete. Summary: {summary}",
+            parts=[summary_part],
+        )
+
         summary_id = await session_mgr.add_message(summary_message)
-        
+
         logger.info(f"Created summary message: {summary_id}")
-        
+
         self.total_compactions += 1
-        
+
         return summary_id
     
     def _count_message_tokens(self, msg: MessageModel) -> int:
         """Count total tokens in message"""
         total = 0
-        
-        for part in msg.get("parts", []):
-            part_type = part.get("part_type", "")
-            
-            if part_type in ["text", "reasoning"]:
-                total += len(part.get("text", ""))
-            elif part_type in ["tool", "snapshot", "patch", "agent", "subtask"]:
+
+        for part in msg.parts:
+            part_type = part.part_type
+
+            if isinstance(part, (TextPart, ReasoningPart)):
+                total += len(part.text or "")
+            elif isinstance(part, (ToolPart, SnapshotPart, PatchPart, AgentPart, SubtaskPart)):
                 total += 50
-            elif part_type == "file":
+            elif isinstance(part, FilePart):
                 total += 100
-            elif part_type == "retry":
+            elif isinstance(part, RetryPart):
                 total += 25
-        
+
         return total
     
     def _generate_summary(self, messages: list[MessageModel]) -> str:
         """Generate session summary for compaction"""
         if not messages:
             return "No messages to summarize"
-        
+
         last_user_msg = None
         for msg in reversed(messages):
-            if msg.get("role") == "user":
+            if msg.role == "user":
                 last_user_msg = msg
                 break
-        
+
         if not last_user_msg:
             return "No user message found"
-        
-        user_content = last_user_msg.get("parts", [])[-1].get("text", "") if last_user_msg.get("parts") else ""
-        
+
+        user_content = ""
+        if last_user_msg.parts and isinstance(last_user_msg.parts[-1], (TextPart, ReasoningPart)):
+            user_content = last_user_msg.parts[-1].text
+
         tool_calls = []
         for msg in messages:
-            for part in msg.get("parts", []):
-                if part.get("part_type") == "tool":
-                    tool_calls.append(f"  {part.get('tool', '')}")
-        
+            for part in msg.parts:
+                if isinstance(part, ToolPart):
+                    tool_calls.append(f"  {part.tool}")
+
         tool_summary = f"Executed {len(tool_calls)} tool calls: {', '.join(tool_calls[:10])}"
-        
-        file_changes = []
+
+        file_changes: List[str] = []
         for msg in messages:
-            for part in msg.get("parts", []):
-                if part.get("part_type") == "patch":
-                    files = part.get("files", [])
-                    file_changes.extend(files)
-        
+            for part in msg.parts:
+                if isinstance(part, PatchPart):
+                    file_changes.extend(part.files)
+
         changes_summary = f"Modified {len(file_changes)} files: {', '.join(file_changes[:10])}"
-        
+
         summary_parts = [
             f"Current state: {user_content[:200]}",
             f"{tool_summary}",
             f"{changes_summary}",
             f"Recent activity summary"
         ]
-        
+
         full_summary = "\n".join(summary_parts)
-        
+
         return full_summary[:500]

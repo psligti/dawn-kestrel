@@ -188,6 +188,7 @@ class UserMessage(Message):
 
 class AssistantMessage(Message):
     """Assistant message - alias for Message with role='assistant'"""
+    finish: Optional[str] = None
     """Message summary info"""
     title: Optional[str] = None
     body: Optional[str] = None
@@ -224,6 +225,9 @@ class Session(pd.BaseModel):
     time_updated: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_compacting: Optional[float] = None
     time_archived: Optional[float] = None
+    message_counter: int = pd.Field(default=0, description="Counter for generated message IDs")
+    message_count: int = pd.Field(default=0, description="Total number of messages in session")
+    total_cost: float = pd.Field(default=0.0, description="Total cost of session in USD")
     permission: Optional[List[Dict[str, Any]]] = None
     revert: Optional[SessionRevert] = None
 

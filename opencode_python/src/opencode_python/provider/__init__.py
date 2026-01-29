@@ -102,6 +102,15 @@ class AnthropicProvider(BaseProvider):
                 headers["anthropic-beta"] = "context-1m-2025-08-07"
         return headers
 
+    def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform request body to Anthropic format"""
+        body = body.copy()
+
+        if self.is_sonnet:
+            body["anthropic-beta"] = "context-1m-2025-08-07"
+
+        return body
+
     def get_stream_separator(self) -> str:
         return "\n\n"
 
@@ -109,6 +118,7 @@ class AnthropicProvider(BaseProvider):
         """Parse Anthropic usage from SSE chunk"""
         lines = chunk.split("\n")
         data_line = next((line for line in lines if line.startswith("data: ")), None)
+
         if not data_line:
             return None
 
@@ -125,47 +135,14 @@ class AnthropicProvider(BaseProvider):
                 )
         except json.JSONDecodeError:
             pass
+
         return None
 
 
 class OpenAIProvider(BaseProvider):
     """OpenAI API provider implementation"""
 
-    def modify_url(self, provider_api: str, is_stream: bool = False) -> str:
-        return f"{provider_api}/responses"
-
-    def modify_headers(
-        self,
-        headers: Dict[str, str],
-        body: Dict[str, Any],
-        api_key: str
-    ) -> Dict[str, str]:
-        headers["authorization"] = f"Bearer {api_key}"
-        return headers
-
-    def get_stream_separator(self) -> str:
-        return "\n\n"
-
-    def parse_usage(self, chunk: str) -> Optional[UsageInfo]:
-        """Parse OpenAI usage from SSE chunk"""
-        lines = chunk.split("\n")
-        if len(lines) < 2:
-            return None
-
-        event_line, data_line = lines[0], lines[1]
-        if event_line != "event: response.completed" or not data_line.startswith("data: "):
-            return None
-
-        try:
-            json_data = json.loads(data_line[6:])
-            usage = json_data.get("response", {}).get("usage")
-            if usage:
-                return UsageInfo(
-                    input_tokens=usage.get("input_tokens", 0),
-                    output_tokens=usage.get("output_tokens", 0),
-                    reasoning_tokens=usage.get("output_tokens_details", {}).get("reasoning_tokens"),
-                    cache_read_tokens=usage.get("input_tokens_details", {}).get("cached_tokens"),
-                )
-        except json.JSONDecodeError:
-            pass
-        return None
+    def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform request body to OpenAI format"""
+        body = body.copy()
+        return body

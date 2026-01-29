@@ -6,7 +6,7 @@ from pathlib import Path
 import subprocess
 import logging
 
-from opencode_python.lsp.client import LSPClient, DocumentSymbols, HoverProvider
+from opencode_python.lsp.client import LSPClient
 
 
 logger = logging.getLogger(__name__)
@@ -35,19 +35,20 @@ class LSPConfig:
                 # Extract workspace path from config
                 for line in content.strip().split("\n"):
                     if line.strip().startswith("workspace_root"):
-                        path = line.split("=", 1)
-                        path = path.strip().strip()
-                        if path and Path(path).exists():
-                            return path
-                logger.info(f"Loaded workspace root from config: {path}")
-            
-            logger.debug(f"Workspace root: {self.config_path or self.config_path.exists()}")
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            path = parts[1].strip()
+                            if path and Path(path).exists():
+                                logger.info(f"Loaded workspace root from config: {path}")
+                                return path
+
+            logger.debug(f"Config file path: {self.config_path}")
         
         # Fallback to git root detection
         from git import Repo
         try:
-            repo = Repo(search_working_directory())
-            root = repo.git.working_dir
+            repo = Repo()
+            root = str(repo.working_dir)
             logger.info(f"Detected git workspace root: {root}")
             return root
         except Exception:

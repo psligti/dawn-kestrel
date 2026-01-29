@@ -157,7 +157,6 @@ class PartStorage(Storage):
 
     async def update_part(self, message_id: str, part: Part) -> Part:
         """Update part data"""
-        part.updated = datetime.now().timestamp()
         await self.write(["part", message_id, part.id], part.model_dump(mode="json"))
         return part
 

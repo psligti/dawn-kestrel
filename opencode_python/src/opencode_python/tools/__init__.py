@@ -4,10 +4,10 @@ Complete tool registry with compaction tool.
 Includes all 23 tools (5 builtin + 18 additional) with session compaction.
 """
 
-from typing import Dict, Type
+from typing import Dict, Type, cast
 import logging
 
-from .framework import ToolRegistry
+from .framework import ToolRegistry, Tool
 from .builtin import (
     BashTool,
     ReadTool,
@@ -63,14 +63,16 @@ async def create_complete_registry() -> ToolRegistry:
     ]
 
     for tool_info in builtin_tools:
-        await registry.register(tool_info["tool"], tool_info["id"])
+        tool = cast(Tool, tool_info["tool"])
+        tool_id = cast(str, tool_info["id"])
+        await registry.register(tool, tool_id)
 
     logger.info(f"Registered {len(builtin_tools)} tools (including compaction)")
 
     return registry
 
 
-async def get_all_tools() -> Dict[str, Type]:
+async def get_all_tools() -> Dict[str, "Tool"]:
     """Get all available tools"""
     registry = await create_complete_registry()
     return await registry.get_all()

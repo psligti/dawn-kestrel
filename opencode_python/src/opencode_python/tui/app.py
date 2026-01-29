@@ -6,14 +6,14 @@ from typing import Any, Dict, List, Literal, Optional
 
 import asyncio
 import logging
-import pendulum  # type: ignore[import-not-found]
+import pendulum
 import uuid
 
-from textual.app import App, ComposeResult  # type: ignore[import-not-found]
-from textual.binding import Binding  # type: ignore[import-not-found]
-from textual.containers import Container, Horizontal, ScrollableContainer, Vertical  # type: ignore[import-not-found]
-from textual.reactive import reactive  # type: ignore[import-not-found]
-from textual.widgets import (  # type: ignore[import-not-found]
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, ScrollableContainer, Vertical
+from textual.reactive import reactive, Reactive
+from textual.widgets import (
     Button,
     DataTable,
     Footer,
@@ -35,7 +35,7 @@ from opencode_python.tui.screens.context_browser import ContextBrowser
 logger = logging.getLogger(__name__)
 
 
-class OpenCodeTUI(App):  # type: ignore[misc]
+class OpenCodeTUI(App[None]):
     """OpenCode Textual TUI application"""
 
     CSS = """
@@ -63,10 +63,14 @@ class OpenCodeTUI(App):  # type: ignore[misc]
         Binding("ctrl+c", "quit", "Quit"),
     ]
 
+    session_table: DataTable[str]
+    header_widget: Static
+    messages_container: ScrollableContainer
+
     show_sidebar = reactive(True)
     current_session_id = reactive("")
-    command_history = reactive([])
-    messages = reactive([])
+    command_history: Reactive[List[str]] = reactive([])
+    messages: Reactive[List[Message]] = reactive([])
 
     def compose(self) -> ComposeResult:
         """Build TUI UI"""
@@ -77,7 +81,7 @@ class OpenCodeTUI(App):  # type: ignore[misc]
             if self.show_sidebar:
                 with Vertical(id="sidebar"):
                     yield Static("[bold]Sessions[/bold]")
-                    self.session_table = DataTable()
+                    self.session_table: DataTable[str] = DataTable()
                     self.session_table.add_column("ID", width=15)
                     self.session_table.add_column("Title", width=30)
                     self.session_table.add_column("Time", width=20)
@@ -150,7 +154,7 @@ class OpenCodeTUI(App):  # type: ignore[misc]
         """Get current session title"""
         if not self.current_session_id:
             return "No active session"
-        return self.current_session_id  # type: ignore[no-any-return]
+        return self.current_session_id
 
     def _get_context_info(self) -> str:
         """Get context usage info"""
@@ -168,8 +172,10 @@ class OpenCodeTUI(App):  # type: ignore[misc]
 
     def on_data_table_row_selected(self, event: Any) -> None:
         """Handle session row selection"""
+        if not hasattr(event, 'row_key'):
+            return
         row_key = event.row_key
-        if row_key:
+        if row_key is not None:
             self.current_session_id = str(row_key)
             self._open_message_screen()
 
@@ -187,9 +193,8 @@ class OpenCodeTUI(App):  # type: ignore[misc]
             storage_dir = get_storage_dir()
             storage = SessionStorage(storage_dir)
 
-            session_data = asyncio.run(storage.get_session(self.current_session_id))
-            if session_data:
-                session = ModelSession(**session_data)  # type: ignore[arg-type]
+            session = asyncio.run(storage.get_session(self.current_session_id))
+            if session:
                 self.push_screen(MessageScreen(session))
             else:
                 self.notify(f"[red]Session not found: {self.current_session_id}[/red]")
@@ -200,7 +205,7 @@ class OpenCodeTUI(App):  # type: ignore[misc]
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle command input"""
         command = event.value
-        self.command_history.value = self.command_history.value + [command]
+        self.command_history = self.command_history + [command]
         self._handle_run_command(command)
 
     def _handle_run_command(self, command: str | None = None) -> None:
@@ -219,11 +224,10 @@ class OpenCodeTUI(App):  # type: ignore[misc]
     async def _add_message(self, role: Literal["user", "assistant", "system"], text: str) -> None:
         """Add a message to the timeline"""
         from opencode_python.core.models import Message, TextPart
-        
+
         message_id = str(uuid.uuid4())
         session_id = self.current_session_id or ""
-        
-        # Create text part
+
         text_part = TextPart(
             id=str(uuid.uuid4()),
             message_id=message_id,
@@ -231,8 +235,7 @@ class OpenCodeTUI(App):  # type: ignore[misc]
             part_type="text",
             text=text,
         )
-        
-        # Create message
+
         message = Message(
             id=message_id,
             session_id=session_id,
@@ -240,12 +243,11 @@ class OpenCodeTUI(App):  # type: ignore[misc]
             time={"created": self._now()},
             parts=[text_part],
         )
-        
-        # Add to messages reactive list
-        self.messages.value = self.messages.value + [message]
-        
-        # Render message
-        message_view = MessageView(message_data={"role": role, "time": message.time, "parts": [text_part]})
+
+        self.messages = self.messages + [message]
+
+        text_part_dict = text_part.model_dump() if hasattr(text_part, 'model_dump') else dict(text_part)
+        message_view = MessageView(message_data={"role": role, "time": message.time, "parts": [text_part_dict]})
         await self.messages_container.mount(message_view)
 
     def _now(self) -> int:

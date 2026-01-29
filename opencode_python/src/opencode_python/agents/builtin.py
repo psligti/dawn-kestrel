@@ -17,15 +17,15 @@ class Agent:
     name: str
     description: str
     mode: str  # "subagent", "primary", "all"
+    permission: List[Dict[str, Any]]  # Ruleset
     native: bool = True
     hidden: bool = False
     top_p: Optional[float] = None
     temperature: Optional[float] = None
     color: Optional[str] = None
-    permission: List[Dict[str, Any]]  # Ruleset
     model: Optional[Dict[str, str]] = None  # providerID/modelID
     prompt: Optional[str] = None  # Custom system prompt
-    options: Dict[str, Any] = None
+    options: Optional[Dict[str, Any]] = None
     steps: Optional[int] = None
 
 

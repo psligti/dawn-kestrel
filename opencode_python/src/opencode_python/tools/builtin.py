@@ -33,23 +33,30 @@ class BashTool(Tool):
         """Get JSON schema for bash tool parameters"""
         return BashToolArgs.model_json_schema()
 
-    async def execute(self, args: BashToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Execute a bash command
 
         Args:
-            args: BashToolArgs validated by Pydantic
+            args: Raw tool arguments (will be validated)
             ctx: Tool execution context
 
         Returns:
             ToolResult with output, title, and metadata
         """
-        logger.info(f"Executing: {args.command}")
+        # Validate args using Pydantic model
+        validated = BashToolArgs(**args)
+        logger.info(f"Executing: {validated.command}")
+
+        # Handle cwd with proper type checking
+        work_dir = ctx.session_id if validated.cwd == "." else validated.cwd
+        if work_dir is None:
+            work_dir = "."
 
         try:
             result = subprocess.run(
-                [args.command],
+                [validated.command],
                 shell=True,
-                cwd=ctx.session_id if args.cwd == "." else args.cwd,
+                cwd=work_dir,
                 capture_output=True,
                 text=True,
                 check=True,
@@ -65,18 +72,18 @@ class BashTool(Tool):
                 full_output = output
 
             return ToolResult(
-                title=args.description or args.command,
+                title=validated.description or validated.command,
                 output=full_output,
                 metadata={
                     "exit_code": result.returncode,
-                    "description": args.description,
+                    "description": validated.description,
                 },
             )
 
         except Exception as e:
             logger.error(f"Bash tool failed: {e}")
             return ToolResult(
-                title=f"Error: {args.command}",
+                title=f"Error: {validated.command}",
                 output=str(e),
                 metadata={"error": str(e)},
             )
@@ -95,17 +102,19 @@ class ReadTool(Tool):
     id = "read"
     description = get_prompt("read")
 
-    async def execute(self, args: ReadToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Read a file
 
         Args:
-            args: ReadToolArgs validated by Pydantic
+            args: Raw tool arguments (will be validated)
             ctx: Tool execution context
 
         Returns:
             ToolResult with file content
         """
-        file_path = args.file
+        # Validate args using Pydantic model
+        validated = ReadToolArgs(**args)
+        file_path = validated.file
 
         if not file_path:
             return ToolResult(
@@ -114,11 +123,14 @@ class ReadTool(Tool):
                 metadata={"error": "File path is required"},
             )
 
-        limit = args.limit
-        offset = args.offset
+        # Handle Optional[int] fields with proper type checks
+        limit = validated.limit if isinstance(validated.limit, int) else 2000
+        offset = validated.offset if isinstance(validated.offset, int) else 0
 
         try:
-            full_path = Path(ctx.session_id if ctx.session_id.startswith("/") else "") / file_path
+            # Handle both absolute and relative paths safely
+            base_path = ctx.session_id if ctx.session_id.startswith("/") else "."
+            full_path = Path(base_path) / file_path
             if not full_path.exists():
                 return ToolResult(
                     title="File not found",
@@ -171,22 +183,26 @@ class WriteTool(Tool):
     id = "write"
     description = get_prompt("write")
 
-    async def execute(self, args: WriteToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Write content to a file
 
         Args:
-            args: WriteToolArgs validated by Pydantic
+            args: Raw tool arguments (will be validated)
             ctx: Tool execution context
 
         Returns:
             ToolResult with operation result
         """
-        file_path = args.file
-        content = args.content
-        create_dirs = args.create
+        # Validate args using Pydantic model
+        validated = WriteToolArgs(**args)
+        file_path = validated.file
+        content = validated.content
+        create_dirs = validated.create
 
         try:
-            full_path = Path(ctx.session_id if ctx.session_id.startswith("/") else "") / file_path
+            # Handle both absolute and relative paths safely
+            base_path = ctx.session_id if ctx.session_id.startswith("/") else "."
+            full_path = Path(base_path) / file_path
 
             # Create directories if needed
             if create_dirs:
@@ -224,19 +240,21 @@ class GrepTool(Tool):
     id = "grep"
     description = get_prompt("grep")
 
-    async def execute(self, args: GrepToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Search for patterns in files
 
         Args:
-            args: GrepToolArgs validated by Pydantic
+            args: Raw tool arguments (will be validated)
             ctx: Tool execution context
 
         Returns:
             ToolResult with search results
         """
-        query = args.query
-        file_pattern = args.file_pattern
-        max_results = args.max_results
+        # Validate args using Pydantic model
+        validated = GrepToolArgs(**args)
+        query = validated.query
+        file_pattern = validated.file_pattern
+        max_results = validated.max_results
 
         if not query:
             return ToolResult(
@@ -248,8 +266,9 @@ class GrepTool(Tool):
         logger.info(f"Searching: {query}")
 
         try:
-            # Build ripgrep command
-            cmd = ["ripgrep", "-e", query, file_pattern]
+            # Build ripgrep command - ensure file_pattern is not None
+            file_pattern_str: str = file_pattern if file_pattern is not None else "*"
+            cmd = ["ripgrep", "-e", query, file_pattern_str]
 
             result = subprocess.run(
                 cmd,
@@ -295,18 +314,20 @@ class GlobTool(Tool):
     id = "glob"
     description = get_prompt("glob")
 
-    async def execute(self, args: GlobToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Find files matching glob patterns
 
         Args:
-            args: GlobToolArgs validated by Pydantic
+            args: Raw tool arguments (will be validated)
             ctx: Tool execution context
 
         Returns:
             ToolResult with matching files
         """
-        pattern = args.pattern
-        max_results = args.max_results
+        # Validate args using Pydantic model
+        validated = GlobToolArgs(**args)
+        pattern = validated.pattern
+        max_results = validated.max_results
 
         if not pattern:
             return ToolResult(
@@ -318,8 +339,9 @@ class GlobTool(Tool):
         logger.info(f"Finding: {pattern}")
 
         try:
-            # Use ripgrep --files with glob
-            cmd = ["ripgrep", "--glob", pattern]
+            # Use ripgrep --files with glob - ensure pattern is str
+            pattern_str: str = pattern if isinstance(pattern, str) else "*"
+            cmd = ["ripgrep", "--glob", pattern_str]
 
             result = subprocess.run(
                 cmd,

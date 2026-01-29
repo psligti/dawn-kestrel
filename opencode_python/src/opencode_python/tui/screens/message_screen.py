@@ -14,10 +14,11 @@ from textual.containers import Container, Vertical, Horizontal, ScrollableContai
 from textual.widgets import Static, Input, Button, Markdown
 from textual.app import ComposeResult
 from textual.reactive import reactive
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 import asyncio
 import logging
 import pendulum
+from pydantic import SecretStr
 
 from opencode_python.core.models import (
     Message, Part, TextPart, ToolPart, FilePart, ReasoningPart,
@@ -116,22 +117,27 @@ class MessageScreen(Screen):
     ]
 
     messages: reactive[List[Message]] = reactive([])
-    session: Optional[Session] = None
+    session: Session
     ai_session: Optional[AISession] = None
     is_streaming: reactive[bool] = reactive(False)
+    messages_container: ScrollableContainer
+    _current_assistant_message: Optional[Message]
+    _current_text_part: Optional[TextPart]
+    _current_assistant_view: Optional[MessageView]
 
     def __init__(self, session: Session, **kwargs):
         super().__init__(**kwargs)
         self.session = session
-        self._current_assistant_message: Optional[Message] = None
-        self._current_text_part: Optional[TextPart] = None
-        self._current_assistant_view: Optional[MessageView] = None
+        self._current_assistant_message = None
+        self._current_text_part = None
+        self._current_assistant_view = None
 
     def compose(self) -> ComposeResult:
         """Build the message screen UI"""
         with Vertical(id="message-screen"):
-            self.messages_container = ScrollableContainer(id="messages-area")
-            yield self.messages_container
+            messages_container = ScrollableContainer(id="messages-area")
+            self.messages_container = messages_container
+            yield messages_container
 
             yield Static("", id="typing-indicator")
 
@@ -144,6 +150,7 @@ class MessageScreen(Screen):
 
     def on_mount(self) -> None:
         """Called when screen is mounted"""
+        assert self.session is not None, "Session must be set when screen is mounted"
         logger.info(f"MessageScreen mounted for session {self.session.id}")
         self.app.title = f"OpenCode - {self.session.title}"
         asyncio.create_task(self._load_messages())
@@ -166,9 +173,9 @@ class MessageScreen(Screen):
             
             for message in messages:
                 await self._display_message(message)
-            
-            await self._scroll_to_bottom()
-            
+
+            self._scroll_to_bottom()
+
         except Exception as e:
             logger.error(f"Error loading messages: {e}")
             self.notify(f"[red]Error loading messages: {e}[/red]")
@@ -254,13 +261,16 @@ class MessageScreen(Screen):
             )
 
             await self._display_message(self._current_assistant_message, is_streaming=True)
-            await self._scroll_to_bottom()
+            self._scroll_to_bottom()
 
             settings = get_settings()
-            
+
             provider_id = ProviderID.ANTHROPIC
             model = "claude-sonnet-4-20250514"
-            api_key = settings.api_keys.get("anthropic", "")
+            api_key_str = settings.api_keys.get("anthropic")
+            if api_key_str is None:
+                raise ValueError("Anthropic API key not found in settings")
+            api_key = api_key_str.get_secret_value() if hasattr(api_key_str, "get_secret_value") else str(api_key_str)
 
             if not self.session:
                 raise ValueError("Session is not set")
@@ -302,6 +312,7 @@ class MessageScreen(Screen):
             self.notify(f"[red]Error: {e}[/red]")
             
             if self._current_assistant_message:
+                assert self._current_assistant_message is not None
                 error_part = TextPart(
                     id=f"{self._current_assistant_message.id}_error",
                     session_id=self.session.id,
@@ -321,13 +332,13 @@ class MessageScreen(Screen):
             
             if self._current_assistant_message:
                 await self._save_assistant_message()
-            
-            await self._scroll_to_bottom()
+
+            self._scroll_to_bottom()
 
     def _build_message_history(self) -> List[Dict[str, Any]]:
         """Build message history for AI API"""
         history = []
-        
+
         for msg in self.messages:
             if msg.role == "user":
                 history.append({
@@ -342,15 +353,15 @@ class MessageScreen(Screen):
                     elif isinstance(part, ToolPart):
                         content.append({
                             "type": "tool_result",
-                            "tool_use_id": part.call_id,
+                            "tool_use_id": part.call_id or "",
                             "content": part.state.output or "",
                         })
-                
+
                 history.append({
                     "role": "assistant",
                     "content": content,
                 })
-        
+
         return history
 
     def _parts_to_text(self, parts: List[Part]) -> str:
@@ -361,12 +372,13 @@ class MessageScreen(Screen):
                 text_parts.append(part.text)
         return "\n".join(text_parts)
 
-    async def _process_stream_events(self, stream) -> None:
+    async def _process_stream_events(self, stream: Any) -> None:
         """Process streaming events from AI provider"""
+        assert self._current_assistant_message is not None, "Current assistant message must be set"
         async for event in stream:
-            if event.event_type == "text-delta":
+            if isinstance(event, StreamEvent) and event.event_type == "text-delta":
                 delta = event.data.get("delta", "")
-                
+
                 if not self._current_text_part:
                     self._current_text_part = TextPart(
                         id=f"{self._current_assistant_message.id}_text_{len(self._current_assistant_message.parts)}",
@@ -380,18 +392,19 @@ class MessageScreen(Screen):
                 else:
                     self._current_text_part.text += delta
                     self._current_text_part.time = {"updated": event.timestamp or pendulum.now().timestamp()}
-                
+
                 self._current_assistant_message.text += delta
                 await self._update_assistant_display()
-                
-            elif event.event_type == "tool-call":
+
+            elif isinstance(event, StreamEvent) and event.event_type == "tool-call":
                 await self._handle_tool_call(event)
-                
-            elif event.event_type == "finish":
+
+            elif isinstance(event, StreamEvent) and event.event_type == "finish":
                 finish_reason = event.data.get("finish_reason", "")
                 logger.info(f"Stream finished: {finish_reason}")
-                
+
                 if finish_reason == "tool-calls":
+                    assert self.ai_session is not None, "AI session must be set"
                     agent_part = AgentPart(
                         id=f"{self._current_assistant_message.id}_agent",
                         session_id=self.session.id,
@@ -407,13 +420,16 @@ class MessageScreen(Screen):
         tool_name = event.data.get("tool", "")
         tool_input = event.data.get("input", {})
         tool_call_id = event.data.get("call_id", "")
-        
+
+        assert self._current_assistant_message is not None, "Current assistant message must be set"
+        assert self.ai_session is not None, "AI session must be set"
+
         tool_state = ToolState(
             status="running",
             input=tool_input,
             output=None,
         )
-        
+
         tool_part = ToolPart(
             id=f"{self._current_assistant_message.id}_tool_{len(self._current_assistant_message.parts)}",
             session_id=self.session.id,
@@ -425,11 +441,11 @@ class MessageScreen(Screen):
         )
         self._current_assistant_message.parts.append(tool_part)
         await self._update_assistant_display()
-        
+
         try:
             from opencode_python.ai.tool_execution import ToolExecutionManager
             tool_manager = ToolExecutionManager(self.session.id)
-            
+
             result = await tool_manager.execute_tool_call(
                 tool_name=tool_name,
                 tool_input=tool_input,
@@ -438,11 +454,12 @@ class MessageScreen(Screen):
                 agent=str(self.ai_session.provider_id),
                 model=self.ai_session.model,
             )
-            
-            if hasattr(result, 'part') and hasattr(result.part, 'state'):
-                tool_part.state = result.part.state
+
+            result_part = getattr(result, 'part', None)
+            if isinstance(result_part, ToolPart):
+                tool_part.state = result_part.state
             await self._update_assistant_display()
-            
+
         except Exception as e:
             logger.error(f"Tool execution error: {e}")
             tool_part.state.status = "error"
@@ -451,12 +468,12 @@ class MessageScreen(Screen):
 
     async def _display_message(self, message: Message, is_streaming: bool = False) -> None:
         """Display a message in the timeline"""
-        parts_data = []
+        parts_data: List[Dict[str, Any]] = []
         for p in message.parts:
-            if hasattr(p, "model_dump"):
+            if isinstance(p, (TextPart, ToolPart, FilePart, ReasoningPart,
+                            SnapshotPart, PatchPart, AgentPart, SubtaskPart,
+                            RetryPart, CompactionPart)):
                 parts_data.append(p.model_dump())
-            elif hasattr(p, "dict"):
-                parts_data.append(p.dict())
             else:
                 parts_data.append(p)
         
@@ -479,15 +496,15 @@ class MessageScreen(Screen):
     async def _update_assistant_display(self) -> None:
         """Update the currently streaming assistant message display"""
         if self._current_assistant_view and self._current_assistant_message:
-            parts_data = []
+            parts_data: List[Dict[str, Any]] = []
             for p in self._current_assistant_message.parts:
-                if hasattr(p, "model_dump"):
+                if isinstance(p, (TextPart, ToolPart, FilePart, ReasoningPart,
+                                SnapshotPart, PatchPart, AgentPart, SubtaskPart,
+                                RetryPart, CompactionPart)):
                     parts_data.append(p.model_dump())
-                elif hasattr(p, "dict"):
-                    parts_data.append(p.dict())
                 else:
                     parts_data.append(p)
-            
+
             self._current_assistant_view.message_data = {
                 "role": "assistant",
                 "time": self._current_assistant_message.time,
@@ -497,7 +514,7 @@ class MessageScreen(Screen):
             self._current_assistant_view.remove_children()
             for child in self._current_assistant_view._compose_content():
                 await self._current_assistant_view.mount(child)
-            await self._scroll_to_bottom()
+            self._scroll_to_bottom()
 
     async def _save_assistant_message(self) -> None:
         """Save the assistant message to storage"""
@@ -506,25 +523,27 @@ class MessageScreen(Screen):
         from opencode_python.core.settings import get_storage_dir
         from pathlib import Path
 
+        assert self._current_assistant_message is not None, "Current assistant message must be set"
+
         try:
             storage_dir = get_storage_dir()
             storage = SessionStorage(storage_dir)
             work_dir = Path.cwd()
             manager = SessionManager(storage, work_dir)
-            
+
             await manager.create_message(
                 session_id=self.session.id,
                 role="assistant",
                 text=self._current_assistant_message.text,
             )
-            
+
             self.messages = self.messages + [self._current_assistant_message]
-            
+
             logger.info(f"Saved assistant message: {self._current_assistant_message.id}")
-            
+
         except Exception as e:
             logger.error(f"Error saving assistant message: {e}")
 
-    async def _scroll_to_bottom(self) -> None:
+    def _scroll_to_bottom(self) -> None:
         """Scroll messages to bottom"""
-        await self.messages_container.scroll_end(animate=False)
+        self.messages_container.scroll_end(animate=False)

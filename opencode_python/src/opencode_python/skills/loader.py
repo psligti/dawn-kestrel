@@ -1,9 +1,16 @@
 """OpenCode Python - Skills system"""
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from pathlib import Path
-import frontmatter
 import logging
+
+if TYPE_CHECKING:
+    import frontmatter
+
+try:
+    import frontmatter  # type: ignore
+except ImportError:
+    frontmatter = None
 
 
 logger = logging.getLogger(__name__)
@@ -81,21 +88,26 @@ class SkillLoader:
         try:
             content = file_path.read_text()
             # Parse frontmatter
-            meta, content = frontmatter.parse(content)
-            
+            if frontmatter is not None:
+                meta, content_body = frontmatter.parse(content)
+                meta_dict = dict(meta)
+            else:
+                meta_dict = {}
+                content_body = content
+
             # Extract name from frontmatter or directory
-            name = meta.get("name", file_path.parent.name)
+            name = meta_dict.get("name", file_path.parent.name)
             if not name:
                 logger.warning(f"No name in frontmatter for {file_path}")
                 name = file_path.parent.name
-            
-            description = meta.get("description", "")
-            
+
+            description = meta_dict.get("description", "")
+
             return Skill(
                 name=name,
                 description=description,
                 location=file_path.parent,
-                content=content.strip(),
+                content=content_body.strip(),
             )
         except Exception as e:
             logger.error(f"Error loading skill {file_path}: {e}")

@@ -103,6 +103,10 @@ class FileScanner:
         self._cache: Optional[List[str]] = None
         self._cache_time: Optional[float] = None
 
+    def _get_timestamp(self) -> float:
+        import time
+        return time.time()
+
     async def scan_files(self, force_refresh: bool = False) -> List[str]:
         """Scan all files in directory using Ripgrep
 

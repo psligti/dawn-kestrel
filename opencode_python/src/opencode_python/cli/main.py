@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import click
-import pendulum  # type: ignore[import-not-found]
+import pendulum
 from rich.console import Console
 from rich.table import Table
 

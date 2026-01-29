@@ -3,16 +3,16 @@ from __future__ import annotations
 
 from typing import Any, Iterator
 
-from textual.containers import Container, Vertical, Horizontal  # type: ignore[import-not-found]
-from textual.widgets import Static, Markdown, Button, Input  # type: ignore[import-not-found]
-from textual.app import ComposeResult  # type: ignore[import-not-found]
-from textual.reactive import reactive  # type: ignore[import-not-found]
+from textual.containers import Container, Vertical, Horizontal
+from textual.widgets import Static, Markdown, Button, Input
+from textual.app import ComposeResult
+from textual.reactive import reactive
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class MessagePartView(Container):  # type: ignore[misc]
+class MessagePartView(Container):
     """Display a message part (text, tool, file, etc.)"""
 
     CSS = """
@@ -46,6 +46,9 @@ class MessagePartView(Container):  # type: ignore[misc]
         color: red;
     }
     """
+
+    part_data: dict[str, Any]
+    part_type: str
 
     def __init__(self, part_data: dict[str, Any]):
         super().__init__()
@@ -133,7 +136,7 @@ class MessagePartView(Container):  # type: ignore[misc]
             yield Static(f"[bold cyan]📦 Compaction:[/bold cyan] {'Auto' if auto else 'Manual'}", classes="part-header")
 
 
-class MessageView(Container):  # type: ignore[misc]
+class MessageView(Container):
     """Display a complete message with all parts"""
 
     CSS = """
@@ -196,6 +199,9 @@ class MessageView(Container):  # type: ignore[misc]
     }
     """
 
+    message_data: dict[str, Any]
+    role: str
+
     def __init__(self, message_data: dict[str, Any]):
         super().__init__()
         self.message_data = message_data
@@ -244,7 +250,7 @@ class MessageView(Container):  # type: ignore[misc]
         
         if created:
             try:
-                import pendulum  # type: ignore[import-not-found]
+                import pendulum
                 dt = pendulum.from_timestamp(created)
                 return dt.strftime("HH:mm:ss")
             except Exception:

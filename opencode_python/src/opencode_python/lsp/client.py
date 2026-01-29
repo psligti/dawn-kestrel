@@ -1,6 +1,6 @@
 """OpenCode Python - LSP Integration"""
 from __future__ import annotations
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import json
 import logging
@@ -40,7 +40,7 @@ class CodeAction:
 class LSPClient:
     """
     Language Server Protocol client for Python 3.10+
-    
+
     Provides basic LSP functionality:
     - Connect/disconnect to LSP server
     - Get symbol at point (textDocument/symbol)
@@ -53,6 +53,13 @@ class LSPClient:
         self._reader: Optional[asyncio.StreamReader] = None
         self._writer: Optional[asyncio.StreamWriter] = None
         self._pending_requests: Dict[str, Dict[str, Any]] = {}
+        self._request_id_counter = 0
+
+    def _request_counter(self) -> str:
+        """Generate unique request ID"""
+        import uuid
+        self._request_id_counter += 1
+        return f"{self.session_id}_{self._request_id_counter}"
 
     async def connect(self, server_command: str, root_path: str) -> None:
         """Connect to LSP server"""
@@ -60,7 +67,7 @@ class LSPClient:
 
         # Start LSP server process
         process = await asyncio.create_subprocess_exec(
-            server_command.split(),
+            *server_command.split(),
             cwd=root_path,
         )
 
@@ -75,21 +82,135 @@ class LSPClient:
 
         logger.info("LSP client connected")
 
-    async def disconnect(self) -> None:
-        """Disconnect from LSP server"""
-        logger.info("Disconnecting from LSP server")
+    async def document_symbol(
+        self,
+        uri: str,
+        position: Dict[str, int]
+    ) -> Optional[SymbolInfo]:
+        """Get symbol at point (textDocument/symbol)"""
+        logger.info(f"Document symbol at {uri}:{position}")
 
-        # Terminate process
-        if self._process:
-            self._process.terminate()
-            await self._process.wait()
+        request = {
+            "jsonrpc": "2.0",
+            "id": self._request_counter(),
+            "method": "textDocument/documentSymbol",
+            "params": {
+                "textDocument": {"uri": uri},
+                "position": position
+            }
+        }
 
-        logger.info("LSP client disconnected")
+        try:
+            response = await self._send_request("documentSymbol", request)
+            result_data = response.get("result", {})
+
+            if result_data and "name" in result_data:
+                return SymbolInfo(
+                    name=result_data["name"],
+                    kind=result_data.get("kind", ""),
+                    location=result_data.get("location", {}),
+                    documentation=result_data.get("detail", None)
+                )
+        except Exception as e:
+            logger.error(f"Document symbol failed: {e}")
+            return None
+
+    async def get_document_symbols(self, uri: str) -> Optional[List[SymbolInfo]]:
+        """Get document symbols (textDocument/documentSymbol)"""
+        logger.info(f"Getting document symbols: {uri}")
+
+        request = {
+            "jsonrpc": "2.0",
+            "id": self._request_counter(),
+            "method": "textDocument/documentSymbol",
+            "params": {
+                "textDocument": {"uri": uri}
+            }
+        }
+
+        try:
+            response = await self._send_request("documentSymbols", request)
+            result_data = response.get("result", [])
+
+            symbols = []
+            for item in result_data:
+                if item.get("name"):
+                    symbols.append(SymbolInfo(
+                        name=item["name"],
+                        kind=item.get("kind", ""),
+                        location=item.get("location", {})
+                    ))
+
+            return symbols
+        except Exception as e:
+            logger.error(f"Get document symbols failed: {e}")
+            return None
+
+    async def hover(
+        self,
+        uri: str,
+        position: Dict[str, int]
+    ) -> Optional[HoverInfo]:
+        """Get hover information (textDocument/hover)"""
+        logger.info(f"Hover at {uri}:{position}")
+
+        request = {
+            "jsonrpc": "2.0",
+            "id": self._request_counter(),
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": {"uri": uri},
+                "position": position
+            }
+        }
+
+        try:
+            response = await self._send_request("hover", request)
+            result_data = response.get("result", {})
+
+            if result_data and "contents" in result_data:
+                return HoverInfo(
+                    text=result_data["contents"],
+                    documentation=result_data.get("detail", None)
+                )
+        except Exception as e:
+            logger.error(f"Hover failed: {e}")
+            return None
+
+    async def go_to_definition(
+        self,
+        uri: str,
+        position: Dict[str, int]
+    ) -> Optional[Dict[str, Any]]:
+        """Go to definition (textDocument/definition)"""
+        logger.info(f"Go to definition at {uri}:{position}")
+
+        request = {
+            "jsonrpc": "2.0",
+            "id": self._request_counter(),
+            "method": "textDocument/definition",
+            "params": {
+                "textDocument": {"uri": uri},
+                "position": position
+            }
+        }
+
+        try:
+            response = await self._send_request("definition", request)
+            result_data = response.get("result", {})
+
+            return result_data
+        except Exception as e:
+            logger.error(f"Go to definition failed: {e}")
+            return None
 
     async def _read_loop(self) -> None:
         """Read responses from LSP server"""
         buffer = ""
-        
+
+        if not self._reader:
+            return
+
         while True:
             try:
                 data = await self._reader.read(1024)
@@ -126,49 +247,32 @@ class LSPClient:
         """Handle response from LSP server"""
         if not line.strip():
             return
-        
+
         try:
             response = json.loads(line)
-            
+
             if "result" in response:
                 result_data = response["result"]
-                
+
                 if "id" in result_data:
                     request_id = result_data["id"]
                     self._pending_requests.pop(request_id)
-                
-                # Extract result info
-                if "result" in result_data:
-                    result_info = result_data["result"]
-                    
-                    if "id" in result_data:
-                        request_id = result_data["id"]
-                        self._pending_requests.pop(request_id)
-                    
-                    # Extract symbol info
-                        if "result" in result_data:
-                            result_info = result_data["result"]
-                            return SymbolInfo(
-                                name=result_info.get("name", ""),
-                                kind=result_info.get("kind", ""),
-                                location=result_info.get("location", {}),
-                            )
-                
-                elif "method" in response and response["method"] == "window/logMessage":
-                    # Handle log messages
-                    for msg in response.get("messages", []):
-                        logger.debug(f"LSP log: {msg.get('type')}: {msg.get('message', '')}")
-                elif "method" in response and response["method"] == "window/logTrace":
-                    # Handle trace messages
-                    logger.debug(f"LSP trace: {response.get('trace', '')}")
-            
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LSP response: {e}")
+
+            elif "method" in response and response["method"] == "window/logMessage":
+                # Handle log messages
+                for msg in response.get("messages", []):
+                    logger.debug(f"LSP log: {msg.get('type')}: {msg.get('message', '')}")
+            elif "method" in response and response["method"] == "window/logTrace":
+                # Handle trace messages
+                logger.debug(f"LSP trace: {response.get('trace', '')}")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LSP response: {e}")
 
     async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Send request to LSP server"""
         request_id = str(id(self))
-        
+
         # Build request
         request = {
             "jsonrpc": "2.0",
@@ -176,14 +280,14 @@ class LSPClient:
             "method": method,
             "params": params,
         }
-        
+
         # Send request
         if self._writer:
             json_str = json.dumps(request) + "\n"
+            self._writer.write(json_str.encode('utf-8'))
+            await self._writer.drain()
+
+        # Store pending request
+        self._pending_requests[request_id] = request
 
         return {"jsonrpc": "2.0", "id": request_id}
-
-    async def _request_counter(self) -> str:
-        """Generate unique request ID"""
-        import uuid
-        return str(uuid.uuid4())

@@ -14,6 +14,7 @@ class SessionRevert:
     """Session revert manager for undoing changes"""
 
     def __init__(self, snapshot_dir: Path, session_id: str):
+        self.session_id = session_id
         self.snapshot_dir = snapshot_dir / session_id
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
 
@@ -35,17 +36,17 @@ class SessionRevert:
         try:
             # Take snapshot of current state
             from opencode_python.snapshot import GitSnapshot
-            git = GitSnapshot(self.snapshot_dir, session_id)
+            git = GitSnapshot(self.snapshot_dir, self.session_id)
             current_snapshot = await git.track()
-            
+
             # Collect all patches from revert point
             patches = []
             # TODO: Load from session.revert storage
-            # patches = await SessionStorage.list_reverts(session_id, message_id, part_id)
-            
+            # patches = await SessionStorage.list_reverts(self.session_id, message_id, part_id)
+
             # Revert each patch
             from opencode_python.snapshot import GitSnapshot
-            git2 = GitSnapshot(self.snapshot_dir, session_id)
+            git2 = GitSnapshot(self.snapshot_dir, self.session_id)
             
             for patch_hash in patches:
                 await git2.restore(patch_hash)

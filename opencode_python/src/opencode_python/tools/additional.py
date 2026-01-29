@@ -12,7 +12,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, Any, Callable, Awaitable
@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from opencode_python.core.event_bus import bus, Events
 
-from opencode_python.core.models import Part as PartModel
+from opencode_python.core.models import Part as PartModel, CompactionPart
 from opencode_python.core.session import SessionManager
 from opencode_python.core.settings import settings
 from opencode_python.tools.framework import Tool, ToolContext, ToolResult
@@ -33,15 +33,21 @@ from .prompts import get_prompt
 logger = logging.getLogger(__name__)
 
 
+class AgentCompaction:
+    """Stub class for session compaction agent"""
+
+    async def should_keep(self, msg: Dict[str, Any], pruned: List[Dict[str, Any]]) -> bool:
+        """Determine if message should be kept during compaction"""
+        # Simple heuristic: keep user messages and recent assistant messages
+        return msg.get("role") == "user" or len(pruned) < 5
+
+
 class EditTool(Tool):
     id = "edit"
     description = "Perform exact string replacements in files"
 
     async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         file_path = args.get("filePath")
-        old_string = args.get("oldString")
-        new_string = args.get("newString")
-        replace_all = args.get("replaceAll", False)
 
         if not file_path:
             return ToolResult(
@@ -50,7 +56,78 @@ class EditTool(Tool):
                 metadata={"error": "no_file_path"}
             )
 
+        old_string = args.get("oldString")
+        new_string = args.get("newString")
+        replace_all = args.get("replaceAll", False)
+
+        if not old_string or not isinstance(old_string, str):
+            return ToolResult(
+                title="Invalid oldString",
+                output="Error: 'oldString' parameter must be a non-empty string",
+                metadata={"error": "invalid_old_string"}
+            )
+
+        if new_string is None or not isinstance(new_string, str):
+            return ToolResult(
+                title="Invalid newString",
+                output="Error: 'newString' parameter must be a string",
+                metadata={"error": "invalid_new_string"}
+            )
+
         path = Path(file_path)
+
+        if not path.exists():
+            return ToolResult(
+                title="File not found",
+                output=f"Error: File {file_path} does not exist",
+                metadata={"error": "file_not_found", "file_path": file_path}
+            )
+
+        try:
+            with open(path, "r") as f:
+                content = f.read()
+        except Exception as e:
+            return ToolResult(
+                title="Failed to read file",
+                output=f"Error reading file: {e}",
+                metadata={"error": "read_error"}
+            )
+
+        if old_string not in content:
+            return ToolResult(
+                title="String not found",
+                output=f"Error: Could not find '{old_string[:50]}...' in file",
+                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]}
+            )
+
+        if replace_all:
+            occurrences = content.count(old_string)
+            new_content = content.replace(old_string, new_string)
+        else:
+            new_content = content.replace(old_string, new_string, 1)
+            occurrences = 1
+
+        try:
+            with open(path, "w") as f:
+                f.write(new_content)
+        except Exception as e:
+            return ToolResult(
+                title="Failed to write file",
+                output=f"Error writing file: {e}",
+                metadata={"error": "write_error"}
+            )
+
+        changes = f"{occurrences} occurrence(s) replaced"
+
+        return ToolResult(
+            title=f"Edited {path.name}",
+            output=changes,
+            metadata={
+                "file_path": str(path),
+                "occurrences": occurrences,
+                "bytes_written": len(new_content)
+            }
+        )
 
         if not path.exists():
             return ToolResult(
@@ -160,15 +237,20 @@ class ListTool(Tool):
                 if self._should_ignore(str(rel_path), ignore_patterns):
                     continue
 
-                subtree = self._list_directory(item, ignore_patterns)
-                if subtree["total_files"] == 0:
-                    continue
+                if item.is_file():
+                    tree_lines.append(str(rel_path))
+                    file_count += 1
+                    total_files += 1
+                elif item.is_dir():
+                    subtree = self._list_directory(item, ignore_patterns)
+                    if subtree["total_files"] == 0:
+                        continue
 
-                tree_lines.append(self._format_tree_line(rel_path, subtree))
-                total_files += subtree["total_files"]
-                file_count += subtree["file_count"]
-        except PermissionError:
-            tree_lines.append(f"Permission denied: {rel_path}")
+                    tree_lines.append(self._format_tree_line(rel_path, subtree["output"]))
+                    total_files += subtree["total_files"]
+                    file_count += subtree["file_count"]
+        except PermissionError as e:
+            tree_lines.append(f"Permission denied: {e}")
         except Exception as e:
             tree_lines.append(f"Error listing directory: {e}")
 
@@ -193,8 +275,8 @@ class ListTool(Tool):
             prefix = f"{prefix}/"
         return f"{prefix}{rel_path}"
 
-
 """
+
 Additional tools not in builtin set.
 
 Includes MultiEdit, CodeSearch, Lsp, Skill, ExternalDirectory,
@@ -202,7 +284,7 @@ PlanEnter, PlanExit, ApplyPatch, Batch, Invalid.
 """
 
 
-class MultiEditTool(Tool):
+class MultiEditToolOld(Tool):
     id = "multiedit"
     description = "Apply multiple edits to a single file in one operation"
 
@@ -252,6 +334,20 @@ class MultiEditTool(Tool):
             old_string = edit.get("oldString")
             new_string = edit.get("newString")
             replace_all = edit.get("replaceAll", False)
+
+            if not old_string or not isinstance(old_string, str):
+                return ToolResult(
+                    title=f"Edit {idx + 1} invalid",
+                    output=f"Error: oldString must be a non-empty string",
+                    metadata={"error": "invalid_old_string", "edit_index": idx}
+                )
+
+            if new_string is None or not isinstance(new_string, str):
+                return ToolResult(
+                    title=f"Edit {idx + 1} invalid",
+                    output=f"Error: newString must be a string",
+                    metadata={"error": "invalid_new_string", "edit_index": idx}
+                )
 
             if old_string not in content:
                 return ToolResult(
@@ -324,9 +420,9 @@ class CodeSearchTool(Tool):
                 metadata={"error": "no_query"}
             )
 
-        from .core.settings import settings
+        from opencode_python.core.settings import settings
 
-        api_key = settings.api_keys.get("exa", settings.api_keys.get("exa"))
+        api_key = settings.api_keys.get("exa") or settings.api_keys.get("exa_code")
 
         if not api_key:
             return ToolResult(
@@ -339,7 +435,7 @@ class CodeSearchTool(Tool):
 
         try:
             import httpx
-            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": api_key})
+            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""})
 
             payload = {
                 "query": query,
@@ -451,57 +547,44 @@ class LspTool(Tool):
 
 class SkillTool(Tool):
     id = "skill"
-    description = "Load specialized skill instructions"
+    description = "Load and execute skill files"
 
     async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
-        name = args.get("name")
-
-        if not name:
-            return ToolResult(
-                title="Skill name required",
-                output="Error: 'name' parameter is required",
-                metadata={"error": "no_skill_name"}
-            )
-
-        from pathlib import Path
+        name = args.get("name", "")
 
         skill_paths = [
             Path(".opencode/skill/"),
             Path(".opencode/skills/"),
-            Path(".opencode/skill/*.md"),
+            Path(".opencode/kills/"),
         ]
 
-        skill_content = ""
         skill_path = None
-
         for skill_dir in skill_paths:
-            if skill_dir.is_dir():
-                name_files = list(skill_dir.glob("*.md"))
-                if name_files:
-                    for name_file in name_files:
-                        if name.lower() == name.lower():
-                            skill_path = name_file
-                            skill_content = skill_file.read_text()
-                            break
-                if skill_path:
-                    break
+            skill_file = skill_dir / f"{name}.md"
+            if skill_file.exists():
+                skill_path = skill_file
+                break
 
         if not skill_path:
             return ToolResult(
-                title="Skill not found",
-                output=f"Error: Skill '{name}' not found in .opencode/skill/ or .opencode/skills/",
-                metadata={"error": "skill_not_found", "name": name}
+                title=f"Skill not found",
+                output=f"Skill '{name}' not found in any of: {', '.join(str(p) for p in skill_paths)}",
+                metadata={"name": name, "searched_paths": str(skill_paths)}
             )
 
-        logger.info(f"Loaded skill: {name} from {skill_path}")
+        try:
+            skill_content = skill_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return ToolResult(
+                title=f"Failed to read skill: {name}",
+                output=f"Error: {str(e)}",
+                metadata={"error": str(e), "name": name}
+            )
 
         return ToolResult(
             title=f"Loaded skill: {name}",
             output=skill_content,
-            metadata={
-                "skill_name": name,
-                "skill_path": str(skill_path)
-            }
+            metadata={"skill_path": str(skill_path), "name": name}
         )
 
 
@@ -538,9 +621,11 @@ class ExternalDirectoryTool(Tool):
                 metadata={"error": "not_directory"}
             )
 
-        from .core.session import SessionManager
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
 
-        session_mgr = SessionManager()
+        storage = SessionStorage(Path.cwd())
+        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
         dir_files = []
         try:
@@ -565,8 +650,8 @@ class ExternalDirectoryTool(Tool):
             logger.error(f"Directory scan failed: {e}")
             dir_files = []
 
-        total_files = sum(item["is_file"] and 1 for item in dir_files if item.get("is_file"))
-        total_dirs = sum(1 for item in dir_files if item.get("is_dir"))
+        total_files = sum(bool(item.get("is_file", False)) for item in dir_files)
+        total_dirs = sum(bool(item.get("is_dir", False)) for item in dir_files)
 
         return ToolResult(
             title=f"Scanned directory: {path.name}",
@@ -607,13 +692,15 @@ class CompactionTool(Tool):
     description = "Compact session when token limit is exceeded"
 
     async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
-        token_limit = args.get("tokenLimit", ctx.model_limit)
+        token_limit = args.get("tokenLimit", 200000)
         compact_all = args.get("compactAll", False)
         summarize_only = args.get("summarizeOnly", False)
 
-        from .core.session import SessionManager
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
 
-        session_mgr = SessionManager()
+        storage = SessionStorage(Path.cwd())
+        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         messages = await session_mgr.get_messages(ctx.session_id)
 
         if not messages:
@@ -625,18 +712,26 @@ class CompactionTool(Tool):
 
         total_tokens = 0
         for msg in messages:
-            for part in msg.get("parts", []):
-                if part.get("part_type") in ["text", "reasoning"]:
-                    total_tokens += len(part.get("text", ""))
-                elif part.get("part_type") in ["tool", "snapshot", "patch"]:
+            if hasattr(msg, "model_dump"):
+                msg_dict = msg.model_dump()
+            else:
+                msg_dict = msg
+
+            parts_list: Any = msg_dict.get("parts", [])
+            for part_any in parts_list:
+                part_dict: Dict[str, Any] = part_any.model_dump() if hasattr(part_any, "model_dump") else part_any
+                part_type = part_dict.get("part_type", "")
+                if part_type in ["text", "reasoning"]:
+                    total_tokens += len(part_dict.get("text", ""))
+                elif part_type in ["tool", "snapshot", "patch"]:
                     total_tokens += 50
-                elif part.get("part_type") in ["agent", "subtask", "retry"]:
+                elif part_type in ["agent", "subtask", "retry"]:
                     total_tokens += 25
-                elif part.get("part_type") in ["file", "multiedit"]:
+                elif part_type in ["file", "multiedit"]:
                     total_tokens += 10
-                elif part.get("part_type") in ["compaction"]:
+                elif part_type in ["compaction"]:
                     total_tokens += 5
-                elif part.get("part_type") == "invalid":
+                elif part_type == "invalid":
                     total_tokens += 0
 
         logger.info(f"Session total tokens: {total_tokens}/{token_limit}")
@@ -655,7 +750,8 @@ class CompactionTool(Tool):
         compactor = AgentCompaction()
 
         if summarize_only:
-            summary = await self._summarize_session(messages)
+            messages_dicts: List[Any] = [msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages]
+            summary = await self._summarize_session(messages_dicts)
 
             return ToolResult(
                 title="Session summarized",
@@ -667,17 +763,18 @@ class CompactionTool(Tool):
                 }
             )
 
+        messages_dicts = [msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages]
         compaction_result = await self._compact_session(
             session_mgr,
-            messages,
+            messages_dicts,
             token_limit,
             compact_all,
             compactor,
             ctx.session_id
         )
 
-        pruned_count = compaction_result["metadata"].get("messages_pruned", 0)
-        tokens_kept = compaction_result["metadata"].get("tokens_kept", total_tokens)
+        pruned_count = compaction_result.get("messages_pruned", 0)
+        tokens_kept = compaction_result.get("tokens_kept", total_tokens)
 
         output = (
             f"Session compaction complete\n"
@@ -704,23 +801,11 @@ class CompactionTool(Tool):
 
     async def _summarize_session(self, messages: List[Dict[str, Any]]) -> str:
         """Generate session summary using compaction agent"""
-        from .ai.ai_session import AISession
-
         session_summary = self._get_session_summary(messages)
 
-        user_content = f"Please summarize the following session:\n\n{session_summary}"
+        return session_summary[:500] if len(session_summary) > 500 else session_summary
 
-        ai_session = AISession(
-            session_id=messages[0]["session_id"],
-            provider_id="anthropic",
-            model="claude-sonnet-4"
-        )
-
-        summary = await ai_session.process_message(user_content)
-
-        return summary.get("text", "No summary available")
-
-    def _get_session_summary(self, messages: List[Dict[str, Any]]) -> str:
+    def _get_session_summary(self, messages: List[Any]) -> str:
         """Build session summary text"""
         if not messages:
             return "No messages to summarize"
@@ -731,24 +816,26 @@ class CompactionTool(Tool):
         file_operations = []
 
         for idx, msg in enumerate(reversed(messages)):
-            role = msg.get("role", "")
+            msg_dict = msg if isinstance(msg, dict) else msg.model_dump()
+            role = msg_dict.get("role", "")
 
             if role == "user":
-                last_user_msg = msg
+                last_user_msg = msg_dict
 
-                for part in msg.get("parts", []):
-                    part_type = part.get("part_type", "")
-                    text = part.get("text", "")
+                for part in msg_dict.get("parts", []):
+                    part_dict = part if isinstance(part, dict) else part.model_dump()
+                    part_type = part_dict.get("part_type", "")
+                    text = part_dict.get("text", "")
 
                     if part_type == "task":
                         task_msgs.append(f"  - Task: {text[:100]}")
                     elif part_type == "tool":
-                        tool_name = part.get("tool", "")
-                        tool_input = part.get("state", {}).get("input", {})
-                        tool_output = part.get("state", {}).get("output", "")
-                        tool_calls.append(f"  {tool_name}({tool_input[:50]}...)")
+                        tool_name = part_dict.get("tool", "")
+                        tool_input = part_dict.get("state", {}).get("input", {})
+                        tool_output = part_dict.get("state", {}).get("output", "")
+                        tool_calls.append(f"  {tool_name}({str(tool_input)[:50]}...)")
                     elif part_type == "file":
-                        file_path = part.get("path", "")
+                        file_path = part_dict.get("path", "")
                         file_operations.append(f"  {file_path}")
 
         if not last_user_msg and not task_msgs and not tool_calls:
@@ -757,7 +844,8 @@ class CompactionTool(Tool):
         summary_lines = []
 
         if last_user_msg:
-            summary_lines.append(f"Last user message: {last_user_msg.get('text', '')[:200]}")
+            last_msg_dict = last_user_msg if isinstance(last_user_msg, dict) else last_user_msg.model_dump()
+            summary_lines.append(f"Last user message: {last_msg_dict.get('text', '')[:200]}")
 
         if task_msgs:
             summary_lines.append(f"Task executions: {len(task_msgs)}")
@@ -792,9 +880,9 @@ class CompactionTool(Tool):
         session_id
     ) -> Dict[str, Any]:
         """Compact session by creating compaction message and pruning old messages"""
-        messages_to_prune = []
+        messages_to_prune: List[Dict[str, Any]] = []
         tokens_pruned = 0
-        messages_kept = 0
+        messages_kept: List[Dict[str, Any]] = []
 
         for idx, msg in enumerate(reversed(messages)):
             if idx == 0:
@@ -805,17 +893,16 @@ class CompactionTool(Tool):
             if not keep_msg:
                 await session_mgr.delete_message(msg["id"])
                 messages_to_prune.append(msg)
-                tokens_pruned += self._count_message_tokens(msg)
+                tokens_pruned += _count_message_tokens(msg)
             else:
                 messages_kept.append(msg)
 
-        compaction_part = PartModel(
+        compaction_part = CompactionPart(
             id=f"{session_id}_compaction",
             session_id=session_id,
             message_id=messages[0]["id"] if messages else "",
             part_type="compaction",
-            text=f"Session compacted. Kept {len(messages_kept)} messages, pruned {len(messages_to_prune)} messages, {tokens_pruned} tokens pruned.",
-            time={"created": messages[0]["time"].get("created", "") if messages else ""}
+            auto=compact_all
         )
 
         await session_mgr.add_part(compaction_part)
@@ -853,8 +940,9 @@ def _count_message_tokens(msg: Dict[str, Any]) -> int:
     return total
 
 
-async def register_compaction_tool(registry):
-    await registry.register(CompactionTool)
+    async def register_compaction_tool(registry):
+        compaction_tool = CompactionTool()
+        await registry.register(compaction_tool)
 
 
 """OpenCode Python - Tool execution framework"""
@@ -954,14 +1042,18 @@ class QuestionTool(Tool):
             })
 
         from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
 
-        session_mgr = SessionManager()
+        storage = SessionStorage(Path.cwd())
+        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         user_questions = await session_mgr.get_user_questions(ctx.session_id)
 
         for q in validated_questions:
             q_key = f"question_{len(validated_questions)}"
-            if q_key in user_questions and user_questions[q_key].get("answered", False):
-                validated_questions[q_key] = user_questions[q_key]
+            # Find if this question was already answered by searching user_questions list
+            existing_q = next((uq for uq in user_questions if isinstance(uq, dict) and uq.get("id") == q_key), None)
+            if existing_q and existing_q.get("answered", False):
+                validated_questions.append(q)
 
         logger.info(f"Found {len(validated_questions)} answered questions")
 
@@ -997,6 +1089,7 @@ class TaskTool(Tool):
         description = args.get("description")
         prompt = args.get("prompt")
         subagent_type = args.get("subagent_type", "general")
+        session_id_to_resume = args.get("session_id")
 
         if not description or not prompt:
             return ToolResult(
@@ -1007,46 +1100,16 @@ class TaskTool(Tool):
 
         logger.info(f"Task: {description[:50]}, Agent: {subagent_type}")
 
-        # Return success result - task tool creates a task but doesn't execute it directly
-        # The actual agent execution happens through the session system
-        return ToolResult(
-            title=f"Task created: {description[:50]}",
-            output=f"Task queued for {subagent_type} agent: {description}",
-            metadata={
-                "task_type": subagent_type,
-                "description": description[:100],
-            },
-        )
-
-        from opencode_python.core.session import SessionManager
-
-        if session_id_to_resume:
-            session_mgr = SessionManager()
-            session_data = await session_mgr.get(session_id_to_resume)
-
-            if not session_data:
-                return ToolResult(
-                    title="Session not found",
-                    output=f"Error: Session {session_id_to_resume} does not exist",
-                    metadata={"error": "session_not_found"}
-                )
-
-        logger.info(f"Launching subagent: {subagent_type} with description: {description[:50]}")
-        logger.info(f"Session to resume: {session_id_to_resume}")
-        logger.info(f"Prompt: {prompt[:100]}")
-
-        from opencode_python.agents import builtin
-
         available_agents = {
-            "general": builtin.AgentGeneral,
-            "explore": builtin.AgentExplore,
-            "build": builtin.AgentBuild,
-            "plan": builtin.AgentPlan,
+            "general": "AgentGeneral",
+            "explore": "AgentExplore",
+            "build": "AgentBuild",
+            "plan": "AgentPlan",
         }
 
-        subagent = available_agents.get(subagent_type.lower())
+        subagent_class = available_agents.get(subagent_type.lower())
 
-        if not subagent:
+        if not subagent_class:
             return ToolResult(
                 title="Unknown subagent type",
                 output=f"Error: Subagent type {subagent_type} not available. Available: {list(available_agents.keys())}",
@@ -1056,16 +1119,22 @@ class TaskTool(Tool):
         start_time = time.time()
 
         try:
+            from opencode_python.core.session import SessionManager
+            from opencode_python.storage.store import SessionStorage
+
+            storage = SessionStorage(Path.cwd())
+            session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
+
             if session_id_to_resume:
-                await self._resume_session(session_id_to_resume, description, prompt, subagent, session_mgr)
+                await self._resume_session(session_id_to_resume, description, prompt, subagent_class, session_mgr)
             else:
-                await self._create_new_session(description, prompt, subagent, subagent, session_mgr)
+                await self._create_new_session(description, prompt, subagent_class, session_mgr)
 
             execution_time = time.time() - start_time
 
             return ToolResult(
-                title=f"Launched {subagent.value} subagent",
-                output=f"Subagent {subagent.value} launched successfully in {execution_time:.2f} seconds",
+                title=f"Launched subagent {subagent_type}",
+                output=f"Subagent {subagent_type} launched successfully in {execution_time:.2f} seconds",
                 metadata={
                     "subagent_type": subagent_type,
                     "description": description[:50],
@@ -1082,74 +1151,43 @@ class TaskTool(Tool):
                 metadata={"error": str(e)}
             )
 
-    async def _resume_session(self, session_id: str, description: str, subagent: str, session_mgr: SessionManager):
-        session_data = await session_mgr.get(session_id)
+    async def _resume_session(self, session_id: str, description: str, prompt: str, subagent: str, session_mgr: SessionManager):
+        session_data = await session_mgr.get_session(session_id)
+        if not session_data:
+            raise ValueError(f"Session not found: {session_id}")
         logger.info(f"Resuming session {session_id}")
-
-        from opencode_python.agents import builtin
-        agent_class = getattr(builtin, f"Agent{subagent.title()}")
-        agent_config = agent_class()
 
         user_message = session_mgr.create_message(
             session_id=session_id,
             role="user",
-            parts=[{
-                "id": f"{session_id}_task_request",
-                "session_id": session_id,
-                "part_type": "text",
-                "text": f"Launch {agent_config.name} agent for: {description}"
-            }]
+            text=f"Launch {subagent} agent for: {description}"
         )
 
         assistant_message = session_mgr.create_message(
             session_id=session_id,
             role="assistant",
-            parts=[{
-                "id": f"{session_id}_task_response",
-                "session_id": session_id,
-                "part_type": "agent",
-                "agent": agent_config.name,
-                "state": "launched"
-            }]
+            text=f"Agent {subagent} launched"
         )
 
         logger.info(f"Created task request and response in session {session_id}")
 
-    async def _create_new_session(self, description: str, prompt: str, subagent: str, session, session_mgr: SessionManager):
-        from opencode_python.agents import builtin
-
-        agent_class = getattr(builtin, f"Agent{subagent.title()}")
-        agent_config = agent_class()
-
+    async def _create_new_session(self, description: str, prompt: str, subagent: str, session_mgr: SessionManager):
         session_obj = await session_mgr.create(
-            directory=session_mgr.directory,
-            title=f"{agent_config.name} Task - {description[:50]}"
+            title=f"{subagent} Task - {description[:50]}"
         )
 
-        logger.info(f"Created new session {session_obj.id} for subagent {agent_config.name}")
+        logger.info(f"Created new session {session_obj.id} for subagent {subagent}")
 
         user_message = session_mgr.create_message(
             session_id=session_obj.id,
             role="user",
-            parts=[{
-                "id": f"{session_obj.id}_task_request",
-                "session_id": session_obj.id,
-                "part_type": "text",
-                "text": f"Launch {agent_config.name} agent for: {description}"
-            }]
+            text=f"Launch {subagent} agent for: {description}"
         )
 
         assistant_message = session_mgr.create_message(
             session_id=session_obj.id,
             role="assistant",
-            parts=[{
-                "id": f"{session_obj.id}_task_response",
-                "session_id": session_obj.id,
-                "part_type": "agent",
-                "agent": agent_config.name,
-                "state": "launched",
-                "metadata": {"description": description[:100]}
-            }]
+            text=f"Agent {subagent} launched"
         )
 
         logger.info(f"Created task request and response in session {session_obj.id}")
@@ -1182,9 +1220,11 @@ class TodoTool(Tool):
     description = "Read todo list for current session"
 
     async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
-        from .core.session import SessionManager
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
 
-        session_mgr = SessionManager()
+        storage = SessionStorage(Path.cwd())
+        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         todos = await session_mgr.get_todos(ctx.session_id)
 
         if not todos:
@@ -1255,17 +1295,15 @@ class TodowriteTool(Tool):
                 metadata={"error": "invalid_todos_type"}
             )
 
-        from .core.session import SessionManager
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
 
-        session_mgr = SessionManager()
+        storage = SessionStorage(Path.cwd())
+        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
-        todo_map = {}
+        todos_list = []
         for idx, todo in enumerate(todos_data):
             todo_id = todo.get("id")
-            description = todo.get("description", "")
-            state = todo.get("state", TodoState.PENDING)
-            due_date = todo.get("due_date")
-
             if not todo_id:
                 return ToolResult(
                     title=f"Todo {idx} missing ID",
@@ -1273,14 +1311,18 @@ class TodowriteTool(Tool):
                     metadata={"error": "missing_todo_id", "index": idx}
                 )
 
-            todo_map[todo_id] = {
+            description = todo.get("description", "")
+            state = todo.get("state", TodoState.PENDING)
+            due_date = todo.get("due_date")
+
+            todos_list.append({
                 "description": description,
                 "state": state.value,
                 "due_date": due_date,
-                "updated_at": datetime.utcnow().isoformat()
-            }
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
 
-        await session_mgr.update_todos(ctx.session_id, todo_map)
+        await session_mgr.update_todos(ctx.session_id, todos_list)
 
         todos = await session_mgr.get_todos(ctx.session_id)
 
@@ -1420,7 +1462,7 @@ class WebSearchTool(Tool):
         logger.info(f"Searching web for: {query[:50]}")
 
         try:
-            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": api_key})
+            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""})
 
             payload = {
                 "query": query,
@@ -1508,18 +1550,10 @@ class LsTool(Tool):
     id = "ls"
     description = get_prompt("ls")
 
-    async def execute(self, args: LsToolArgs, ctx: ToolContext) -> ToolResult:
-        """List files and directories
-
-        Args:
-            args: LsToolArgs validated by Pydantic
-            ctx: Tool execution context
-
-        Returns:
-            ToolResult with directory tree structure
-        """
-        path = args.path or ctx.session_id
-        ignore_patterns = args.ignore
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+        path_arg = args.get("path")
+        ignore_patterns = args.get("ignore", []) or []
+        path = path_arg or ctx.session_id
 
         try:
             full_path = Path(path) if path and not path.startswith("/") else Path(ctx.session_id if not ctx.session_id.startswith("/") else "") / (path or ".")
@@ -1533,32 +1567,32 @@ class LsTool(Tool):
 
             # Build file tree
             tree_lines = []
-            
-            def build_tree(p: Path, prefix: str, last_prefix: str = ""):
+
+            def build_tree(current_path: Path, prefix: str, last_prefix: str = ""):
                 """Recursively build file tree"""
-                if p.is_file():
-                    tree_lines.append(f"{prefix}{p.name}")
-                elif ignore_patterns and any(p.match(str(p.resolve())) for p.match in ignore_patterns):
+                if current_path.is_file():
+                    tree_lines.append(f"{prefix}{current_path.name}")
+                elif ignore_patterns and any(pattern in str(current_path.resolve()) for pattern in ignore_patterns):
                     # Skip this directory
                     pass
                 else:
                     # Add directory with children
-                    tree_lines.append(f"{prefix}{p.name}/")
+                    tree_lines.append(f"{prefix}{current_path.name}/")
                     try:
-                        children = sorted(p.iterdir(), key=lambda x: x.name.lower())
-                        new_prefix = f"{prefix}{p.name}/"
-                        
+                        children = sorted(current_path.iterdir(), key=lambda x: x.name.lower())
+                        new_prefix = f"{prefix}{current_path.name}/"
+
                         # Update last_prefix to track where we left off
                         new_last_prefix = new_prefix
-                        
+
                         # Add all children at this level
                         for child in children:
                             build_tree(child, new_prefix, new_last_prefix)
                     except PermissionError:
                         # If we can't read directory, just add it
-                        tree_lines.append(f"{prefix}{p.name}/")
-                        new_prefix = f"{prefix}{p.name}/"
-            
+                        tree_lines.append(f"{prefix}{current_path.name}/")
+                        new_prefix = f"{prefix}{current_path.name}/"
+
             # Start building tree
             last_prefix = ""
             build_tree(full_path, "", last_prefix)
@@ -1591,17 +1625,19 @@ class BatchTool(Tool):
     id = "batch"
     description = get_prompt("batch")
 
-    async def execute(self, args: BatchToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Execute multiple tool calls concurrently
 
         Args:
-            args: BatchToolArgs validated by Pydantic
+            args: Tool arguments as dict
             ctx: Tool execution context
 
         Returns:
             ToolResult with aggregated results from all tools
         """
-        if not args.tools or not isinstance(args.tools, list):
+
+        tools = args.get("tools", [])
+        if not tools or not isinstance(tools, list):
             return ToolResult(
                 title="Invalid tools parameter",
                 output="",
@@ -1610,7 +1646,7 @@ class BatchTool(Tool):
 
         # Import builtin tools dynamically
         from opencode_python.tools import builtin
-        
+
         tool_registry = {
             "read": builtin.ReadTool(),
             "write": builtin.WriteTool(),
@@ -1618,28 +1654,31 @@ class BatchTool(Tool):
             "glob": builtin.GlobTool(),
             "bash": builtin.BashTool(),
         }
-        
+
         # Collect tool results
+        success_count = 0
+        error_count = 0
+        output = ""
         results = []
         errors = []
-        
+
         async def execute_single_tool(tool_call: Dict[str, Any], idx: int):
             """Execute a single tool call"""
+            nonlocal success_count, error_count, output
             tool_id = tool_call.get("tool", "")
             tool_args = tool_call.get("parameters", {})
-            
+
             tool = tool_registry.get(tool_id)
             if not tool:
                 error_msg = f"Unknown tool: {tool_id}"
                 logger.error(error_msg)
-                errors.append(error_msg)
-                results.append({
+                errors.append({
                     "tool": tool_id,
                     "status": "error",
-                    "output": error_msg,
+                    "output": error_msg
                 })
                 return
-            
+
             try:
                 # Create temporary ToolContext for this tool execution
                 tool_ctx = ToolContext(
@@ -1649,7 +1688,7 @@ class BatchTool(Tool):
                     abort=ctx.abort,
                     messages=ctx.messages,
                 )
-                
+
                 # Execute tool with validated args
                 # Note: execute() expects Pydantic model, so we need to convert dict to proper model
                 if tool_id == "bash":
@@ -1669,54 +1708,30 @@ class BatchTool(Tool):
                         "output": f"Tool not supported in batch: {tool_id}",
                     })
                     return
-                
-                result = await tool.execute(tool_args, tool_ctx)
-                
+
+                result = await tool.execute(tool_args.model_dump(), tool_ctx)
+
                 results.append({
                     "tool": tool_id,
                     "status": "completed" if result.metadata.get("error") else "error",
                     "output": result.output,
                     "metadata": result.metadata,
                 })
-                
+
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"Tool execution failed ({tool_id}): {error_msg}")
                 errors.append({
                     "tool": tool_id,
                     "status": "error",
-                    "output": error_msg,
+                    "output": error_msg
                 })
-        
-        # Execute all tools in parallel
-        await asyncio.gather(*[execute_single_tool(tool_call, idx) for idx, tool_call in enumerate(args.tools)])
-        
-        # Format output
-        success_count = sum(1 for r in results if r.get("status") == "completed")
-        error_count = len(errors)
-        
-        output_lines = []
-        output_lines.append(f"Executed {len(args.tools)} tools in parallel")
-        output_lines.append(f"Success: {success_count}, Errors: {error_count}")
-        output_lines.append("")
-        
-        # Add results
-        for result in results:
-            output_lines.append(f"Tool: {result.get('tool', 'unknown')}")
-            output_lines.append(f"Status: {result.get('status', 'unknown')}")
-            if result.get("output"):
-                output_lines.append(f"Output: {result['output']}")
-            if result.get("metadata"):
-                output_lines.append(f"Metadata: {result['metadata']}")
-            output_lines.append("")
-        
-        output = "\n".join(output_lines)
-        
+
         return ToolResult(
             title=f"Batch execution: {success_count} succeeded, {error_count} failed",
             output=output,
             metadata={
-                "total_tools": len(args.tools),
+                "total_tools": len(tools),
                 "success_count": success_count,
                 "error_count": error_count,
                 "results": results,
@@ -1797,18 +1812,18 @@ class MultiEditTool(Tool):
     id = "multiedit"
     description = get_prompt("multiedit")
 
-    async def execute(self, args: MultiEditToolArgs, ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Apply multiple edits to a file
 
         Args:
-            args: MultiEditToolArgs validated by Pydantic
+            args: Tool arguments as dict
             ctx: Tool execution context
 
         Returns:
             ToolResult with edit results
         """
-        file_path = args.filePath
-        edits = args.edits
+        file_path = args.get("filePath", "")
+        edits = args.get("edits", [])
 
         if not file_path:
             return ToolResult(
@@ -1896,3 +1911,4 @@ class MultiEditTool(Tool):
 from opencode_python.tools.prompts import get_prompt
 from pydantic import BaseModel, Field
 from pathlib import Path
+

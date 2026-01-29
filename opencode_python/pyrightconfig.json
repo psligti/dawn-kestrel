@@ -1,0 +1,10 @@
+{
+  "include": [
+    "src"
+  ],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "strict",
+  "stubPath": "",
+  "venvPath": "/Users/parkermsligting/develop/agentic_python",
+  "venv": ".venv"
+}

@@ -107,6 +107,7 @@ class Events:
     SESSION_UPDATED = "session.updated"
     SESSION_DELETED = "session.deleted"
     MESSAGE_CREATED = "message.created"
+    MESSAGE_DELETED = "message.deleted"
     MESSAGE_UPDATED = "message.updated"
     MESSAGE_PART_UPDATED = "message.part.updated"
     PERMISSION_ASKED = "permission.asked"

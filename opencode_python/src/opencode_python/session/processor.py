@@ -1,6 +1,7 @@
 """OpenCode Python - Session Message Processor"""
 from __future__ import annotations
 from typing import Optional, Dict, Any
+from pathlib import Path
 import asyncio
 import logging
 
@@ -27,7 +28,16 @@ from opencode_python.core.models import (
     AssistantMessage,
     TextPart,
     ToolPart,
+    ToolState,
     ReasoningPart,
+    Part,
+    FilePart,
+    SnapshotPart,
+    PatchPart,
+    AgentPart,
+    SubtaskPart,
+    RetryPart,
+    CompactionPart,
 )
 
 
@@ -63,7 +73,7 @@ class SessionProcessor:
         
         try:
             while True:
-                event = stream.get()
+                event = await stream.get()
                 
                 if event is None:
                     break
@@ -83,9 +93,10 @@ class SessionProcessor:
     async def _handle_event(self, event: StreamEvent) -> None:
         """Handle individual stream events"""
         
-        if isinstance(event, TextStartEvent):
+        if isinstance(event, ReasoningStartEvent):
             self.reasoning_map[event.id] = ReasoningPart(
                 id=generate_id(),
+                part_type="reasoning",
                 message_id=self.assistant_message.id,
                 session_id=self.session_id,
                 text="",
@@ -108,62 +119,71 @@ class SessionProcessor:
         elif isinstance(event, ToolInputStartEvent):
             self.toolcalls[event.tool_call_id] = ToolPart(
                 id=generate_id(),
+                part_type="tool",
                 message_id=self.assistant_message.id,
                 session_id=self.session_id,
                 tool=event.tool,
                 call_id=event.tool_call_id,
-                state={
-                    "status": "running",
-                    "input": event.input,
-                    "time": {"start": self._now()},
-                },
+                state=ToolState(
+                    status="running",
+                    input=event.input,
+                    time_start=self._now() / 1000.0,
+                ),
             )
         
         elif isinstance(event, ToolInputDeltaEvent):
-            if event.tool_call_id in self.toolcalls:
-                part = self.toolcalls[event.tool_call_id]
-                if "input" in part.state:
-                    part.state["input"].update(event.input_delta)
+            if event.id in self.toolcalls:
+                part = self.toolcalls[event.id]
+                part.state.input.update(event.input_delta)
         
         elif isinstance(event, ToolInputEndEvent):
-            if event.tool_call_id in self.toolcalls:
-                part = self.toolcalls[event.tool_call_id]
-                await self._update_part(part, state={"status": "completed"})
+            if event.id in self.toolcalls:
+                part = self.toolcalls[event.id]
+                await self._update_part(part)
         
         elif isinstance(event, ToolCallEvent):
             self.toolcalls[event.tool_call_id] = ToolPart(
                 id=generate_id(),
+                part_type="tool",
                 message_id=self.assistant_message.id,
                 session_id=self.session_id,
-                tool=event.tool,
+                tool=event.tool_name,
                 call_id=event.tool_call_id,
-                input=event.input,
-                state={"status": "pending"},
+                state=ToolState(
+                    status="pending",
+                    input=event.input,
+                ),
             )
         
         elif isinstance(event, ToolResultEvent):
             if event.tool_call_id in self.toolcalls:
                 part = self.toolcalls[event.tool_call_id]
-                part.state = {
-                    "status": "completed",
-                    "output": event.output,
-                }
-                if event.error:
-                    part.state["error"] = event.error
+                part.state = ToolState(
+                    status="completed",
+                    input=part.state.input,
+                    output=event.output,
+                    time_start=part.state.time_start,
+                    time_end=self._now() / 1000.0,
+                    error=event.error,
+                )
                 await self._update_part(part)
         
         elif isinstance(event, ToolErrorEvent):
             if event.tool_call_id in self.toolcalls:
                 part = self.toolcalls[event.tool_call_id]
-                part.state = {
-                    "status": "error",
-                    "error": event.error,
-                }
+                part.state = ToolState(
+                    status="error",
+                    input=part.state.input,
+                    time_start=part.state.time_start,
+                    time_end=self._now() / 1000.0,
+                    error=event.error,
+                )
                 await self._update_part(part)
         
         elif isinstance(event, TextStartEvent):
             self.current_text = TextPart(
                 id=generate_id(),
+                part_type="text",
                 message_id=self.assistant_message.id,
                 session_id=self.session_id,
                 text="",
@@ -200,13 +220,9 @@ class SessionProcessor:
         delta: Optional[str] = None,
     ) -> None:
         """Update a part (either new or with delta)"""
-        part_id = part.id
-        part_data = self._part_to_dict(part)
-        
         if delta:
-            part_data["text"] += delta
-        
-        await self._save_part(part_id, part_data)
+            part.text += delta
+        await self._save_part(part)
 
     async def _update_message(
         self,
@@ -229,15 +245,27 @@ class SessionProcessor:
         
         await self._save_message(message.id, message_data)
 
-    async def _save_part(self, part_id: str, part_data: Dict[str, Any]) -> None:
-        """Save part to storage (placeholder - will integrate with actual storage)"""
-        logger.debug(f"Saving part {part_id}")
-        # TODO: Integrate with SessionStorage.update_part()
+    async def _save_part(self, part: Part) -> None:
+        """Save part to storage"""
+        logger.debug(f"Saving part {part.id}")
+        from opencode_python.storage.store import PartStorage
+
+        storage = PartStorage(Path.cwd())
+        await storage.update_part(part.message_id, part)
 
     async def _save_message(self, message_id: str, message_data: Dict[str, Any]) -> None:
-        """Save message to storage (placeholder - will integrate with actual storage)"""
+        """Save message to storage"""
         logger.debug(f"Saving message {message_id}")
-        # TODO: Integrate with SessionStorage.update_message()
+        from opencode_python.storage.store import MessageStorage
+        from opencode_python.core.models import Message
+
+        storage = MessageStorage(Path.cwd())
+        session_id = message_data.get("session_id", "")
+        message_obj = Message(**message_data)
+
+        # For now, just log that we would update it
+        # Full update requires more storage layer work
+        await storage.create_message(session_id, message_obj)
 
     def _calculate_usage(
         self,

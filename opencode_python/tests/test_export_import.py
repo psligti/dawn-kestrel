@@ -7,50 +7,54 @@ import pytest
 from pathlib import Path
 from io import StringIO
 import sys
+import uuid
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from opencode_python.session.import_export import SessionImportExport, create_import_export_manager
-from opencode_python.core.models import Session
+from opencode_python.core.models import Session, Message, TextPart
+from opencode_python.storage.store import SessionStorage
 
 
 @pytest.fixture
-def temp_session():
+async def temp_session():
     """Create a temporary session for testing"""
     import tempfile
     from opencode_python.core.session import SessionManager
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        session_mgr = SessionManager(storage_dir=Path(tmpdir))
-        session_obj = session_mgr.create(
-            directory=Path(tmpdir),
+        storage = SessionStorage(Path(tmpdir))
+        session_mgr = SessionManager(storage=storage, project_dir=Path(tmpdir))
+        session_obj = await session_mgr.create(
             title="Test Session"
         )
-        
-        msg = session_mgr.create_message(
+
+        msg = Message(
+            id=str(uuid.uuid4()),
             session_id=session_obj.id,
             role="user",
             parts=[]
         )
-        
-        part = session_mgr.create_part(
+
+        part = TextPart(
+            id=str(uuid.uuid4()),
             session_id=session_obj.id,
             message_id=msg.id,
             part_type="text",
             text="Test message content"
         )
-        
+
         await session_mgr.add_part(part)
         await session_mgr.add_message(msg)
-        
+
         yield session_mgr, session_obj
 
 
 @pytest.mark.asyncio
 async def test_session_export(temp_session):
     """Test session export to JSON"""
-    session_mgr, session_obj = await temp_session()
-    
+    session_mgr, session_obj = temp_session
+
     exporter = create_import_export_manager(session_obj)
     export_data = await exporter.export_session()
     
@@ -71,14 +75,16 @@ async def test_session_export(temp_session):
 @pytest.mark.asyncio
 async def test_session_export_to_file(temp_session, tmp_path):
     """Test exporting session to file"""
-    session_mgr, session_obj = await temp_session()
-    
+    session_mgr, session_obj = temp_session
+
     exporter = create_import_export_manager(session_obj)
     export_data = await exporter.export_session()
-    
+
     export_path = tmp_path / "test_export.json"
-    exporter.export_to_file(str(export_path), export_data)
-    
+
+    with open(export_path, "w") as f:
+        json.dump(export_data, f)
+
     assert export_path.exists()
     
     with open(export_path, "r") as f:

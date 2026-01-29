@@ -8,10 +8,10 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
-from .core.session import Session
-from .core.models import Session as SessionModel, Message as MessageModel, Part as PartModel
+from opencode_python.core.session import Session
+from opencode_python.core.models import Session as SessionModel, Message as MessageModel, Part as PartModel
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class SessionImportExport:
             "session": session_data,
             "messages": messages_data,
             "parts": parts_data,
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "version": "0.1.0"
         }
         

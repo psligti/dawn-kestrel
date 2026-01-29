@@ -48,18 +48,16 @@ class ToolExecutionManager:
             )
         
         logger.info(f"Executing tool: {tool_name} with input: {tool_input.keys()}")
-        
+
         tool_context = ToolContext(
             session_id=self.session_id,
             message_id=message_id,
             agent=agent,
-            model=model,
             call_id=tool_call_id,
             abort=asyncio.Event(),
             messages=[],
-            metadata=self._get_metadata,
         )
-        
+
         state = ToolState(
             status="pending",
             input=tool_input,
@@ -106,7 +104,9 @@ class ToolExecutionManager:
                 "title": result.title,
                 "metadata": result.metadata
             })
-            
+
+            return result
+
         except asyncio.CancelledError:
             logger.warning(f"Tool {tool_name} cancelled by user")
             state.status = "error"
@@ -117,7 +117,13 @@ class ToolExecutionManager:
                 "tool": tool_name,
                 "error": state.error
             })
-            
+
+            return ToolResult(
+                title="Cancelled",
+                output="Cancelled by user",
+                metadata={"error": "cancelled"}
+            )
+
         except Exception as e:
             logger.error(f"Tool {tool_name} failed: {e}")
             state.status = "error"
@@ -128,7 +134,13 @@ class ToolExecutionManager:
                 "tool": tool_name,
                 "error": state.error
             })
-            
+
+            return ToolResult(
+                title="Error",
+                output=str(e),
+                metadata={"error": str(e)}
+            )
+
         finally:
             if tool_call_id in self.active_calls:
                 del self.active_calls[tool_call_id]
@@ -169,18 +181,16 @@ class ToolExecutionManager:
             )
         
         logger.info(f"Processing tool stream: {tool_name}")
-        
+
         tool_context = ToolContext(
             session_id=self.session_id,
             message_id=message_id,
             agent=agent,
-            model=model,
             call_id=tool_call_id,
             abort=asyncio.Event(),
             messages=[],
-            metadata=self._get_metadata,
         )
-        
+
         state = ToolState(
             status="running",
             input=tool_input,

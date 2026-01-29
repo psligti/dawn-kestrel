@@ -43,7 +43,7 @@ class ReviewLoop:
         Returns:
             Review results with findings, status, and next steps
         """
-        from opencode_python.tools.builtin import BashTool, ReadTool, WriteTool, EditTool
+        from opencode_python.tools.builtin import BashTool, ReadTool, WriteTool
         
         # Get changed files
         changed_files = await self._get_changed_files()
@@ -121,24 +121,26 @@ class ReviewLoop:
     async def _check_file(self, file_path: str) -> Dict[str, Any]:
         """
         Check a file for issues
-        
+
         Currently implements placeholder checks.
         In full parity, would integrate with linters like:
         - pylint, flake8, mypy, ruff, black, isort
-        
+
         Returns:
             File findings with issue details
         """
         findings = []
-        
+
+        path = Path(file_path)
+
         # Check for common issues
-        if file_path.suffix == ".py":
+        if path.suffix == ".py":
             # Placeholder: implement actual linting
             pass
-        elif file_path.suffix in [".js", ".ts", ".jsx", ".tsx"]:
+        elif path.suffix in [".js", ".ts", ".jsx", ".tsx"]:
             # Placeholder: implement linter checks
             pass
-        
+
         return {
                 "file": file_path,
                 "findings": findings,

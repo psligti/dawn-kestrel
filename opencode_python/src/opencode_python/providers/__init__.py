@@ -36,6 +36,8 @@ class AnthropicProvider:
                     output=8192
                 ),
                 status="active",
+                options={},
+                headers={},
                 variants={
                     "high": {"thinking": {"type": "enabled", "budget_tokens": 16000}},
                     "max": {"thinking": {"type": "enabled", "budget_tokens": 32000}}
@@ -76,9 +78,9 @@ class AnthropicProvider:
     def calculate_cost(self, usage: TokenUsage, model: ModelInfo) -> Decimal:
         cost = (usage.input * model.cost.input) / Decimal("1000000")
         cost = cost + (usage.output * model.cost.output) / Decimal("1000000")
-        if usage.cache_read:
+        if usage.cache_read and model.cost.cache is not None:
             cost = cost + (usage.cache_read * model.cost.cache.get("read", Decimal("0")))
-        if usage.cache_write:
+        if usage.cache_write and model.cost.cache is not None:
             cost = cost + (usage.cache_write * model.cost.cache.get("write", Decimal("0")))
         return cost
 
@@ -114,7 +116,9 @@ class OpenAIProvider:
                     input=1000000,
                     output=100000
                 ),
-                status="active"
+                status="active",
+                options={},
+                headers={}
             ))
         return models
 
