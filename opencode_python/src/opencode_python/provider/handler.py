@@ -1,8 +1,6 @@
 """OpenCode Python - Streaming Response Handler"""
 from __future__ import annotations
-from typing import AsyncGenerator, Optional, Callable, Dict, Any
-import asyncio
-import json
+from typing import AsyncGenerator, Optional, Callable
 import logging
 
 from . import BaseProvider, UsageInfo

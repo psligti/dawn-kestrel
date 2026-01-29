@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from decimal import Decimal
 
 
@@ -33,9 +33,9 @@ class ModelCapabilities:
     toolcall: bool = False
     input: Optional[Dict[str, bool]] = None
     output: Optional[Dict[str, bool]] = None
-    interleaved: Optional[dict] = None
+    interleaved: Optional[Dict[str, Any]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.input is None:
             self.input = {"text": True}
         if self.output is None:
@@ -48,7 +48,7 @@ class ModelCost:
     output: Decimal
     cache: Optional[Dict[str, Decimal]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.cache is None:
             self.cache = {"read": Decimal("0"), "write": Decimal("0")}
 
@@ -59,7 +59,7 @@ class ModelLimits:
     input: Optional[int] = None
     output: Optional[int] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.input is None:
             self.input = self.context - self.output if self.output else self.context
 

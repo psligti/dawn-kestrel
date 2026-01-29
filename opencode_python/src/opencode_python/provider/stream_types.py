@@ -1,8 +1,6 @@
 """OpenCode Python - Stream Types and Events"""
 from pydantic import BaseModel, Field
 from typing import Literal, Dict, Any, Optional
-from pydantic import BaseModel
-from typing import Literal, Dict, Any, Optional, Union
 import uuid
 import logging
 

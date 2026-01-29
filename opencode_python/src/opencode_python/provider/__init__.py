@@ -142,7 +142,43 @@ class AnthropicProvider(BaseProvider):
 class OpenAIProvider(BaseProvider):
     """OpenAI API provider implementation"""
 
+    def modify_url(self, provider_api: str, is_stream: bool = False) -> str:
+        """OpenAI uses the same endpoint for both streaming and non-streaming"""
+        return f"{provider_api}/chat/completions"
+
+    def modify_headers(
+        self,
+        headers: Dict[str, str],
+        body: Dict[str, Any],
+        api_key: str
+    ) -> Dict[str, str]:
+        """Add OpenAI-specific headers"""
+        headers["Authorization"] = f"Bearer {api_key}"
+        return headers
+
     def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Transform request body to OpenAI format"""
         body = body.copy()
         return body
+
+    def get_stream_separator(self) -> str:
+        """OpenAI uses newline as SSE chunk separator"""
+        return "\n"
+
+    def parse_usage(self, chunk: str) -> Optional[UsageInfo]:
+        """Parse OpenAI usage from SSE chunk"""
+        try:
+            if chunk.startswith("data: "):
+                json_data = json.loads(chunk[6:])
+                usage = json_data.get("usage")
+                if usage:
+                    return UsageInfo(
+                        input_tokens=usage.get("prompt_tokens", 0),
+                        output_tokens=usage.get("completion_tokens", 0),
+                        reasoning_tokens=usage.get("completion_tokens_details", {}).get("reasoning_tokens"),
+                        cache_read_tokens=usage.get("prompt_tokens_details", {}).get("cached_tokens"),
+                    )
+        except json.JSONDecodeError:
+            pass
+
+        return None

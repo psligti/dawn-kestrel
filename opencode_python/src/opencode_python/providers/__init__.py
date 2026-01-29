@@ -1,14 +1,39 @@
 from .base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID, StreamEvent, TokenUsage
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Optional, List, Dict, Any, Union
 from decimal import Decimal
+import httpx
+import json
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
+__all__ = [
+    # Base types
+    "ModelInfo",
+    "ModelCapabilities",
+    "ModelCost",
+    "ModelLimits",
+    "ProviderID",
+    "StreamEvent",
+    "TokenUsage",
+    # Provider classes
+    "AnthropicProvider",
+    "OpenAIProvider",
+    # Provider functions
+    "get_provider",
+    "get_available_models",
+]
+
 
 
 class AnthropicProvider:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.base_url = "https://api.anthropic.com"
 
-    async def get_models(self) -> list[ModelInfo]:
+    async def get_models(self) -> List[ModelInfo]:
         models = []
         if self.api_key:
             models.append(ModelInfo(
@@ -45,29 +70,113 @@ class AnthropicProvider:
             ))
         return models
 
-    async def stream(self, model: ModelInfo, messages: list, tools: dict, options: Optional[dict]) -> AsyncIterator[StreamEvent]:
-        yield StreamEvent(
-            event_type="start",
-            data={"model": model.id},
-            timestamp=0
-        )
-        yield StreamEvent(
-            event_type="text-delta",
-            data={"delta": "Hello, this is a test stream from Anthropic."},
-            timestamp=1
-        )
-        yield StreamEvent(
-            event_type="text-end",
-            data={},
-            timestamp=2
-        )
-        yield StreamEvent(
-            event_type="finish",
-            data={"finish_reason": "stop"},
-            timestamp=3
-        )
+    async def stream(
+        self,
+        model: ModelInfo,
+        messages: List[Dict[str, Any]],
+        tools: Dict[str, Any],
+        options: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[StreamEvent]:
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        }
 
-    def count_tokens(self, response: dict) -> TokenUsage:
+        if options:
+            beta_headers = options.get("beta_headers", [])
+            if beta_headers:
+                headers["anthropic-beta"] = ",".join(beta_headers)
+
+        url = f"{self.base_url}/messages"
+
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            payload = {
+                "model": model.api_id,
+                "max_tokens": 8192,
+                "messages": messages,
+                "stream": True
+            }
+
+            if tools:
+                payload["tools"] = tools
+
+            if options:
+                if "temperature" in options:
+                    payload["temperature"] = options["temperature"]
+                if "top_p" in options:
+                    payload["top_p"] = options["top_p"]
+
+            yield StreamEvent(
+                event_type="start",
+                data={"model": model.id},
+                timestamp=0
+            )
+
+            async with client.stream("POST", url=url, json=payload, headers=headers) as response:
+                response.raise_for_status()
+
+                async for line in response.aiter_lines():
+                    if not line.strip():
+                        continue
+
+                    if line.startswith("data: "):
+                        data_str = line[6:]
+
+                        if data_str == "[DONE]":
+                            continue
+
+                        try:
+                            chunk = json.loads(data_str)
+                            event_type = chunk.get("type")
+
+                            if event_type == "message_start":
+                                yield StreamEvent(
+                                    event_type="start",
+                                    data={},
+                                    timestamp=0
+                                )
+
+                            elif event_type == "content_block_start":
+                                block_type = chunk.get("content_block", {}).get("type")
+
+                            elif event_type == "content_block_delta":
+                                delta = chunk.get("delta", {})
+                                if delta.get("type") == "text_delta":
+                                    text = delta.get("text", "")
+                                    if text:
+                                        yield StreamEvent(
+                                            event_type="text-delta",
+                                            data={"delta": text},
+                                            timestamp=0
+                                        )
+
+                            elif event_type == "content_block_stop":
+                                pass
+
+                            elif event_type == "message_delta":
+                                delta = chunk.get("delta", {})
+                                stop_reason = delta.get("stop_reason")
+                                if stop_reason:
+                                    yield StreamEvent(
+                                        event_type="finish",
+                                        data={"finish_reason": stop_reason},
+                                        timestamp=0
+                                    )
+                                    break
+
+                            elif event_type == "message_stop":
+                                yield StreamEvent(
+                                    event_type="finish",
+                                    data={"finish_reason": "stop"},
+                                    timestamp=0
+                                )
+                                break
+
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Failed to parse Anthropic chunk: {e}")
+
+    def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
         return TokenUsage(
             input=response.get("input_tokens", 0),
             output=response.get("output_tokens", 0),
@@ -86,11 +195,11 @@ class AnthropicProvider:
 
 
 class OpenAIProvider:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self.base_url = "https://api.openai.com/v1"
 
-    async def get_models(self) -> list[ModelInfo]:
+    async def get_models(self) -> List[ModelInfo]:
         models = []
         if self.api_key:
             models.append(ModelInfo(
@@ -122,7 +231,13 @@ class OpenAIProvider:
             ))
         return models
 
-    async def stream(self, model: ModelInfo, messages: list, tools: dict, options: Optional[dict]) -> AsyncIterator[StreamEvent]:
+    async def stream(
+        self,
+        model: ModelInfo,
+        messages: List[Dict[str, Any]],
+        tools: Dict[str, Any],
+        options: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[StreamEvent]:
         yield StreamEvent(
             event_type="start",
             data={"model": model.id},
@@ -144,7 +259,7 @@ class OpenAIProvider:
             timestamp=3
         )
 
-    def count_tokens(self, response: dict) -> TokenUsage:
+    def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
         return TokenUsage(
             input=response.get("prompt_tokens", 0),
             output=response.get("completion_tokens", 0),
@@ -157,7 +272,7 @@ class OpenAIProvider:
         return cost
 
 
-def get_provider(provider_id: ProviderID, api_key: str):
+def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, None]:
     providers = {
         ProviderID.ANTHROPIC: AnthropicProvider(api_key),
         ProviderID.OPENAI: OpenAIProvider(api_key)
@@ -165,7 +280,7 @@ def get_provider(provider_id: ProviderID, api_key: str):
     return providers.get(provider_id)
 
 
-async def get_available_models(provider_id: ProviderID, api_key: str):
+async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
     provider = get_provider(provider_id, api_key)
     if provider:
         return await provider.get_models()

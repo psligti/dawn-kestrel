@@ -4,7 +4,6 @@ OpenAI Provider implementation.
 Streaming support, token counting, and cost calculation.
 """
 
-import asyncio
 import httpx
 import json
 import logging
