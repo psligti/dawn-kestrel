@@ -1,12 +1,10 @@
 """OpenCode Python - LSP utilities and configuration"""
 
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional
 from pathlib import Path
-import subprocess
 import logging
 
-from opencode_python.lsp.client import LSPClient
 
 
 logger = logging.getLogger(__name__)

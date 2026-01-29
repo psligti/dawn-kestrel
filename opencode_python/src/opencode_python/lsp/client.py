@@ -6,7 +6,6 @@ import json
 import logging
 from dataclasses import dataclass
 
-from opencode_python.core.event_bus import bus, Events
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,6 @@ class LSPClient:
 
     def _request_counter(self) -> str:
         """Generate unique request ID"""
-        import uuid
         self._request_id_counter += 1
         return f"{self.session_id}_{self._request_id_counter}"
 
@@ -111,6 +109,7 @@ class LSPClient:
                     location=result_data.get("location", {}),
                     documentation=result_data.get("detail", None)
                 )
+            return None
         except Exception as e:
             logger.error(f"Document symbol failed: {e}")
             return None
@@ -173,6 +172,7 @@ class LSPClient:
                     text=result_data["contents"],
                     documentation=result_data.get("detail", None)
                 )
+            return None
         except Exception as e:
             logger.error(f"Hover failed: {e}")
             return None
