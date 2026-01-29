@@ -6,7 +6,6 @@ opencode/
 
 # Ignore runtime dirs
 .opencode/
-.sisyphus/
 .wt/state/
 .wt/logs/
 .wt/cache/
