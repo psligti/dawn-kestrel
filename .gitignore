@@ -10,3 +10,4 @@ opencode/
 .wt/logs/
 .wt/cache/
 .worktrees/
+.sisyphus/
