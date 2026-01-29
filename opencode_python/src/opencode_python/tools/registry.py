@@ -5,7 +5,7 @@ Includes all 22 tools (5 builtin + 17 additional).
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict
 
 from .builtin import (
     BashTool,
@@ -37,7 +37,7 @@ from .framework import ToolRegistry, Tool, ToolContext, ToolResult
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Type
+    pass
 
 
 logger = logging.getLogger(__name__)

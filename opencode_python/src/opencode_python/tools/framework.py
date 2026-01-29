@@ -13,7 +13,7 @@ class ToolRegistry:
     Supports tool registration, filtering, auto-discovery, and metadata management.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tools: Dict[str, "Tool"] = {}
         self.tool_metadata: Dict[str, Dict[str, Any]] = {}
 
@@ -88,7 +88,7 @@ class ToolContext:
     message_id: str
     agent: str
     abort: asyncio.Event
-    messages: List[dict]
+    messages: List[Dict[str, Any]]
     call_id: Optional[str] = None
     time_created: Optional[float] = None
     time_finished: Optional[float] = None
