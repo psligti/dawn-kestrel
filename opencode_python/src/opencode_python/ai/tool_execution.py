@@ -7,13 +7,10 @@ manages permissions, and updates tool state.
 
 import asyncio
 import logging
-from typing import Optional, Dict, Any, List
-from decimal import Decimal
+from typing import Dict, Any, List
 
 from opencode_python.core.event_bus import bus, Events
-from opencode_python.core.settings import settings
-from opencode_python.tools.framework import Tool, ToolContext, ToolResult, ToolRegistry
-from opencode_python.providers.base import StreamEvent, TokenUsage
+from opencode_python.tools.framework import ToolContext, ToolResult, ToolRegistry
 from opencode_python.core.models import ToolState, ToolPart
 
 

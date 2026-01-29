@@ -6,7 +6,7 @@ creates messages/parts, executes tools, manages tokens and costs.
 """
 
 import logging
-from typing import AsyncIterator, Optional, Dict, Any, List, Literal, Union
+from typing import AsyncIterator, Optional, Dict, Any, List
 from decimal import Decimal
 
 from .core.models import Session, Message, Part, TextPart, ToolPart, AgentPart, ToolState
@@ -20,7 +20,6 @@ from .providers import (
     StreamEvent
 )
 from .ai.tool_execution import ToolExecutionManager
-from .tools.framework import ToolResult
 
 
 logger = logging.getLogger(__name__)
@@ -62,13 +61,25 @@ class AISession:
             self.model_info = await self._get_model_info(self.model)
         return self.model_info
 
-    async def process_stream(self, events: AsyncIterator[StreamEvent]) -> List[Part]:
+    async def process_stream(self, events: AsyncIterator[StreamEvent]) -> tuple[List[Part], TokenUsage]:
         """Process stream events and create message parts"""
         parts: List[Part] = []
         tool_input: Optional[Dict[str, Any]] = None
         total_cost = Decimal("0")
+        usage = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
 
         async for event in events:
+            if event.event_type == "finish":
+                usage_data = event.data.get("usage", {})
+                if usage_data:
+                    usage = TokenUsage(
+                        input=usage_data.get("prompt_tokens", 0),
+                        output=usage_data.get("completion_tokens", 0),
+                        reasoning=usage_data.get("reasoning_tokens", 0),
+                        cache_read=usage_data.get("cache_read_tokens", 0),
+                        cache_write=usage_data.get("cache_write_tokens", 0)
+                    )
+
             if event.event_type == "text-delta":
                 if parts and isinstance(parts[-1], TextPart):
                     parts[-1] = TextPart(
@@ -130,7 +141,7 @@ class AISession:
                     )
                     parts.append(agent_part)
 
-        return parts
+        return parts, usage
 
     async def create_assistant_message(
         self,
@@ -213,7 +224,7 @@ class AISession:
         # Call provider stream
         if self.provider:
             model_info = await self._ensure_model_info()
-            stream = await self.provider.stream(
+            stream = self.provider.stream(
                 model_info,
                 llm_messages,
                 tools,
@@ -221,14 +232,11 @@ class AISession:
             )
 
             # Process stream and create parts
-            parts = await self.process_stream(stream)
+            parts, tokens = await self.process_stream(stream)
         else:
             parts = []
 
-        # Count tokens
-        # TODO: Implement actual token counting
-        tokens = TokenUsage(input=0, output=0, reasoning=0)
-
+        
         # Calculate cost
         if self.provider:
             model_info = await self._ensure_model_info()
@@ -274,5 +282,17 @@ class AISession:
 
     def _get_tool_definitions(self) -> Dict[str, Any]:
         """Get tool definitions for LLM"""
-        # TODO: Get actual tool definitions from registry
-        return {}
+        tools = self.tool_manager.tool_registry.tools
+        tool_definitions = {}
+
+        for tool_id, tool in tools.items():
+            tool_definitions[tool_id] = {
+                "type": "function",
+                "function": {
+                    "name": tool.id,
+                    "description": tool.description,
+                    "parameters": tool.parameters()
+                }
+            }
+
+        return tool_definitions
