@@ -1,0 +1,20 @@
+{
+  "id": "28e3d46d-ff21-4aa9-ba92-0acf5775f4fd",
+  "slug": "test-session",
+  "project_id": "opencode_python",
+  "directory": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/python-sdk/opencode_python",
+  "parent_id": null,
+  "title": "Test Session",
+  "version": "1.0",
+  "summary": null,
+  "share": null,
+  "permission": null,
+  "revert": null,
+  "time_created": 1769797274.103529,
+  "time_updated": 1769797274.103535,
+  "time_compacting": null,
+  "time_archived": null,
+  "message_counter": 0,
+  "message_count": 0,
+  "total_cost": 0.0
+}

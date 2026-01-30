@@ -1,0 +1,20 @@
+{
+  "id": "test-session-empty-metadata",
+  "slug": "test-session",
+  "project_id": "",
+  "directory": "",
+  "parent_id": null,
+  "title": "",
+  "version": "1.0",
+  "summary": null,
+  "share": null,
+  "permission": null,
+  "revert": null,
+  "time_created": 1769801482.897045,
+  "time_updated": 1769801482.89705,
+  "time_compacting": null,
+  "time_archived": null,
+  "message_counter": 0,
+  "message_count": 0,
+  "total_cost": 0.0
+}
