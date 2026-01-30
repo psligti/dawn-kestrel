@@ -182,7 +182,7 @@ Wave 3 (After Wave 2):
 Wave 4 (After Wave 3):
 ├── Task 8: Enhance Header (breadcrumbs, model display)
 ├── Task 9: Enhance Footer (keyboard hints, status)
-└── Task 10: Define 3 Essential Themes
+└── [x] 10. Define 3 Essential Themes
 ```
 
 ### Dependency Matrix
@@ -1050,7 +1050,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 9. Enhance Footer (keyboard hints, status)
+ - [x] 9. Enhance Footer (keyboard hints, status)
 
   **What to do**:
   - [ ] Create `opencode_python/src/opencode_python/tui/widgets/footer.py`
@@ -1143,7 +1143,7 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 10. Define 3 Essential Themes
+ - [x] 10. Define 3 Essential Themes
 
   **What to do**:
   - [ ] Create `opencode_python/src/opencode_python/tui/themes/` directory

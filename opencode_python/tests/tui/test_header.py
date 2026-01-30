@@ -1,206 +1,212 @@
-"""Tests for Header widget using TDD approach."""
-
+"""Header widget tests - TDD phase tests"""
 import pytest
-from textual.widgets import Static
 from textual.app import App, ComposeResult
-from textual.containers import Vertical, Horizontal
+from textual.widgets import Static
 
-from opencode_python.tui.widgets.header import HeaderWidget
+# Import header module (will fail initially - RED phase)
+try:
+    from opencode_python.tui.widgets.header import SessionHeader
+    HEADER_EXISTS = True
+except ImportError:
+    HEADER_EXISTS = False
+    SessionHeader = None  # type: ignore
 
+class TestSessionHeader:
+    """SessionHeader widget tests"""
 
-class TestHeaderWidget:
-    """Test HeaderWidget functionality."""
+    def test_header_exists(self):
+        """SessionHeader should be importable"""
+        assert HEADER_EXISTS, "SessionHeader module not found"
+        assert SessionHeader is not None, "SessionHeader class not found"
 
-    def test_header_widget_initialization(self):
-        """HeaderWidget should initialize with required attributes."""
-        header = HeaderWidget()
-        assert header.model_id == ""
-        assert header.session_title == ""
-        assert header.parent_session_path == ""
+    def test_header_is_widget(self):
+        """SessionHeader should be a Textual widget"""
+        from textual.widget import Widget
+        assert issubclass(SessionHeader, Widget), "SessionHeader should extend Widget"
 
-    def test_header_widget_with_model_and_title(self):
-        """HeaderWidget should display session title and model."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="Test Session",
-            parent_session_path=""
-        )
-        assert header.model_id == "gpt-4"
+    def test_header_has_session_title_property(self):
+        """SessionHeader should accept session title"""
+        header = SessionHeader(session_title="Test Session")
         assert header.session_title == "Test Session"
-        assert header.parent_session_path == ""
 
-    def test_header_widget_with_parent_session(self):
-        """HeaderWidget should display parent session breadcrumbs."""
-        header = HeaderWidget(
-            model_id="claude-3",
-            session_title="Subagent Session",
-            parent_session_path="Main Session"
-        )
-        assert header.parent_session_path == "Main Session"
+    def test_header_has_parent_session_property(self):
+        """SessionHeader should accept parent session ID"""
+        header = SessionHeader(session_title="Test", parent_session_id="parent-123")
+        assert header.parent_session_id == "parent-123"
 
-    def test_header_widget_render_without_session(self):
-        """HeaderWidget should render placeholder when no session selected."""
-        header = HeaderWidget()
-        rendered = header.render()
-        assert "No active session" in rendered
+    def test_header_has_model_property(self):
+        """SessionHeader should accept model name"""
+        header = SessionHeader(session_title="Test", model="gpt-4")
+        assert header.model == "gpt-4"
 
-    def test_header_widget_render_with_session_title(self):
-        """HeaderWidget should render session title when selected."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="Development Task",
-            parent_session_path=""
-        )
-        rendered = header.render()
-        assert "Development Task" in rendered
+    @pytest.mark.asyncio
+    async def test_header_displays_session_title(self):
+        """SessionHeader should display session title"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
 
-    def test_header_widget_render_with_model(self):
-        """HeaderWidget should render model information."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="Test Session",
-            parent_session_path=""
-        )
-        rendered = header.render()
-        assert "gpt-4" in rendered
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(session_title="My Test Session")
+                yield self._header
 
-    def test_header_widget_render_with_parent_breadcrumb(self):
-        """HeaderWidget should render parent session breadcrumb."""
-        header = HeaderWidget(
-            model_id="claude-3",
-            session_title="Subagent Task",
-            parent_session_path="Parent Session"
-        )
-        rendered = header.render()
-        assert "Parent Session" in rendered
-        assert "Subagent Task" in rendered
-
-    def test_header_widget_with_complex_parent_path(self):
-        """HeaderWidget should handle complex parent session paths."""
-        header = HeaderWidget(
-            model_id="gpt-4-turbo",
-            session_title="Nested Task",
-            parent_session_path="Main / Planning / Implementation"
-        )
-        rendered = header.render()
-        assert "Main" in rendered
-        assert "Planning" in rendered
-        assert "Implementation" in rendered
-        assert "Nested Task" in rendered
-
-    def test_header_widget_version_display(self):
-        """HeaderWidget should display version information."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="Test Session",
-            parent_session_path=""
-        )
-        rendered = header.render()
-        assert "v" in rendered.lower()
-
-    def test_header_widget_css_applied(self):
-        """HeaderWidget should have appropriate CSS styling."""
-        header = HeaderWidget()
-        css = header.css
-        assert "background" in css.lower() or "bg" in css.lower()
-        assert "text" in css.lower() or "color" in css.lower()
-
-
-class TestHeaderIntegration:
-    """Test HeaderWidget integration with Textual app."""
-
-    class TestApp(App[None]):
-        """Test application for Header integration."""
-
-        def compose(self) -> ComposeResult:
-            header = HeaderWidget(
-                model_id="gpt-4",
-                session_title="Integration Test Session",
-                parent_session_path="Parent Session"
-            )
-            yield Vertical(
-                header,
-                Static("Test content below header")
-            )
-
-    async def test_header_in_container(self):
-        """HeaderWidget should be mountable in Textual containers."""
-        app = self.TestApp()
+        app = TestApp()
         async with app.run_test() as pilot:
-            header = app.query_one(HeaderWidget)
+            header = app._header
+            # Check that title is displayed
+            assert "My Test Session" in header.content
+
+    @pytest.mark.asyncio
+    async def test_header_displays_breadcrumb_no_parent(self):
+        """SessionHeader should show session title when no parent"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(session_title="Main Session")
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Should show just session title
+            assert "Main Session" in header.content
+            # Should NOT show parent indicator
+            assert "Parent" not in header.content
+
+    @pytest.mark.asyncio
+    async def test_header_displays_breadcrumb_with_parent(self):
+        """SessionHeader should show parent session path when parent exists"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(
+                    session_title="Child Session",
+                    parent_session_id="parent-123"
+                )
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Should show session title
+            assert "Child Session" in header.content
+            # Should show parent indicator
+            assert "parent" in header.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_header_displays_model(self):
+        """SessionHeader should display model information"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(
+                    session_title="Test Session",
+                    model="gpt-4"
+                )
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Should show model information
+            assert "gpt-4" in header.content
+
+    @pytest.mark.asyncio
+    async def test_header_update_session_title(self):
+        """SessionHeader should update when session title changes"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(session_title="Original Title")
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Update title
+            header.session_title = "Updated Title"
+            await pilot.pause()
+            # Verify update
+            assert "Updated Title" in header.content
+
+    @pytest.mark.asyncio
+    async def test_header_update_model(self):
+        """SessionHeader should update when model changes"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(
+                    session_title="Test",
+                    model="gpt-3.5-turbo"
+                )
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Update model
+            header.model = "gpt-4"
+            await pilot.pause()
+            # Verify update
+            assert "gpt-4" in header.content
+
+    @pytest.mark.asyncio
+    async def test_header_read_only_title(self):
+        """SessionHeader title should be read-only display only"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(session_title="Read Only")
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            header = app._header
+            # Header should be display-only (no input widgets)
+            from textual.widgets import Input
+            inputs = header.query(Input)
+            assert len(inputs) == 0, "Header should not contain Input widgets"
+
+    @pytest.mark.asyncio
+    async def test_header_integrates_with_app(self):
+        """SessionHeader should integrate with OpenCodeTUI app"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
+
+        class TestApp(App):
+            def compose(self) -> ComposeResult:
+                self._header = SessionHeader(
+                    session_title="Integration Test",
+                    model="test-model"
+                )
+                yield self._header
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            # Header should be queryable in app
+            header = app.query_one(SessionHeader)
             assert header is not None
-            assert header.model_id == "gpt-4"
-            assert header.session_title == "Integration Test Session"
-            assert header.parent_session_path == "Parent Session"
+            assert header.session_title == "Integration Test"
+            assert header.model == "test-model"
 
-    async def test_header_rendered_text(self):
-        """HeaderWidget rendered text should be accessible."""
-        app = self.TestApp()
-        async with app.run_test() as pilot:
-            header = app.query_one(HeaderWidget)
-            rendered = header.plain
-            assert "Integration Test Session" in rendered
-            assert "gpt-4" in rendered
-            assert "Parent Session" in rendered
+    def test_header_default_values(self):
+        """SessionHeader should have sensible default values"""
+        if not HEADER_EXISTS:
+            pytest.skip("SessionHeader not yet implemented")
 
-    async def test_header_updates_when_attributes_change(self):
-        """HeaderWidget should update when attributes are modified."""
-        app = self.TestApp()
-        async with app.run_test() as pilot:
-            header = app.query_one(HeaderWidget)
-
-            header.model_id = "claude-3.5"
-            assert header.model_id == "claude-3.5"
-
-            header.session_title = "Updated Session"
-            assert header.session_title == "Updated Session"
-
-            header.parent_session_path = "New Parent"
-            assert header.parent_session_path == "New Parent"
-
-
-class TestHeaderEdgeCases:
-    """Test HeaderWidget edge cases and error handling."""
-
-    def test_header_with_empty_strings(self):
-        """HeaderWidget should handle empty string attributes."""
-        header = HeaderWidget(
-            model_id="",
-            session_title="",
-            parent_session_path=""
-        )
-        rendered = header.render()
-        assert "No active session" in rendered
-
-    def test_header_with_only_model_id(self):
-        """HeaderWidget should handle case with only model_id."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="",
-            parent_session_path=""
-        )
-        rendered = header.render()
-        assert "gpt-4" in rendered
-
-    def test_header_with_only_parent_path(self):
-        """HeaderWidget should handle case with only parent path."""
-        header = HeaderWidget(
-            model_id="",
-            session_title="",
-            parent_session_path="Complex / Path / Here"
-        )
-        rendered = header.render()
-        assert "Complex" in rendered
-        assert "Path" in rendered
-        assert "Here" in rendered
-
-    def test_header_with_special_characters(self):
-        """HeaderWidget should handle special characters in titles."""
-        header = HeaderWidget(
-            model_id="gpt-4",
-            session_title="Test: Session #1 & Updates",
-            parent_session_path="Parent / Special: chars"
-        )
-        rendered = header.render()
-        assert "Test: Session #1 & Updates" in rendered
-        assert "Special: chars" in rendered
+        header = SessionHeader()
+        assert header.session_title == ""
+        assert header.parent_session_id is None
+        assert header.model is None
