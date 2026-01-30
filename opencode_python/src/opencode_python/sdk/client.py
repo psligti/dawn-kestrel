@@ -11,17 +11,16 @@ from pathlib import Path
 import asyncio
 
 from opencode_python.core.config import SDKConfig
-from opencode_python.core.services.session_service import SessionService, DefaultSessionService
+from opencode_python.core.services.session_service import DefaultSessionService
 from opencode_python.storage.store import SessionStorage
 from opencode_python.core.models import Session
-from opencode_python.interfaces.io import Notification, NotificationType
+from opencode_python.interfaces.io import Notification
 from opencode_python.core.exceptions import OpenCodeError, SessionError
 from opencode_python.core.settings import get_storage_dir
-from opencode_python.agents.runtime import AgentRuntime, create_agent_runtime
+from opencode_python.agents.runtime import create_agent_runtime
 from opencode_python.core.agent_types import AgentResult
 from opencode_python.agents.registry import create_agent_registry
 from opencode_python.tools import create_builtin_registry
-from opencode_python.tools.framework import ToolRegistry
 
 
 class OpenCodeAsyncClient:
