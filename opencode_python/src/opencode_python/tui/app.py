@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class OpenCodeTUI(App[None]):
     """OpenCode Textual TUI application"""
 
-    CSS_PATH = "tui/opencode.scss"
+    CSS_PATH = "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/tui/opencode_python/src/opencode_python/tui/opencode.css"
 
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit"),

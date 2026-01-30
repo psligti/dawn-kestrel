@@ -1,0 +1,713 @@
+/* ========================================
+   OpenCode TUI - Main CSS Stylesheet
+ * Based on modern TUI design principles
+ * ======================================== */
+
+* {
+  scrollbar-color: #56b6c2 10%;
+  scrollbar-color-hover: #56b6c2 80%;
+  scrollbar-color-active: #56b6c2;
+  scrollbar-background: #1e1e1e;
+  scrollbar-background-hover: #141414;
+  scrollbar-background-active: #141414;
+  scrollbar-size-vertical: 1ch;
+}
+
+*:focus {
+  scrollbar-color: #56b6c2 50%;
+}
+
+/* ========================================
+   Root and Base Styles
+   ======================================== */
+
+Screen {
+  background: #0a0a0a;
+}
+
+/* ========================================
+   Modal Screens
+   ======================================== */
+
+ModalScreen {
+  background: black 40%;
+  align: center middle;
+}
+
+ModalScreen > Vertical {
+  background: #141414;
+  border: thick #9d7cd8 60%;
+  border-title-color: #2968c3;
+  border-title-style: bold;
+  border-subtitle-color: #a0a0a0;
+  border-subtitle-style: none;
+  padding: 1 2;
+  min-width: 60;
+  max-width: 100;
+}
+
+.modal-body {
+  background: #0a0a0a;
+  padding: 1 2;
+  width: 100%;
+  max-width: 80;
+}
+
+/* ========================================
+   Header & Footer
+   ======================================== */
+
+AppHeader {
+  color: #f5f5f5;
+  padding: 0 1;
+  height: 3;
+  border-bottom: solid #56b6c2 20%;
+  background: #141414;
+}
+
+AppHeader > #app-user-host {
+  dock: right;
+  color: #a0a0a0;
+}
+
+SessionHeader {
+  padding: 0 1;
+  height: auto;
+  background: #141414;
+  border-bottom: solid #9d7cd8 30%;
+}
+
+SessionFooter {
+  padding-left: 1;
+  background: #141414;
+  border-top: solid #56b6c2 20%;
+}
+
+Footer {
+  padding: 0 1;
+  background: #141414;
+  border-top: solid #56b6c2 20%;
+}
+
+/* ========================================
+   Drawer Widget
+   ======================================== */
+
+DrawerWidget {
+  dock: right;
+  width: 40%;
+  max-width: 60;
+  min-width: 30;
+  background: #141414;
+  border-left: solid #9d7cd8 40%;
+}
+
+DrawerWidget TabButton {
+  padding: 0 1;
+  margin: 0 0 1 0;
+  border: none;
+  background: transparent;
+  text-align: center;
+  width: 100%;
+}
+
+DrawerWidget TabButton:hover {
+  background: #1e1e1e;
+}
+
+DrawerWidget TabButton.-active {
+  background: #3c3c3c;
+  text-style: bold;
+}
+
+DrawerWidget TodoList,
+DrawerWidget SubagentList,
+DrawerWidget NavigatorList {
+  height: 1fr;
+  padding: 0;
+}
+
+DrawerWidget .todo-item,
+DrawerWidget .subagent-item,
+DrawerWidget .nav-item {
+  padding: 0 1;
+  border-bottom: solid #56b6c2 15%;
+  color: #f5f5f5;
+}
+
+DrawerWidget .todo-item:hover,
+DrawerWidget .subagent-item:hover,
+DrawerWidget .nav-item:hover {
+  background: #1e1e1e;
+}
+
+DrawerWidget .todo-completed {
+  text-style: dim;
+  color: #7fd88f;
+}
+
+DrawerWidget .status-running {
+  color: #7fd88f;
+}
+
+DrawerWidget .status-blocked {
+  color: #e06c75;
+}
+
+/* ========================================
+   DataTable Styles
+   ======================================== */
+
+DataTable {
+  height: auto;
+  width: 1fr;
+  padding: 0;
+  background: #141414;
+}
+
+DataTable.--header {
+  color: #2968c3;
+  background: #3c3c3c;
+  text-style: bold;
+}
+
+DataTable.--cursor {
+  background: #56b6c2;
+  color: #ffffff;
+}
+
+DataTable:focus {
+  outline: solid #9d7cd8;
+  padding: 0;
+}
+
+DataTable.--cell {
+  padding: 0 1;
+  border-bottom: solid #56b6c2 15%;
+}
+
+/* ========================================
+   Input & TextArea Styles
+   ======================================== */
+
+Input {
+  border: solid #56b6c2 40%;
+  width: 1fr;
+  padding: 0 1;
+  height: 1;
+  margin: 0;
+  background: #1e1e1e;
+}
+
+Input.-invalid {
+  border-left: thick #e06c75;
+}
+
+Input:focus {
+  border: solid #9d7cd8;
+  padding: 0 1;
+}
+
+TextArea {
+  border: solid #56b6c2 40%;
+  padding: 0 1;
+  background: #1e1e1e;
+}
+
+TextArea:focus {
+  border: solid #9d7cd8;
+  padding: 0 1;
+}
+
+TextArea.empty .text-area--cursor-line {
+  background: transparent;
+}
+
+TextArea.empty .text-area--cursor-gutter {
+  background: transparent;
+}
+
+/* ========================================
+   Button Styles
+   ======================================== */
+
+Button {
+  padding: 0 2;
+  height: 1;
+  border: solid #56b6c2 40%;
+  background: #141414;
+  color: #f5f5f5;
+  min-width: 10;
+}
+
+Button:disabled {
+  opacity: 40%;
+}
+
+Button:hover {
+  background: #1e1e1e;
+  border-color: #9d7cd8 60%;
+}
+
+Button.-primary {
+  background: #56b6c2;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+Button.-primary:hover {
+  background: #484848;
+}
+
+Button.-success {
+  background: #7fd88f;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+Button.-danger {
+  background: #e06c75;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* ========================================
+   Tabs Styles
+   ======================================== */
+
+Tabs {
+  height: 1;
+  border-bottom: solid #56b6c2 40%;
+}
+
+TabPane {
+  padding: 0;
+  background: #0a0a0a;
+}
+
+/* ========================================
+   Command Palette Styles
+   ======================================== */
+
+CommandPalette {
+  background: black 50%;
+  align: center middle;
+  max-width: 70;
+}
+
+CommandPalette > Vertical {
+  margin-top: 1;
+  width: 100%;
+  max-height: 70vh;
+  background: #141414;
+  border: solid #9d7cd8 80%;
+}
+
+CommandPalette CommandInput {
+  height: 3;
+  border: none;
+  padding: 0 1;
+  width: 100%;
+  background: #1e1e1e;
+}
+
+CommandPalette CommandList {
+  width: 100%;
+  border: none;
+  max-height: 60vh;
+  padding: 0;
+  background: #141414;
+}
+
+CommandPalette CommandList > .option-list--option {
+  padding: 0 1;
+  border-bottom: solid #56b6c2 10%;
+}
+
+CommandPalette CommandList > .option-list--option:hover {
+  background: #3c3c3c;
+  color: #2968c3;
+}
+
+/* ========================================
+   Section Containers
+   ======================================== */
+
+.section {
+  border: solid #9d7cd8 40%;
+  border-subtitle-color: #2968c3 60%;
+  border-subtitle-align: left;
+  padding: 1;
+  margin: 1 0;
+  background: #141414;
+}
+
+.section:focus-within {
+  border-color: #9d7cd8;
+  border-subtitle-color: #2968c3;
+}
+
+.home-header {
+  padding: 1 2;
+  background: #3c3c3c;
+  border-bottom: solid #9d7cd8 60%;
+  color: #2968c3;
+  text-style: bold;
+}
+
+/* ========================================
+   Home Screen Styles
+   ======================================== */
+
+HomeScreen #provider-info {
+  padding: 1 2;
+  background: #3c3c3c;
+  border-bottom: solid #9d7cd8 60%;
+}
+
+HomeScreen #recent-sessions,
+HomeScreen #quick-actions {
+  padding: 1;
+  margin: 1 0;
+  background: #141414;
+  border: solid #56b6c2 20%;
+}
+
+HomeScreen DataTable.--header {
+  color: #2968c3;
+  background: #3c3c3c;
+  text-style: bold;
+}
+
+HomeScreen DataTable.--cursor {
+  background: #56b6c2;
+  color: #ffffff;
+}
+
+/* ========================================
+   Session List Styles
+   ======================================== */
+
+SessionListScreen {
+  background: #0a0a0a;
+}
+
+SessionListScreen DataTable {
+  height: 1fr;
+  max-height: 1fr;
+}
+
+/* ========================================
+   Settings Screen Styles
+   ======================================== */
+
+SettingsScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+SettingsScreen .settings-section {
+  border: solid #9d7cd8 40%;
+  padding: 1;
+  margin: 1 0;
+  background: #141414;
+}
+
+SettingsScreen .settings-section:focus-within {
+  border-color: #9d7cd8;
+}
+
+SettingsScreen .settings-label {
+  color: #a0a0a0;
+  margin-bottom: 1;
+}
+
+SettingsScreen .settings-value {
+  color: #f5f5f5;
+}
+
+/* ========================================
+   Provider Settings Styles
+   ======================================== */
+
+ProviderSettingsScreen,
+AccountSettingsScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+ProviderSettingsScreen DataTable,
+AccountSettingsScreen DataTable {
+  height: 1fr;
+}
+
+/* ========================================
+   Skills Panel Styles
+   ======================================== */
+
+SkillsPanelScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+SkillsPanelScreen DataTable.--cell {
+  padding: 0 1;
+}
+
+SkillsPanelScreen DataTable .skill-enabled {
+  color: #7fd88f;
+  text-style: bold;
+}
+
+SkillsPanelScreen DataTable .skill-disabled {
+  color: #a0a0a0;
+  text-style: dim;
+}
+
+SkillsPanelScreen DataTable .skill-blocked {
+  color: #e06c75;
+}
+
+/* ========================================
+   Tools Panel Styles
+   ======================================== */
+
+ToolsPanelScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+ToolsPanelScreen DataTable .tool-allowed {
+  color: #7fd88f;
+}
+
+ToolsPanelScreen DataTable .tool-denied {
+  color: #e06c75;
+}
+
+ToolsPanelScreen DataTable .tool-unspecified {
+  color: #f5a742;
+}
+
+/* ========================================
+   Log Viewer Styles
+   ======================================== */
+
+ToolLogViewerScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+ToolLogViewerScreen .log-entry {
+  padding: 0 1;
+  border-bottom: solid #56b6c2 10%;
+  font-family: monospace;
+}
+
+ToolLogViewerScreen .log-success {
+  color: #7fd88f;
+}
+
+ToolLogViewerScreen .log-error {
+  color: #e06c75;
+}
+
+ToolLogViewerScreen .log-info {
+  color: #a0a0a0;
+}
+
+/* ========================================
+   Theme Settings Styles
+   ======================================== */
+
+ThemeSettingsScreen {
+  background: #0a0a0a;
+  padding: 1;
+}
+
+ThemeSettingsScreen .theme-preview {
+  border: solid #9d7cd8 40%;
+  padding: 1;
+  margin: 1 0;
+  background: #141414;
+}
+
+ThemeSettingsScreen .theme-option {
+  padding: 1;
+  margin: 0 0 1 0;
+  border: solid #56b6c2 20%;
+  background: #141414;
+}
+
+ThemeSettingsScreen .theme-option:hover {
+  background: #3c3c3c;
+  border-color: #9d7cd8;
+}
+
+ThemeSettingsScreen .theme-option.-active {
+  background: #9d7cd8;
+  color: #ffffff;
+  border-color: #9d7cd8;
+}
+
+/* ========================================
+   Response Area Styles
+   ======================================== */
+
+ResponseArea {
+  border-subtitle-color: #a0a0a0;
+  padding: 1;
+  background: #141414;
+}
+
+ResponseArea.empty {
+  display: none;
+}
+
+ResponseArea.success .border-title-status {
+  color: #7fd88f;
+  background: #3c3c3c;
+}
+
+ResponseArea.warning .border-title-status {
+  color: #f5a742;
+  background: #2e2e2e;
+}
+
+ResponseArea.error .border-title-status {
+  color: #e06c75;
+  background: #3c1414;
+}
+
+/* ========================================
+   Message Screen Styles
+   ======================================== */
+
+MessageScreen {
+  background: #0a0a0a;
+}
+
+MessageScreen .message {
+  padding: 1;
+  margin: 0 1;
+  border: solid #56b6c2 15%;
+  background: #141414;
+}
+
+MessageScreen .message.user {
+  background: #3c3c3c;
+}
+
+MessageScreen .message.assistant {
+  background: #3c3c3c;
+}
+
+MessageScreen .message.system {
+  color: #a0a0a0;
+  text-style: dim;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.hidden {
+  display: none;
+}
+
+.w-auto {
+  width: auto;
+}
+
+.text-muted {
+  color: #a0a0a0;
+}
+
+.text-accent {
+  color: #2968c3;
+}
+
+.text-success {
+  color: #7fd88f;
+}
+
+.text-warning {
+  color: #f5a742;
+}
+
+.text-error {
+  color: #e06c75;
+}
+
+/* ========================================
+   Focus States
+   ======================================== */
+
+*:focus {
+  outline: solid #9d7cd8;
+  outline-offset: 0;
+}
+
+*:focus-within {
+  border-color: #9d7cd8;
+}
+
+/* ========================================
+   Status Indicators
+   ======================================== */
+
+.status-indicator {
+  display: inline-block;
+  width: 1ch;
+  height: 1ch;
+  border-radius: 50%;
+  margin-right: 1;
+}
+
+.status-indicator.success {
+  background: #7fd88f;
+}
+
+.status-indicator.warning {
+  background: #f5a742;
+}
+
+.status-indicator.error {
+  background: #e06c75;
+}
+
+.status-indicator.info {
+  background: #56b6c2;
+}
+
+/* ========================================
+   Empty States
+   ======================================== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 10;
+  color: #a0a0a0;
+  text-style: dim;
+}
+
+.empty-state .empty-icon {
+  font-size: 300%;
+  margin-bottom: 1;
+}
+
+.empty-state .empty-text {
+  color: #a0a0a0;
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+
+.loading {
+  opacity: 60%;
+  pointer-events: none;
+}
