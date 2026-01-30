@@ -64,8 +64,8 @@ class ContextBuilder:
         Returns:
             AgentContext with all components for execution
         """
-        # Build system prompt from agent + skills
-        system_prompt = self._build_system_prompt(agent, skills)
+        # Build system prompt from agent + skills + memories
+        system_prompt = self._build_system_prompt(agent, skills, memories)
 
         # Load message history
         messages = await self._build_message_history(session)
@@ -88,30 +88,89 @@ class ContextBuilder:
             model=model,
         )
 
+    def _format_memories_for_prompt(self, memories: List[Dict[str, Any]]) -> str:
+        """
+        Format memories for injection into system prompt.
+
+        Creates a concise summary of memories with timestamps and content.
+
+        Args:
+            memories: List of memory entries to format
+
+        Returns:
+            Formatted memories section string
+        """
+        if not memories:
+            return ""
+
+        lines = ["Relevant memories from previous conversations:"]
+        lines.append("")
+
+        for i, memory in enumerate(memories, 1):
+            content = memory.get("content", "")
+            timestamp = memory.get("created", "")
+            lines.append(f"{i}. {content}")
+
+        return "\n".join(lines)
+
+    async def _retrieve_memories(
+        self,
+        session_id: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve relevant memories for a session.
+
+        This is a stub implementation. When MemoryManager is available,
+        this will use MemoryManager.search() to retrieve relevant memories.
+
+        Args:
+            session_id: Session ID to retrieve memories for
+            limit: Maximum number of memories to retrieve
+
+        Returns:
+            List of memory entries
+        """
+        # TODO: Integrate with MemoryManager.search() when available
+        # For now, return empty list
+        return []
+
     def _build_system_prompt(
         self,
         agent: Dict[str, Any],
         skills: List[str],
+        memories: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """
-        Build system prompt from agent configuration and skills.
+        Build system prompt from agent configuration, skills, and memories.
 
         Args:
             agent: Agent configuration with optional custom prompt
             skills: List of skill names to inject
+            memories: Optional list of memory entries to inject
 
         Returns:
-            System instruction string with skills injected before base prompt
+            System instruction string with memories → skills → base prompt
         """
+        # Format memories if provided (limit to 3-5 memories max)
+        memory_section = ""
+        if memories:
+            memory_section = self._format_memories_for_prompt(memories[:5])
+
         # Get agent base prompt (or use default)
         agent_prompt = agent.get("prompt") or "You are a helpful assistant."
 
         # Build agent prompt with injected skills
-        return self.skill_injector.build_agent_prompt(
+        skills_prompt = self.skill_injector.build_agent_prompt(
             agent_prompt=agent_prompt,
             skill_names=skills,
             default_prompt="You are a helpful assistant.",
         )
+
+        # Combine memories + (skills + base prompt)
+        if memory_section:
+            return f"{memory_section}\n\n{skills_prompt}"
+        return skills_prompt
 
     def build_provider_context(
         self,
@@ -241,10 +300,10 @@ class ContextBuilder:
 
             elif msg.role == "assistant":
                 # Assistant message: concatenate text from parts
-                content: str = ""
+                assistant_content: str = ""
                 for part in msg.parts:
                     if isinstance(part, TextPart) and hasattr(part, "text"):
-                        content += part.text
-                llm_messages.append({"role": "assistant", "content": content})
+                        assistant_content += part.text
+                llm_messages.append({"role": "assistant", "content": assistant_content})
 
         return llm_messages
