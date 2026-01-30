@@ -10,17 +10,13 @@
 Note: Test uses mock session and stub provider to avoid pre-existing storage bugs that are outside scope of this task. Given time constraints and complexity, the integration test is comprehensive and touches many components, I'm creating a focused test that exercises the core integration path end-to-end without getting bogged down by pre-existing issues.
 """
 import pytest
-import asyncio
-from pathlib import Path
 from unittest.mock import Mock, AsyncMock, patch
 
-from opencode_python.agents.runtime import AgentRuntime, create_agent_runtime
-from opencode_python.agents.registry import AgentRegistry, create_agent_registry
+from opencode_python.agents.runtime import create_agent_runtime
+from opencode_python.agents.registry import create_agent_registry
 from opencode_python.agents.builtin import Agent
-from opencode_python.core.agent_types import AgentResult
-from opencode_python.tools.framework import ToolRegistry
 from opencode_python.tools import create_complete_registry
-from opencode_python.core.models import Message, TextPart, TokenUsage
+from opencode_python.core.models import Message, TextPart
 from opencode_python.ai_session import AISession
 
 
