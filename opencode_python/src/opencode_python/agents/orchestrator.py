@@ -141,6 +141,7 @@ class AgentOrchestrator:
                 tools=tools,
                 skills=task.skill_names,
                 options=task.options,
+                task_id=task.task_id,
             )
 
             task.status = TaskStatus.COMPLETED
@@ -194,6 +195,73 @@ class AgentOrchestrator:
             logger.error(f"Task failed: {task.task_id} -> {e}")
 
             raise
+
+    async def execute_task_via_task(
+        self,
+        agent_name: str,
+        session_id: str,
+        user_message: str,
+        session_manager: SessionManagerLike,
+        tools,
+        skills: List[str],
+        options: Optional[Dict[str, Any]] = None,
+        parent_id: Optional[str] = None,
+    ) -> TaskResult:
+        """
+        Execute a task via AgentTask model and AgentRuntime.
+
+        Creates an AgentTask, delegates to AgentRuntime with task_id,
+        and returns TaskResult with tracking metadata.
+
+        Args:
+            agent_name: Name of the agent to execute
+            session_id: Session ID for execution
+            user_message: User message to process
+            session_manager: SessionManager instance
+            tools: ToolRegistry for session
+            skills: List of skill names to inject
+            options: Additional execution options (model, temperature, etc.)
+            parent_id: Optional parent task ID (for hierarchical sub-tasks)
+
+        Returns:
+            TaskResult with task and result
+        """
+        from opencode_python.tools.framework import ToolRegistry
+
+        # Create AgentTask
+        task = create_agent_task(
+            agent_name=agent_name,
+            description=user_message[:100],
+            tool_ids=list(tools.tools.keys()) if isinstance(tools, ToolRegistry) else [],
+            skill_names=skills,
+            options=options or {},
+            parent_id=parent_id,
+            metadata={"session_id": session_id},
+        )
+
+        # Delegate using delegate_task
+        try:
+            await self.delegate_task(
+                task=task,
+                session_id=session_id,
+                user_message=user_message,
+                session_manager=session_manager,
+                tools=tools if isinstance(tools, ToolRegistry) else ToolRegistry(),
+                session=None,
+            )
+
+            # Return TaskResult (should always exist after delegate_task completes)
+            result = self.get_result(task.task_id)
+            if result is None:
+                raise ValueError(f"Task result not found for {task.task_id}")
+            return result
+
+        except Exception:
+            # Return error result if delegation failed
+            result = self.get_result(task.task_id)
+            if result is None:
+                raise
+            return result
 
     async def run_parallel_agents(
         self,
