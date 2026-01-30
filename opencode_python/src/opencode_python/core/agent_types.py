@@ -118,6 +118,9 @@ class AgentResult:
     error: Optional[str] = None
     """Error message if execution failed"""
 
+    task_id: Optional[str] = None
+    """Task ID if agent was invoked via task tool"""
+
     model_config = {"extra": "forbid"}
 
 
