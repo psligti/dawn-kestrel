@@ -2,7 +2,7 @@
 Provider registry for managing AI provider configurations.
 
 Provides persistent storage and retrieval of provider configurations
-with support for default provider selection.
+with support for default provider selection and lifecycle event emission.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import json
 import logging
 
 from opencode_python.core.provider_config import ProviderConfig
+from opencode_python.core.session_lifecycle import SessionLifecycle
 
 
 logger = logging.getLogger(__name__)
@@ -22,12 +23,13 @@ class ProviderRegistry:
     Manage AI provider configurations.
 
     Stores and retrieves provider configurations with JSON persistence.
-    Supports default provider selection.
+    Supports default provider selection and lifecycle event emission.
 
     Attributes:
         storage_dir: Directory for provider configuration storage
         providers: Dictionary of provider configurations keyed by name
         default_provider: Name of default provider configuration
+        _lifecycle: SessionLifecycle for emitting lifecycle events
     """
 
     def __init__(self, storage_dir: Path):
@@ -42,6 +44,37 @@ class ProviderRegistry:
 
         self.providers: Dict[str, ProviderConfig] = {}
         self.default_provider: Optional[str] = None
+        self._lifecycle: Optional[SessionLifecycle] = None
+
+    def register_lifecycle(self, lifecycle: SessionLifecycle) -> None:
+        """
+        Register SessionLifecycle for event emission.
+
+        Args:
+            lifecycle: SessionLifecycle instance for emitting lifecycle events
+        """
+        self._lifecycle = lifecycle
+        logger.debug("Registered SessionLifecycle with ProviderRegistry")
+
+    async def emit_lifecycle_event(
+        self,
+        event_type: str,
+        event_data: Dict[str, Any],
+    ) -> None:
+        """
+        Emit lifecycle event to registered SessionLifecycle.
+
+        Args:
+            event_type: Type of lifecycle event
+            event_data: Event data dictionary
+        """
+        if self._lifecycle:
+            if event_type == "provider_registered":
+                await self._lifecycle.emit_session_updated(event_data)
+            elif event_type == "provider_removed":
+                await self._lifecycle.emit_session_updated(event_data)
+            elif event_type == "provider_updated":
+                await self._lifecycle.emit_session_updated(event_data)
 
     async def register_provider(
         self,
@@ -72,6 +105,10 @@ class ProviderRegistry:
             self.default_provider = name
 
         await self.persist(config, name)
+        await self.emit_lifecycle_event("provider_registered", {
+            "provider_name": name,
+            "config": config.as_dict(),
+        })
 
         logger.info(f"Registered provider: {name} (default: {is_default})")
         return config
@@ -124,6 +161,9 @@ class ProviderRegistry:
             self.default_provider = None
 
         await self._remove_from_storage(name)
+        await self.emit_lifecycle_event("provider_removed", {
+            "provider_name": name,
+        })
 
         logger.info(f"Removed provider: {name}")
         return True
@@ -152,13 +192,17 @@ class ProviderRegistry:
         self.providers[name] = config
 
         await self.persist(config, name)
+        await self.emit_lifecycle_event("provider_updated", {
+            "provider_name": name,
+            "config": config.as_dict(),
+        })
 
         logger.info(f"Updated provider: {name}")
         return config
 
     async def get_default_provider(self) -> Optional[ProviderConfig]:
         """
-        Get default provider configuration.
+        Get the default provider configuration.
 
         Returns:
             Default ProviderConfig or None if not set
@@ -170,7 +214,7 @@ class ProviderRegistry:
 
     async def set_default_provider(self, name: str) -> bool:
         """
-        Set default provider configuration.
+        Set the default provider configuration.
 
         Args:
             name: Provider name
