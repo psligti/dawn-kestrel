@@ -46,11 +46,8 @@ class Settings(pydantic_settings.BaseSettings):
     verbose: bool = Field(default=False, alias="VERBOSE")
 
     # TUI settings
-    tui_theme: str = Field(default="dark", alias="TUI_THEME")
-    tui_density: str = Field(default="normal", alias="TUI_DENSITY")
-    tui_reduced_motion: bool = Field(default=False, alias="TUI_REDUCED_MOTION")
+    tui_theme: str = Field(default="auto", alias="TUI_THEME")
     tui_mouse_enabled: bool = Field(default=True, alias="TUI_MOUSE")
-    agent_default: str = Field(default="build", alias="AGENT_DEFAULT")
 
     # Git/Repository settings
     git_enabled: bool = Field(default=True, alias="GIT_ENABLED")
@@ -69,17 +66,21 @@ class Settings(pydantic_settings.BaseSettings):
     # Permission settings
     permission_default_action: str = Field(default="ask", alias="PERMISSION_DEFAULT_ACTION")
 
-<<<<<<< HEAD
+    # Provider and account settings
+    providers_storage_dir: str = Field(
+        default="~/.local/share/opencode-python/providers",
+        alias="PROVIDERS_STORAGE_DIR"
+    )
+
     # Agent settings
     agent_default_model: str = Field(default="claude-3-5-sonnet-20241022", alias="AGENT_DEFAULT_MODEL")
     agent_default_temperature: float = Field(default=0.7, alias="AGENT_DEFAULT_TEMPERATURE")
     agent_default_budget: Optional[int] = Field(default=None, alias="AGENT_DEFAULT_BUDGET")
-=======
+
     # Observability & Safety settings (Epic 8)
     dry_run_enabled: bool = Field(default=False, alias="DRY_RUN_ENABLED")
     timeline_enabled: bool = Field(default=True, alias="TIMELINE_ENABLED")
     destructive_confirmations: bool = Field(default=True, alias="DESTRUCTIVE_CONFIRMATIONS")
->>>>>>> epic/observability-safety
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -131,3 +132,8 @@ def get_config_dir() -> Path:
 def get_cache_dir() -> Path:
     """Get resolved cache directory path"""
     return Path(get_settings().cache_dir).expanduser()
+
+
+def get_providers_storage_dir() -> Path:
+    """Get resolved providers storage directory path"""
+    return Path(get_settings().providers_storage_dir).expanduser()

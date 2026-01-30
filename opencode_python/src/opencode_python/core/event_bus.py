@@ -131,23 +131,16 @@ class Events:
     AGENT_EXECUTING = "agent.executing"
     AGENT_ERROR = "agent.error"
     AGENT_CLEANUP = "agent.cleanup"
-<<<<<<< HEAD
-<<<<<<< HEAD
-    AGENT_EXECUTE = "agent.execute"
-    SKILL_ENABLED = "skill.enable"
-    SKILL_DISABLED = "skill.disable"
-    SKILL_BLOCKED = "skill.block"
-    SKILL_EXECUTE = "skill.execute"
-=======
     AGENT_PROFILE_SELECT = "agent:profile:select"
     AGENT_CONFIG_UPDATE = "agent:config:update"
     AGENT_EXECUTE = "agent:execute"
     AGENT_COMPLETE = "agent:complete"
->>>>>>> epic/agents
-=======
+    SKILL_ENABLED = "skill.enable"
+    SKILL_DISABLED = "skill.disable"
+    SKILL_BLOCKED = "skill.block"
+    SKILL_EXECUTE = "skill.execute"
     # Observability events (Epic 8)
     TIMELINE_LABEL = "timeline:label"
     SESSION_BLOCKED = "session:blocked"
     DESTRUCTIVE_REQUEST = "destructive:request"
     DRYRUN_TOGGLE = "dryrun:toggle"
->>>>>>> epic/observability-safety

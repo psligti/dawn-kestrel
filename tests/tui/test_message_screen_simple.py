@@ -75,7 +75,7 @@ async def test_action_scroll_page_up(app):
     for i in range(20):
         await screen._add_message(f"Message {i}", "user")
     await screen.action_scroll_home()
-        await app.run_for(0.1)
+    await app.run_for(0.1)
 
     # Save initial message
     initial_message = screen.messages[-1]
