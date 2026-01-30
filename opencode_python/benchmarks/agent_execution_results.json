@@ -1,0 +1,38 @@
+{
+  "report_name": "agent_execution_benchmark",
+  "timestamp": "2026-01-30 14:42:31",
+  "results": [
+    {
+      "benchmark_name": "agent_execution",
+      "metric_name": "invocation_time",
+      "metric_value": 0.0012564833229407669,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.0012564833229407669,
+      "median": 0.0012760829413309693,
+      "std_dev": 5.5962782366685865e-05,
+      "p95": 0.0012817909009754658,
+      "p99": 0.0012842919677495956,
+      "min_value": 0.0010231668129563332,
+      "max_value": 0.0012843748554587364,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:42:31"
+    },
+    {
+      "benchmark_name": "agent_execution",
+      "metric_name": "session_creation_time",
+      "metric_value": 3.299505915492773e-06,
+      "unit": "s",
+      "count": 100,
+      "mean": 3.299505915492773e-06,
+      "median": 2.7909409254789352e-06,
+      "std_dev": 4.054416289297535e-06,
+      "p95": 3.4580007195472717e-06,
+      "p99": 6.00004568696022e-06,
+      "min_value": 2.6670750230550766e-06,
+      "max_value": 4.3208012357354164e-05,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:42:31"
+    }
+  ]
+}

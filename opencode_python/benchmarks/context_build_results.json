@@ -1,0 +1,54 @@
+{
+  "report_name": "context_build_benchmark",
+  "timestamp": "2026-01-30 14:43:48",
+  "results": [
+    {
+      "benchmark_name": "context_build",
+      "metric_name": "baseline_build_time",
+      "metric_value": 0.0048948303749784825,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.0048948303749784825,
+      "median": 0.005009167012758553,
+      "std_dev": 0.0002609365333281714,
+      "p95": 0.005017250077798963,
+      "p99": 0.0050203329883515835,
+      "min_value": 0.004025500034913421,
+      "max_value": 0.005021749995648861,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:43:49"
+    },
+    {
+      "benchmark_name": "context_build",
+      "metric_name": "large_session_count",
+      "metric_value": 0.007291063314769417,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.007291063314769417,
+      "median": 0.007511437521316111,
+      "std_dev": 0.0004020219209920968,
+      "p95": 0.007532791001722217,
+      "p99": 0.007561667123809457,
+      "min_value": 0.006033499957993627,
+      "max_value": 0.007665166864171624,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:43:50"
+    },
+    {
+      "benchmark_name": "context_build",
+      "metric_name": "large_tool_count",
+      "metric_value": 0.004903940826188773,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.004903940826188773,
+      "median": 0.005013499525375664,
+      "std_dev": 0.00026460484660060347,
+      "p95": 0.005036208080127835,
+      "p99": 0.0051154999528080225,
+      "min_value": 0.004009583033621311,
+      "max_value": 0.005170625168830156,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:43:50"
+    }
+  ]
+}
