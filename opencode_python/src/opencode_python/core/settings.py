@@ -66,6 +66,12 @@ class Settings(pydantic_settings.BaseSettings):
     # Permission settings
     permission_default_action: str = Field(default="ask", alias="PERMISSION_DEFAULT_ACTION")
 
+    # Provider and account settings
+    providers_storage_dir: str = Field(
+        default="~/.local/share/opencode-python/providers",
+        alias="PROVIDERS_STORAGE_DIR"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -116,3 +122,8 @@ def get_config_dir() -> Path:
 def get_cache_dir() -> Path:
     """Get resolved cache directory path"""
     return Path(get_settings().cache_dir).expanduser()
+
+
+def get_providers_storage_dir() -> Path:
+    """Get resolved providers storage directory path"""
+    return Path(get_settings().providers_storage_dir).expanduser()
