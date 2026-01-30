@@ -230,3 +230,34 @@ class Session(pd.BaseModel):
     model_config = pd.ConfigDict(
         extra="forbid"
     )
+
+
+class Memory(pd.BaseModel):
+    """Memory model - stores agent memories with embeddings"""
+    id: str
+    session_id: str
+    content: str
+    embedding: Optional[List[float]] = None
+    metadata: Dict[str, Any] = pd.Field(default_factory=dict)
+    created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
+
+    model_config = pd.ConfigDict(extra="forbid")
+
+
+class MemorySummary(pd.BaseModel):
+    """Memory summary model for compressed conversation history"""
+    session_id: str
+    summary: str = ""
+    key_points: List[str] = pd.Field(default_factory=list)
+    original_token_count: int = 0
+    compressed_token_count: int = 0
+    compression_ratio: float = 1.0
+    timestamp: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
+
+    @pd.computed_field
+    @property
+    def target_compression(self) -> float:
+        """Target compression ratio (0.5 = 50% reduction)"""
+        return 0.5
+
+    model_config = pd.ConfigDict(extra="forbid")
