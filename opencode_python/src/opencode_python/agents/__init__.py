@@ -185,24 +185,32 @@ class AgentExecutor:
         if not agent:
             raise ValueError(f"Agent {agent_name} not found")
 
-        from opencode_python.core.models import Session
-        import uuid
-        session = Session(
-            id=session_id,
-            slug=session_id,
-            project_id="",
-            directory="",
-            title="",
-            version="1.0",
-            metadata={}
-        )
+        if not self.session_manager:
+            raise ValueError(
+                f"AgentExecutor requires session_manager to fetch session {session_id}. "
+                "Please provide a SessionManager instance."
+            )
+
+        session = await self.session_manager.get_session(session_id)
+        if not session:
+            raise ValueError(
+                f"Session not found: {session_id}. "
+                "Ensure the session exists and is accessible."
+            )
+
+        if not session.project_id:
+            raise ValueError(f"Session {session_id} has empty project_id")
+        if not session.directory:
+            raise ValueError(f"Session {session_id} has empty directory")
+        if not session.title:
+            raise ValueError(f"Session {session_id} has empty title")
 
         await self.agent_manager.initialize_agent(agent, session)
         await self.agent_manager.set_agent_ready(session_id)
 
         logger.info(f"Executing agent {agent_name} for session {session_id}")
 
-        result = await self._run_agent_logic(agent, user_message, session_id, options)
+        result = await self._run_agent_logic(agent, user_message, session, options)
 
         await self.agent_manager.cleanup_agent(session_id)
 
@@ -212,7 +220,7 @@ class AgentExecutor:
         self,
         agent,
         user_message: str,
-        session_id: str,
+        session: Session,
         options: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Run the core agent logic
@@ -220,24 +228,12 @@ class AgentExecutor:
         Filters tools based on agent permissions, handles tool execution,
         and returns response with metadata.
         """
-        await self.agent_manager.set_agent_executing(session_id)
+        await self.agent_manager.set_agent_executing(session.id)
 
         tools = self._filter_tools_for_agent(agent)
 
         try:
             from opencode_python.ai_session import AISession
-            from opencode_python.core.models import Session
-
-            import uuid
-            session = Session(
-                id=session_id,
-                slug=session_id,
-                project_id="",
-                directory="",
-                title="",
-                version="1.0",
-                metadata={}
-            )
 
             ai_session = AISession(
                 session=session,
@@ -264,7 +260,7 @@ class AgentExecutor:
 
         except Exception as e:
             logger.error(f"Agent execution failed: {e}")
-            await self.agent_manager.set_agent_error(session_id, str(e))
+            await self.agent_manager.set_agent_error(session.id, str(e))
 
             return {
                 "response": f"Error: {str(e)}",
