@@ -1231,9 +1231,10 @@ class TaskTool(Tool):
     id = "task"
     description = get_prompt("task")
 
-    def __init__(self, agent_manager=None):
-        """Initialize TaskTool with optional agent manager"""
+    def __init__(self, agent_manager=None, orchestrator=None):
+        """Initialize TaskTool with optional agent manager and orchestrator"""
         self.agent_manager = agent_manager
+        self.orchestrator = orchestrator
 
     async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Launch subagent for task execution
@@ -1259,8 +1260,48 @@ class TaskTool(Tool):
 
         logger.info(f"Task: {description[:50]}, Agent: {subagent_type}")
 
+        # Use orchestrator if available for task tracking
+        if self.orchestrator:
+            from opencode_python.tools.framework import ToolRegistry
+
+            # Get session manager and tools from context
+            from opencode_python.core.session import SessionManager
+            from opencode_python.storage.store import SessionStorage
+
+            storage = SessionStorage(Path.cwd())
+            session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
+
+            # Get tools registry
+            from opencode_python.tools import create_builtin_registry
+            tool_registry = create_builtin_registry()
+
+            # Execute task via orchestrator
+            task_result = await self.orchestrator.execute_task_via_task(
+                agent_name=subagent_type,
+                session_id=ctx.session_id if hasattr(ctx, "session_id") else "",
+                user_message=prompt,
+                session_manager=session_mgr,
+                tools=tool_registry,
+                skills=[],
+                options={"subagent": subagent_type},
+            )
+
+            # Extract result data
+            result = task_result.result if task_result.result else None
+            return ToolResult(
+                title="Task execution completed",
+                output=result.response if result else "Task failed",
+                metadata={
+                    "task_id": task_result.task.task_id,
+                    "subagent_type": subagent_type,
+                    "description": description[:50],
+                    "status": task_result.task.status.value,
+                    "execution_time": result.duration if result else 0,
+                }
+            )
+
         # Use AgentManager if available, otherwise fallback to SessionManager
-        if self.agent_manager:
+        elif self.agent_manager:
             agent = await self.agent_manager.get_agent_by_name(subagent_type)
             if not agent:
                 available = await self.agent_manager.get_all_agents()

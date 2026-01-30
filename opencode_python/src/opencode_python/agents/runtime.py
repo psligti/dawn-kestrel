@@ -13,6 +13,7 @@ from opencode_python.core.agent_types import (
     AgentContext,
     SessionManagerLike,
 )
+from opencode_python.core.agent_task import AgentTask
 from opencode_python.core.models import Session, Message, TokenUsage
 from opencode_python.core.event_bus import bus, Events
 from opencode_python.ai_session import AISession
@@ -22,7 +23,7 @@ from opencode_python.tools.permission_filter import ToolPermissionFilter
 from opencode_python.context.builder import ContextBuilder
 from opencode_python.agents.registry import AgentRegistry
 from opencode_python.agents.builtin import Agent
-
+from opencode_python.core.session_lifecycle import SessionLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,11 @@ class AgentRuntime:
         agent_registry: AgentRegistry,
         base_dir: Path,
         skill_max_char_budget: Optional[int] = None,
+        session_lifecycle: Optional[SessionLifecycle] = None,
     ):
         """Initialize AgentRuntime."""
         self.agent_registry = agent_registry
+        self.session_lifecycle = session_lifecycle
         self.context_builder = ContextBuilder(
             base_dir=base_dir,
             skill_max_char_budget=skill_max_char_budget,
@@ -49,9 +52,11 @@ class AgentRuntime:
         session_id: str,
         user_message: str,
         session_manager: SessionManagerLike,
-        tools: ToolRegistry,
+        tools: Optional[ToolRegistry],
         skills: List[str],
         options: Optional[Dict[str, Any]] = None,
+        task_id: Optional[str] = None,
+        session_lifecycle: Optional[SessionLifecycle] = None,
     ) -> AgentResult:
         """Execute an agent with tool filtering and lifecycle management."""
         start_time = time.time()
@@ -103,25 +108,33 @@ class AgentRuntime:
             raise ValueError(f"Session {session_id} has empty title")
 
         # Emit AGENT_INITIALIZED event
-        await bus.publish(Events.AGENT_INITIALIZED, {
+        event_data = {
             "session_id": session_id,
             "agent_name": agent.name,
             "agent_mode": agent.mode,
-        })
-        logger.info(f"Agent {agent.name} initialized for session {session_id}")
+        }
+        if task_id:
+            event_data["task_id"] = task_id
+        await bus.publish(Events.AGENT_INITIALIZED, event_data)
+
+        # Emit session lifecycle event
+        lifecycle = session_lifecycle or self.session_lifecycle
+        if lifecycle:
+            await lifecycle.emit_session_updated(event_data)
+        logger.info(f"Agent {agent.name} initialized for session {session_id}" + (f" (task: {task_id})" if task_id else ""))
 
         try:
             # Step 3: Filter tools via ToolPermissionFilter
             permission_filter = ToolPermissionFilter(
                 permissions=agent.permission,
-                tool_registry=tools,
+                tool_registry=tools or ToolRegistry(),
             )
-            filtered_registry = permission_filter.get_filtered_registry()
+            filtered_registry = permission_filter.get_filtered_registry() or ToolRegistry()
             allowed_tool_ids = set(filtered_registry.tools.keys())
 
             logger.debug(
                 f"Filtered tools for {agent.name}: "
-                f"{len(allowed_tool_ids)} allowed from {len(tools.tools)} total"
+                f"{len(allowed_tool_ids)} allowed from {len(tools.tools) if tools else 0} total"
             )
 
             # Step 4: Build context via ContextBuilder
@@ -146,11 +159,14 @@ class AgentRuntime:
             )
 
             # Emit AGENT_READY event
-            await bus.publish(Events.AGENT_READY, {
+            event_data = {
                 "session_id": session_id,
                 "agent_name": agent.name,
                 "tools_available": len(allowed_tool_ids),
-            })
+            }
+            if task_id:
+                event_data["task_id"] = task_id
+            await bus.publish(Events.AGENT_READY, event_data)
             logger.info(f"Agent {agent.name} ready for execution")
 
             # Step 5: Create AISession with filtered tools
@@ -161,22 +177,33 @@ class AgentRuntime:
             if agent.model and isinstance(agent.model, dict):
                 model = agent.model.get("model", model)
 
+            lifecycle = session_lifecycle or self.session_lifecycle
+
             ai_session = AISession(
                 session=session,
                 provider_id=provider_id,
                 model=model,
                 session_manager=session_manager,
                 tool_registry=filtered_registry,
+                session_lifecycle=lifecycle,
             )
 
             # Emit AGENT_EXECUTING event
-            await bus.publish(Events.AGENT_EXECUTING, {
+            event_data = {
                 "session_id": session_id,
                 "agent_name": agent.name,
                 "model": model,
-            })
+            }
+            if task_id:
+                event_data["task_id"] = task_id
+            await bus.publish(Events.AGENT_EXECUTING, event_data)
 
-            logger.info(f"Executing agent {agent.name} for session {session_id}")
+            # Emit session lifecycle event
+            lifecycle = session_lifecycle or self.session_lifecycle
+            if lifecycle:
+                await lifecycle.emit_session_updated(event_data)
+
+            logger.info(f"Executing agent {agent.name} for session {session_id}" + (f" (task: {task_id})" if task_id else ""))
 
             # Step 6: Execute agent
             execution_options: Dict[str, Any] = {
@@ -211,13 +238,16 @@ class AgentRuntime:
             duration = time.time() - start_time
 
             # Step 7: Emit AGENT_CLEANUP event
-            await bus.publish(Events.AGENT_CLEANUP, {
+            event_data = {
                 "session_id": session_id,
                 "agent_name": agent.name,
                 "messages_count": 1,
                 "tools_used": tools_used,
                 "duration": duration,
-            })
+            }
+            if task_id:
+                event_data["task_id"] = task_id
+            await bus.publish(Events.AGENT_CLEANUP, event_data)
 
             logger.info(
                 f"Agent {agent.name} execution complete in {duration:.2f}s, "
@@ -225,7 +255,7 @@ class AgentRuntime:
                 f"tools: {len(tools_used)}"
             )
 
-            # Return AgentResult
+            # Return AgentResult with task_id
             return AgentResult(
                 agent_name=agent.name,
                 response=response_message.text or "",
@@ -235,6 +265,7 @@ class AgentRuntime:
                 tokens_used=tokens_used,
                 duration=duration,
                 error=None,
+                task_id=task_id,
             )
 
         except Exception as e:
@@ -244,14 +275,17 @@ class AgentRuntime:
             logger.error(f"Agent execution failed: {error_msg}")
 
             # Emit AGENT_ERROR event
-            await bus.publish(Events.AGENT_ERROR, {
+            event_data = {
                 "session_id": session_id,
                 "agent_name": agent.name,
                 "error": error_msg,
                 "duration": duration,
-            })
+            }
+            if task_id:
+                event_data["task_id"] = task_id
+            await bus.publish(Events.AGENT_ERROR, event_data)
 
-            # Return AgentResult with error
+            # Return AgentResult with error and task_id
             return AgentResult(
                 agent_name=agent.name,
                 response=f"Error: {error_msg}",
@@ -261,6 +295,7 @@ class AgentRuntime:
                 tokens_used=None,
                 duration=duration,
                 error=error_msg,
+                task_id=task_id,
             )
 
 
@@ -268,10 +303,12 @@ def create_agent_runtime(
     agent_registry: AgentRegistry,
     base_dir: Path,
     skill_max_char_budget: Optional[int] = None,
+    session_lifecycle: Optional[SessionLifecycle] = None,
 ) -> AgentRuntime:
     """Factory function to create AgentRuntime."""
     return AgentRuntime(
         agent_registry=agent_registry,
         base_dir=base_dir,
         skill_max_char_budget=skill_max_char_budget,
+        session_lifecycle=session_lifecycle,
     )
