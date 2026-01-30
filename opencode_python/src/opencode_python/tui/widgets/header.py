@@ -15,6 +15,7 @@ class SessionHeader(Static):
     - Session title (bold)
     - Breadcrumb navigation to parent session (if applicable)
     - Model information (if provided)
+    - Agent information (if provided)
 
     All content is read-only - no interactive elements.
     """
@@ -23,6 +24,7 @@ class SessionHeader(Static):
     session_title: reactive[str] = reactive("")
     parent_session_id: reactive[Optional[str]] = reactive(None)
     model: reactive[Optional[str]] = reactive(None)
+    agent: reactive[Optional[str]] = reactive(None)
 
     DEFAULT_CSS = """
     SessionHeader {
@@ -44,6 +46,10 @@ class SessionHeader(Static):
     SessionHeader .model {
         color: $accent;
     }
+
+    SessionHeader .agent {
+        color: $success;
+    }
     """
 
     def __init__(
@@ -51,6 +57,7 @@ class SessionHeader(Static):
         session_title: str = "",
         parent_session_id: Optional[str] = None,
         model: Optional[str] = None,
+        agent: Optional[str] = None,
         **kwargs
     ) -> None:
         """Initialize SessionHeader
@@ -59,16 +66,19 @@ class SessionHeader(Static):
             session_title: Title of the current session
             parent_session_id: ID of parent session (if this is a subagent session)
             model: Model name being used
+            agent: Agent name being used
             **kwargs: Additional Static widget arguments
         """
         super().__init__(**kwargs)
         self._session_title = session_title
         self._parent_session_id = parent_session_id
         self._model = model
+        self._agent = agent
         # Initialize reactive properties
         self.session_title = session_title
         self.parent_session_id = parent_session_id
         self.model = model
+        self.agent = agent
         self._update_content()
 
     def _update_content(self) -> None:
@@ -88,6 +98,10 @@ class SessionHeader(Static):
         # Add model if provided
         if self.model:
             content_parts.append(f"[model]Model: {self.model}[/model]")
+
+        # Add agent if provided
+        if self.agent:
+            content_parts.append(f"[agent]Agent: {self.agent}[/agent]")
 
         # Update display
         self.update("\n".join(content_parts) if content_parts else "")
@@ -109,6 +123,11 @@ class SessionHeader(Static):
         self._model = new_value
         self._update_content()
 
+    def watch_agent(self, old_value: Optional[str], new_value: Optional[str]) -> None:
+        """Called when agent changes"""
+        self._agent = new_value
+        self._update_content()
+
     # Property accessors for backward compatibility
     @property
     def session_title_value(self) -> str:
@@ -124,3 +143,8 @@ class SessionHeader(Static):
     def model_value(self) -> Optional[str]:
         """Get current model"""
         return self._model
+
+    @property
+    def agent_value(self) -> Optional[str]:
+        """Get current agent"""
+        return self._agent

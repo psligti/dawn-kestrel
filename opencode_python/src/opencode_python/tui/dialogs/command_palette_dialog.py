@@ -41,12 +41,16 @@ class CommandPaletteDialog(ModalScreen[T]):
         self._closed = False
         self._selected_index: int = 0
 
-        # Define essential commands
         self.commands: List[Dict[str, Any]] = [
             {
                 "value": "session-list",
                 "title": "Open Session List",
                 "description": "View and navigate sessions",
+            },
+            {
+                "value": "create-session",
+                "title": "Create Session",
+                "description": "Create a new session",
             },
             {
                 "value": "model-select",
@@ -57,6 +61,11 @@ class CommandPaletteDialog(ModalScreen[T]):
                 "value": "theme-select",
                 "title": "Select Theme",
                 "description": "Choose color theme",
+            },
+            {
+                "value": "settings",
+                "title": "Open Settings",
+                "description": "Open settings screen",
             },
             {
                 "value": "quit",

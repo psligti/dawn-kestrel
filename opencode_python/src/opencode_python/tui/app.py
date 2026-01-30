@@ -62,6 +62,7 @@ class OpenCodeTUI(App[None]):
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+c", "quit", "Quit"),
         Binding("/", "open_command", "Open Command Palette"),
+        Binding("s", "open_settings", "Settings"),
     ]
 
     session_table: DataTable[str]
@@ -264,4 +265,20 @@ class OpenCodeTUI(App[None]):
         """Open command palette dialog"""
         from opencode_python.tui.dialogs import CommandPaletteDialog
 
-        self.push_screen(CommandPaletteDialog())
+        self.push_screen(CommandPaletteDialog(on_command=self._handle_command_palette_command))
+
+    def _handle_command_palette_command(self, command_value: str) -> None:
+        """Handle command palette command selection
+
+        Args:
+            command_value: The selected command value
+        """
+        if command_value == "settings":
+            self.action_open_settings()
+        # Add other command handlers here as needed
+
+    def action_open_settings(self) -> None:
+        """Open settings screen"""
+        from opencode_python.tui.screens import SettingsScreen
+
+        self.push_screen(SettingsScreen())

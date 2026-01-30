@@ -35,6 +35,7 @@ classifiers = [
     "pydantic>=2.12",
     "pydantic-settings>=2.0",
     "python-frontmatter>=1.0",
+    "pyyaml>=6.0",
     "rich>=13.0",
     "ripgrep>=14.0",
     "tiktoken>=0.8.0",

@@ -46,7 +46,9 @@ class Settings(pydantic_settings.BaseSettings):
     verbose: bool = Field(default=False, alias="VERBOSE")
 
     # TUI settings
-    tui_theme: str = Field(default="auto", alias="TUI_THEME")
+    tui_theme: str = Field(default="dark", alias="TUI_THEME")
+    tui_density: str = Field(default="normal", alias="TUI_DENSITY")
+    tui_reduced_motion: bool = Field(default=False, alias="TUI_REDUCED_MOTION")
     tui_mouse_enabled: bool = Field(default=True, alias="TUI_MOUSE")
     agent_default: str = Field(default="build", alias="AGENT_DEFAULT")
 

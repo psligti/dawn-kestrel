@@ -11,7 +11,7 @@ Provides a complete message display screen with:
 
 from textual.screen import Screen
 from textual.containers import Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Input, Button
+from textual.widgets import Static, Input, Button, Select
 from textual.app import ComposeResult
 from textual.reactive import reactive
 from typing import Optional, List, Dict, Any
@@ -29,6 +29,7 @@ from opencode_python.ai_session import AISession
 from opencode_python.providers import get_provider, ProviderID
 from opencode_python.providers.base import StreamEvent
 from opencode_python.core.settings import get_settings
+from opencode_python.agents.builtin import get_all_agents
 
 
 logger = logging.getLogger(__name__)
@@ -77,10 +78,19 @@ class MessageScreen(Screen):
     #send-button {
         width: 10;
     }
-    
+
     #typing-indicator {
         height: 1;
         margin-top: 1;
+    }
+
+    #agent-selector {
+        width: 15;
+    }
+
+    #agent-label {
+        padding: 0 1;
+        text-align: right;
     }
     
     .timestamp {
@@ -132,6 +142,7 @@ class MessageScreen(Screen):
     ai_session: Optional[AISession] = None
     is_streaming: reactive[bool] = reactive(False)
     messages_container: Optional[ScrollableContainer] = None
+    current_agent: reactive[str] = reactive("build")
     _current_assistant_message: Optional[Message]
     _current_text_part: Optional[TextPart]
     _current_assistant_view: Optional[MessageView]
@@ -144,6 +155,8 @@ class MessageScreen(Screen):
         self._current_assistant_view = None
         # Initialize messages_container attribute but don't create UI yet
         self.messages_container = None
+        # Set current agent from session, default to 'build'
+        self.current_agent = getattr(session, "agent", "build") or "build"
 
     def compose(self) -> ComposeResult:
         """Build the message screen UI"""
@@ -155,6 +168,17 @@ class MessageScreen(Screen):
             yield Static("", id="typing-indicator")
 
             with Horizontal(id="input-area"):
+                # Agent selector
+                agents_list = get_all_agents()
+                agent_options = [(agent.name, agent.name) for agent in agents_list]
+
+                yield Select(
+                    options=agent_options,
+                    value=self.current_agent,
+                    id="agent-selector",
+                    allow_blank=False,
+                )
+
                 yield Input(
                     placeholder="Type your message...",
                     id="message-input",
@@ -208,6 +232,37 @@ class MessageScreen(Screen):
             if text:
                 asyncio.create_task(self._handle_user_message(text))
                 input_widget.value = ""
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle agent selector change"""
+        if event.select.id == "agent-selector":
+            new_agent = event.value
+            if new_agent and new_agent != self.current_agent:
+                self.current_agent = new_agent
+                asyncio.create_task(self._update_session_agent(new_agent))
+
+    async def _update_session_agent(self, agent_name: str) -> None:
+        """Update the session's agent field"""
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
+        from opencode_python.core.settings import get_storage_dir
+        from pathlib import Path
+
+        try:
+            storage_dir = get_storage_dir()
+            storage = SessionStorage(storage_dir)
+            work_dir = Path.cwd()
+            manager = SessionManager(storage, work_dir)
+
+            await manager.update_session(self.session.id, agent=agent_name)
+            self.session.agent = agent_name
+
+            logger.info(f"Updated session {self.session.id} agent to {agent_name}")
+            self.notify(f"Agent changed to [success]{agent_name}[/success]")
+
+        except Exception as e:
+            logger.error(f"Error updating session agent: {e}")
+            self.notify(f"[red]Error updating agent: {e}[/red]")
 
     async def _handle_user_message(self, text: str) -> None:
         """Handle user message submission and trigger AI response"""
