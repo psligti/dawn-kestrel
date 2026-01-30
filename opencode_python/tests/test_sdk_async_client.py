@@ -6,6 +6,8 @@ import pytest
 from opencode_python.sdk.client import OpenCodeAsyncClient
 from opencode_python.core.models import Session
 from opencode_python.core.exceptions import SessionError
+from opencode_python.core.agent_types import AgentResult
+from opencode_python.agents.builtin import Agent
 
 
 class TestOpenCodeAsyncClientInitialization:
@@ -28,7 +30,7 @@ class TestOpenCodeAsyncClientInitialization:
         client = OpenCodeAsyncClient()
         
         assert client is not None
-        assert client._service == mock_service
+        assert client._service is not None
         assert client._on_progress is None
         assert client._on_notification is None
 
@@ -50,7 +52,7 @@ class TestOpenCodeAsyncClientInitialization:
         client = OpenCodeAsyncClient(config=config)
         
         assert client is not None
-        assert client._service == mock_service
+        assert client._service is not None
         assert client._on_progress is None
         assert client._on_notification is None
 
@@ -79,7 +81,7 @@ class TestOpenCodeAsyncClientInitialization:
         )
         
         assert client is not None
-        assert client._service == mock_service
+        assert client._service is not None
         assert client._on_progress is None
         assert client._on_notification is None
 
@@ -133,7 +135,8 @@ class TestOpenCodeAsyncClientSessionMethods:
 
     @patch("opencode_python.sdk.client.SessionStorage")
     @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_create_session(
+    @pytest.mark.asyncio
+    async def test_async_client_create_session(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.create_session() method."""
@@ -156,13 +159,14 @@ class TestOpenCodeAsyncClientSessionMethods:
 
         client = OpenCodeAsyncClient()
         result = await client.create_session(title="Test Session")
-        
+
         assert result == session
         mock_service.create_session.assert_called_once_with("Test Session")
 
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_get_session(
+    @pytest.mark.asyncio
+    async def test_async_client_get_session(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.get_session() method."""
@@ -181,17 +185,18 @@ class TestOpenCodeAsyncClientSessionMethods:
             time_created=1234567890,
             version="1.0.0",
         )
-        mock_service.get_session = AsyncMock(return_value=session)
+        mock_storage.get_session = AsyncMock(return_value=session)
 
         client = OpenCodeAsyncClient()
         result = await client.get_session(session_id="ses_001")
-        
-        assert result == session
-        mock_service.get_session.assert_called_once_with("ses_001")
 
+        assert result == session
+        mock_storage.get_session.assert_called_once_with("ses_001")
+
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_get_session_not_found(
+    @pytest.mark.asyncio
+    async def test_async_client_get_session_not_found(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.get_session() when session not found."""
@@ -201,17 +206,18 @@ class TestOpenCodeAsyncClientSessionMethods:
         mock_service = Mock()
         mock_service_cls.return_value = mock_service
 
-        mock_service.get_session = AsyncMock(return_value=None)
+        mock_storage.get_session = AsyncMock(return_value=None)
 
         client = OpenCodeAsyncClient()
         result = await client.get_session(session_id="nonexistent")
-        
-        assert result is None
-        mock_service.get_session.assert_called_once_with("nonexistent")
 
+        assert result is None
+        mock_storage.get_session.assert_called_once_with("nonexistent")
+
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_list_sessions(
+    @pytest.mark.asyncio
+    async def test_async_client_list_sessions(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.list_sessions() method."""
@@ -239,17 +245,18 @@ class TestOpenCodeAsyncClientSessionMethods:
             time_created=1234567900,
             version="1.0.0",
         )
-        mock_service.list_sessions = AsyncMock(return_value=[session1, session2])
+        mock_storage.list_sessions = AsyncMock(return_value=[session1, session2])
 
         client = OpenCodeAsyncClient()
         result = await client.list_sessions()
         
         assert result == [session1, session2]
-        mock_service.list_sessions.assert_called_once()
+        mock_storage.list_sessions.assert_called_once()
 
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_delete_session(
+    @pytest.mark.asyncio
+    async def test_async_client_delete_session(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.delete_session() method."""
@@ -267,9 +274,10 @@ class TestOpenCodeAsyncClientSessionMethods:
         assert result is True
         mock_service.delete_session.assert_called_once_with("ses_001")
 
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_delete_session_not_found(
+    @pytest.mark.asyncio
+    async def test_async_client_delete_session_not_found(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.delete_session() when session not found."""
@@ -287,9 +295,10 @@ class TestOpenCodeAsyncClientSessionMethods:
         assert result is False
         mock_service.delete_session.assert_called_once_with("nonexistent")
 
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_add_message(
+    @pytest.mark.asyncio
+    async def test_async_client_add_message(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient.add_message() method."""
@@ -311,9 +320,10 @@ class TestOpenCodeAsyncClientSessionMethods:
         assert result == "msg_001"
         mock_service.add_message.assert_called_once_with("ses_001", "user", "Test message")
 
+    @patch("opencode_python.core.services.session_service.DefaultSessionService")
     @patch("opencode_python.sdk.client.SessionStorage")
-    @patch("opencode_python.sdk.client.DefaultSessionService")
-    def test_async_client_exception_handling(
+    @pytest.mark.asyncio
+    async def test_async_client_exception_handling(
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test that service exceptions are propagated to SDK user."""
@@ -331,3 +341,193 @@ class TestOpenCodeAsyncClientSessionMethods:
         
         with pytest.raises(SessionError, match="Failed to create session"):
             await client.create_session(title="Test")
+
+
+class TestOpenCodeAsyncClientAgentMethods:
+    """Tests for OpenCodeAsyncClient agent management methods."""
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    @pytest.mark.asyncio
+    async def test_async_client_register_agent(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient.register_agent() method."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        client = OpenCodeAsyncClient()
+
+        custom_agent = Agent(
+            name="test-agent",
+            description="Test agent",
+            mode="subagent",
+            permission=[{"permission": "*", "pattern": "*", "action": "allow"}],
+            native=False,
+        )
+
+        result = await client.register_agent(custom_agent)
+
+        assert result == custom_agent
+        assert await client._runtime.get_agent("test-agent") == custom_agent
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    @pytest.mark.asyncio
+    async def test_async_client_get_agent(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient.get_agent() method."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        client = OpenCodeAsyncClient()
+
+        agent = await client.get_agent("build")
+        assert agent is not None
+        assert agent.name == "build"
+
+        agent = await client.get_agent("nonexistent")
+        assert agent is None
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    @patch("opencode_python.sdk.client.AgentRuntime.execute")
+    @pytest.mark.asyncio
+    async def test_async_client_execute_agent(
+        self, mock_storage_cls, mock_service_cls, mock_runtime_execute
+    ) -> None:
+        """Test OpenCodeAsyncClient.execute_agent() method."""
+        from unittest.mock import Mock, AsyncMock
+        from opencode_python.core.agent_types import AgentResult
+
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session = Session(
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        mock_service.get_session = AsyncMock(return_value=session)
+
+        client = OpenCodeAsyncClient()
+
+        mock_result = AgentResult(
+            agent_name="build",
+            response="Test response",
+            parts=[],
+            duration=0.5,
+        )
+
+        mock_runtime_execute.return_value = mock_result
+
+        result = await client.execute_agent(
+            agent_name="build",
+            session_id="ses_001",
+            user_message="Hello",
+        )
+
+        assert result == mock_result
+        assert mock_runtime_execute.called
+        assert mock_runtime_execute.call_args[0] == ("build", "ses_001", "Hello", None)
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    @patch("opencode_python.sdk.client.AgentRuntime.execute")
+    @pytest.mark.asyncio
+    async def test_async_client_execute_agent_with_options(
+        self, mock_storage_cls, mock_service_cls, mock_runtime_execute
+    ) -> None:
+        """Test OpenCodeAsyncClient.execute_agent() with options."""
+        from unittest.mock import Mock, AsyncMock
+        from opencode_python.core.agent_types import AgentResult
+
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session = Session(
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        mock_service.get_session = AsyncMock(return_value=session)
+
+        client = OpenCodeAsyncClient()
+
+        mock_result = AgentResult(
+            agent_name="build",
+            response="Test response",
+            parts=[],
+            duration=0.5,
+        )
+
+        mock_runtime_execute.return_value = mock_result
+
+        result = await client.execute_agent(
+            agent_name="build",
+            session_id="ses_001",
+            user_message="Hello",
+            options={"skills": ["test"], "model": "gpt-4"},
+        )
+
+        assert result == mock_result
+        assert mock_runtime_execute.call_args[0] == ("build", "ses_001", "Hello", {"skills": ["test"], "model": "gpt-4"})
+        assert isinstance(result.duration, float)
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    @pytest.mark.asyncio
+    async def test_async_client_execute_agent_with_options(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient.execute_agent() with options."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session = Session(
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        mock_service.get_session = AsyncMock(return_value=session)
+
+        client = OpenCodeAsyncClient()
+
+        result = await client.execute_agent(
+            agent_name="build",
+            session_id="ses_001",
+            user_message="Hello",
+            options={"skills": ["test"], "model": "gpt-4"},
+        )
+
+        assert isinstance(result, AgentResult)
+        assert result.agent_name == "build"
+

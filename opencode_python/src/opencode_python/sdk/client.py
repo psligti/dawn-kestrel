@@ -6,7 +6,7 @@ that wrap SessionService with handler injection and callbacks.
 
 from __future__ import annotations
 
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, Dict
 from pathlib import Path
 import asyncio
 
@@ -15,7 +15,10 @@ from opencode_python.core.services.session_service import SessionService, Defaul
 from opencode_python.storage.store import SessionStorage
 from opencode_python.core.models import Session
 from opencode_python.interfaces.io import Notification, NotificationType
-from opencode_python.core.exceptions import OpenCodeError
+from opencode_python.core.exceptions import OpenCodeError, SessionError
+from opencode_python.core.settings import get_storage_dir
+from opencode_python.agents.runtime import AgentRuntime, create_agent_runtime
+from opencode_python.core.agent_types import AgentResult
 
 
 class OpenCodeAsyncClient:
@@ -27,6 +30,7 @@ class OpenCodeAsyncClient:
     Attributes:
         config: SDKConfig instance for client configuration.
         _service: SessionService instance for core operations.
+        _runtime: AgentRuntime instance for agent execution.
         _on_progress: Optional callback for progress updates.
         _on_notification: Optional callback for notifications.
     """
@@ -50,7 +54,8 @@ class OpenCodeAsyncClient:
         self._on_progress: Optional[Callable[[int, Optional[str]], None]] = None
         self._on_notification: Optional[Callable[[Notification], None]] = None
 
-        storage = SessionStorage()
+        storage_dir = self.config.storage_path or get_storage_dir()
+        storage = SessionStorage(storage_dir)
         project_dir = self.config.project_dir or Path.cwd()
 
         self._service = DefaultSessionService(
@@ -60,6 +65,8 @@ class OpenCodeAsyncClient:
             progress_handler=progress_handler,
             notification_handler=notification_handler,
         )
+
+        self._runtime = create_agent_runtime(session_manager=self._service)
 
     def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
         """Register progress callback.
@@ -185,6 +192,102 @@ class OpenCodeAsyncClient:
             if isinstance(e, OpenCodeError):
                 raise
             raise SessionError(f"Failed to add message: {e}") from e
+
+    async def register_agent(self, agent: Any) -> Any:
+        """Register a custom agent.
+
+        Args:
+            agent: Agent to register (Agent dataclass or dict with name, description, etc.)
+
+        Returns:
+            Registered agent
+
+        Raises:
+            ValueError: If agent with same name already exists
+            SessionError: If registration fails
+
+        Example:
+            >>> custom_agent = Agent(
+            ...     name="reviewer",
+            ...     description="Code review agent",
+            ...     mode="subagent",
+            ...     permission=[{"permission": "*", "pattern": "*", "action": "allow"}]
+            ... )
+            >>> await client.register_agent(custom_agent)
+        """
+        try:
+            return await self._runtime.register_agent(agent)
+        except Exception as e:
+            if isinstance(e, ValueError):
+                raise
+            raise SessionError(f"Failed to register agent: {e}") from e
+
+    async def get_agent(self, name: str) -> Optional[Any]:
+        """Get an agent by name.
+
+        Args:
+            name: Agent name (case-insensitive)
+
+        Returns:
+            Agent if found, None otherwise
+
+        Example:
+            >>> agent = await client.get_agent("build")
+            >>> if agent:
+            ...     print(f"Found: {agent.description}")
+        """
+        try:
+            return await self._runtime.get_agent(name)
+        except Exception as e:
+            if isinstance(e, ValueError):
+                raise
+            raise SessionError(f"Failed to get agent: {e}") from e
+
+    async def execute_agent(
+        self,
+        agent_name: str,
+        session_id: str,
+        user_message: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
+        """Execute an agent for a user message.
+
+        Args:
+            agent_name: Name of agent to execute (e.g., "build", "plan", "explore")
+            session_id: Session ID to execute in
+            user_message: User's message or request
+            options: Optional execution parameters:
+                - skills: List[str] - Skill names to inject into system prompt
+                - provider: str - Provider ID ("anthropic", "openai")
+                - model: str - Model ID (overrides agent default)
+
+        Returns:
+            AgentResult with response text, parts, metadata, tools used, duration, error
+
+        Raises:
+            ValueError: If agent not found, session not found, or missing required data
+            SessionError: If execution fails
+
+        Example:
+            >>> result = await client.execute_agent(
+            ...     agent_name="build",
+            ...     session_id="ses_123",
+            ...     user_message="Create a new user model"
+            ... )
+            >>> print(f"Response: {result.response}")
+            >>> print(f"Tools used: {result.tools_used}")
+        """
+        try:
+            return await self._runtime.execute(
+                agent_name=agent_name,
+                session_id=session_id,
+                user_message=user_message,
+                options=options,
+            )
+        except ValueError:
+            raise
+        except Exception as e:
+            raise SessionError(f"Failed to execute agent: {e}") from e
 
 
 class OpenCodeSyncClient:
@@ -323,3 +426,21 @@ class OpenCodeSyncClient:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.add_message(session_id, role, content))
+    def register_agent(self, agent: Any) -> Any:
+        """Register a custom agent (sync)."""
+        return asyncio.run(self._async_client.register_agent(agent))
+
+    def get_agent(self, name: str) -> Optional[Any]:
+        """Get an agent by name (sync)."""
+        return asyncio.run(self._async_client.get_agent(name))
+
+    def execute_agent(
+        self,
+        agent_name: str,
+        session_id: str,
+        user_message: str,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> AgentResult:
+        """Execute an agent for a user message (sync)."""
+        return asyncio.run(self._async_client.execute_agent(agent_name, session_id, user_message, options))
+
