@@ -227,3 +227,144 @@ class TestPhase1Placeholder:
     def test_phase1_placeholder(self) -> None:
         """Placeholder test - Phase 1 features to be implemented."""
         assert True
+
+
+class TestAgentTypes:
+    """Test Phase 1 agent types and protocols."""
+
+    def test_agent_result_basic(self) -> None:
+        """AgentResult should create with minimal fields."""
+        from opencode_python.core.agent_types import AgentResult
+
+        result = AgentResult(
+            agent_name="test-agent",
+            response="Hello, world!",
+        )
+
+        assert result.agent_name == "test-agent"
+        assert result.response == "Hello, world!"
+        assert result.parts == []
+        assert result.tools_used == []
+        assert result.tokens_used is None
+        assert result.duration == 0.0
+        assert result.error is None
+
+    def test_agent_result_with_metadata(self) -> None:
+        """AgentResult should support all fields."""
+        from opencode_python.core.agent_types import AgentResult
+        from opencode_python.core.models import TokenUsage, ToolPart, ToolState, TextPart
+
+        result = AgentResult(
+            agent_name="build-agent",
+            response="Build completed successfully",
+            parts=[
+                TextPart(
+                    id="part1",
+                    session_id="session1",
+                    message_id="msg1",
+                    part_type="text",
+                    text="Step 1",
+                )
+            ],
+            metadata={"key": "value"},
+            tools_used=["bash", "read"],
+            tokens_used=TokenUsage(input=100, output=50, reasoning=10),
+            duration=3.5,
+            error=None,
+        )
+
+        assert result.agent_name == "build-agent"
+        assert len(result.parts) == 1
+        assert result.metadata["key"] == "value"
+        assert "bash" in result.tools_used
+        assert result.tokens_used.input == 100
+        assert result.duration == 3.5
+
+    def test_agent_context_basic(self) -> None:
+        """AgentContext should create with minimal fields."""
+        from opencode_python.core.agent_types import AgentContext
+        from opencode_python.tools.framework import ToolRegistry
+
+        context = AgentContext(
+            system_prompt="You are a helpful assistant",
+            tools=ToolRegistry(),
+            messages=[],
+        )
+
+        assert context.system_prompt == "You are a helpful assistant"
+        assert context.messages == []
+        assert context.memories == []
+        assert context.session is None
+        assert context.agent is None
+        assert context.model == "gpt-4o-mini"
+        assert context.metadata == {}
+
+    def test_agent_context_full(self) -> None:
+        """AgentContext should support all fields."""
+        from opencode_python.core.agent_types import AgentContext
+        from opencode_python.tools.framework import ToolRegistry
+        from opencode_python.core.models import Session, Message
+
+        session = Session(
+            id="session1",
+            slug="test",
+            project_id="test-project",
+            directory="/tmp",
+            title="Test",
+            version="1.0.0",
+        )
+
+        context = AgentContext(
+            system_prompt="System prompt",
+            tools=ToolRegistry(),
+            messages=[
+                Message(
+                    id="msg1",
+                    session_id="session1",
+                    role="user",
+                    text="Hello",
+                )
+            ],
+            memories=[{"type": "note", "content": "Important info"}],
+            session=session,
+            agent={"name": "test-agent", "permissions": []},
+            model="claude-3-5-sonnet-20241022",
+            metadata={"custom_key": "value"},
+        )
+
+        assert context.system_prompt == "System prompt"
+        assert len(context.messages) == 1
+        assert len(context.memories) == 1
+        assert context.session is not None
+        assert context.session.id == "session1"
+        assert context.agent is not None
+        assert context.agent["name"] == "test-agent"
+        assert context.model == "claude-3-5-sonnet-20241022"
+        assert context.metadata["custom_key"] == "value"
+
+    def test_session_manager_like_protocol(self) -> None:
+        """SessionManagerLike should work as a protocol."""
+        from opencode_python.core.agent_types import SessionManagerLike
+        from opencode_python.core.session import SessionManager
+        from opencode_python.storage.store import SessionStorage
+        from pathlib import Path
+
+        # SessionManager should satisfy SessionManagerLike protocol
+        storage = SessionStorage(Path.cwd())
+        manager = SessionManager(storage, Path.cwd())
+
+        # Runtime check should pass
+        assert isinstance(manager, SessionManagerLike)
+
+    def test_provider_like_protocol(self) -> None:
+        """ProviderLike should work as a protocol."""
+        from opencode_python.core.agent_types import ProviderLike
+        from unittest.mock import AsyncMock
+
+        # Create a mock that satisfies the protocol
+        mock_provider = AsyncMock()
+        mock_provider.stream = AsyncMock()
+        mock_provider.generate = AsyncMock()
+
+        # Runtime check should pass
+        assert isinstance(mock_provider, ProviderLike)
