@@ -123,3 +123,7 @@ class Events:
     AGENT_EXECUTING = "agent.executing"
     AGENT_ERROR = "agent.error"
     AGENT_CLEANUP = "agent.cleanup"
+    AGENT_PROFILE_SELECT = "agent:profile:select"
+    AGENT_CONFIG_UPDATE = "agent:config:update"
+    AGENT_EXECUTE = "agent:execute"
+    AGENT_COMPLETE = "agent:complete"
