@@ -127,9 +127,9 @@ class OpenCodeTUI(App[None]):
         """Called when TUI starts"""
         self.app.title = "OpenCode Python"
         logger.info("TUI mounted")
-        
-        # Load sessions
-        asyncio.create_task(self._load_sessions())
+
+        from opencode_python.tui.screens import HomeScreen
+        self.push_screen(HomeScreen())
 
     async def _load_sessions(self) -> None:
         """Load sessions into table"""
@@ -263,7 +263,7 @@ class OpenCodeTUI(App[None]):
 
     def action_open_command(self) -> None:
         """Open command palette dialog"""
-        from opencode_python.tui.dialogs import CommandPaletteDialog
+        from opencode_python.tui.palette.command_palette import CommandPaletteDialog
 
         self.push_screen(CommandPaletteDialog(on_command=self._handle_command_palette_command))
 
