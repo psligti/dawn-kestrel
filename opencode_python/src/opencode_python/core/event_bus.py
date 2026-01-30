@@ -131,3 +131,8 @@ class Events:
     AGENT_EXECUTING = "agent.executing"
     AGENT_ERROR = "agent.error"
     AGENT_CLEANUP = "agent.cleanup"
+    AGENT_EXECUTE = "agent.execute"
+    SKILL_ENABLED = "skill.enable"
+    SKILL_DISABLED = "skill.disable"
+    SKILL_BLOCKED = "skill.block"
+    SKILL_EXECUTE = "skill.execute"

@@ -1,6 +1,6 @@
 """OpenCode Python - Skills system"""
 from __future__ import annotations
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from pathlib import Path
 import logging
 
