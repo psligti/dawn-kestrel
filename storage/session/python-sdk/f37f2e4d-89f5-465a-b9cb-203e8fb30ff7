@@ -1,0 +1,20 @@
+{
+  "id": "f37f2e4d-89f5-465a-b9cb-203e8fb30ff7",
+  "slug": "test-session",
+  "project_id": "python-sdk",
+  "directory": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/python-sdk",
+  "parent_id": null,
+  "title": "Test Session",
+  "version": "1.0",
+  "summary": null,
+  "share": null,
+  "permission": null,
+  "revert": null,
+  "time_created": 1769796099.690144,
+  "time_updated": 1769796099.690146,
+  "time_compacting": null,
+  "time_archived": null,
+  "message_counter": 0,
+  "message_count": 0,
+  "total_cost": 0.0
+}
