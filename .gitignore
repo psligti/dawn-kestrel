@@ -32,3 +32,4 @@ build/
 # Textual
 .textual-debug
 .sisyphus
+.worktrees
