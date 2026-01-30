@@ -1006,16 +1006,16 @@ Implement Bridge design pattern for opencode_python with CLI, TUI, and SDK as fi
 - SDK Documentation (`README.md`, `examples/`, migration guide)
 
 ### Definition of Done
-- [ ] All I/O handler protocols defined and mypy-verifiable
-- [ ] Core services accept handlers via constructor with default no-op implementations
-- [ ] CLI and TUI implement all I/O handler protocols
-- [ ] SDK provides both sync (Client) and async (AsyncClient) APIs
-- [ ] SessionManager is thread-safe with shared session storage
-- [ ] Optional dependencies work: `pip install opencode[core]`, `[cli]`, `[tui]`, `[full]`
-- [ ] Backward compatibility maintained (deprecation warnings in Phase 1-3)
-- [ ] Unit tests for protocols and core services with mocked handlers
-- [ ] Integration tests for CLI and TUI
-- [ ] SDK examples and documentation
+- [x] All I/O handler protocols defined and mypy-verifiable
+- [x] Core services accept handlers via constructor with default no-op implementations
+- [x] CLI and TUI implement all I/O handler protocols
+- [x] SDK provides both sync (Client) and async (AsyncClient) APIs
+- [x] SessionManager is thread-safe with shared session storage
+- [x] Optional dependencies work: `pip install opencode[core]`, `[cli]`, `[tui]`, `[full]`
+- [x] Backward compatibility maintained (deprecation warnings in Phase 1-3)
+- [x] Unit tests for protocols and core services with mocked handlers
+- [x] Integration tests for CLI and TUI
+- [x] SDK examples and documentation
 
 ### Must Have
 - Protocol-based I/O abstractions (IOHandler, ProgressHandler, NotificationHandler, StateHandler)
@@ -1146,7 +1146,7 @@ Parallel Speedup: ~35% faster than sequential
 
 ## TODOs
 
-- [ ] 1. Create I/O Abstraction Protocols
+- [x] 1. Create I/O Abstraction Protocols
 
   **What to do**:
   - Create `src/opencode_python/interfaces/io.py` with Protocol definitions
@@ -1230,7 +1230,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/interfaces/io.py`
   - Pre-commit: `pytest tests/test_protocols.py`
 
-- [ ] 2. Create Core Service Interfaces
+- [x] 2. Create Core Service Interfaces
 
   **What to do**:
   - Create `src/opencode_python/core/services/session_service.py`
@@ -1322,7 +1322,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/services/session_service.py`
   - Pre-commit: `pytest tests/test_session_service.py`
 
-- [ ] 3. Create Error Hierarchy
+- [x] 3. Create Error Hierarchy
 
   **What to do**:
   - Create `src/opencode_python/core/exceptions.py`
@@ -1406,7 +1406,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/exceptions.py`
   - Pre-commit: `pytest tests/test_exceptions.py`
 
-- [ ] 4. Create Configuration Classes
+- [x] 4. Create Configuration Classes
 
   **What to do**:
   - Create `src/opencode_python/core/config.py`
@@ -1489,7 +1489,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/config.py`
   - Pre-commit: `pytest tests/test_config.py`
 
-- [ ] 5. Implement Default Core Services
+- [x] 5. Implement Default Core Services
 
   **What to do**:
   - Implement DefaultSessionService in `src/opencode_python/core/services/session_service.py`
@@ -1587,7 +1587,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/services/session_service.py`
   - Pre-commit: `pytest tests/test_session_service.py`
 
-- [ ] 6. Implement Thread-safe SessionManager
+- [x] 6. Implement Thread-safe SessionManager
 
   **What to do**:
   - Add thread safety to SessionManager in `src/opencode_python/core/session.py`
@@ -1680,7 +1680,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/session.py`
   - Pre-commit: `pytest tests/test_thread_safety.py`
 
-- [ ] 7. Implement CLI Handlers
+- [x] 7. Implement CLI Handlers
 
   **What to do**:
   - Create `src/opencode_python/cli/handlers.py`
@@ -1781,7 +1781,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/cli/handlers.py`
   - Pre-commit: `pytest tests/test_cli_handlers.py`
 
-- [ ] 8. Implement TUI Handlers
+- [x] 8. Implement TUI Handlers
 
   **What to do**:
   - Create `src/opencode_python/tui/handlers.py`
@@ -2144,7 +2144,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/core/event_bus_integration.py`
   - Pre-commit: `pytest tests/test_event_bus_integration.py`
 
-- [ ] 12. Refactor CLI Commands
+- [x] 12. Refactor CLI Commands
 
   **What to do**:
   - Update `src/opencode_python/cli/main.py`
@@ -2236,7 +2236,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/cli/main.py`
   - Pre-commit: `pytest tests/test_cli_integration.py`
 
-- [ ] 13. Refactor TUI App
+- [x] 13. Refactor TUI App
 
   **What to do**:
   - Update `src/opencode_python/tui/app.py`
@@ -2327,7 +2327,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `src/opencode_python/tui/app.py`
   - Pre-commit: `pytest tests/test_tui_integration.py`
 
-- [ ] 14. Update pyproject.toml
+- [x] 14. Update pyproject.toml
 
   **What to do**:
   - Update `pyproject.toml`
@@ -2426,7 +2426,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `pyproject.toml`
   - Pre-commit: (verify installations)
 
-- [ ] 15. Write Unit Tests
+- [x] 15. Write Unit Tests
 
   **What to do**:
   - Create unit tests for all new components:
@@ -2518,7 +2518,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `tests/test_*.py` (10 new test files)
   - Pre-commit: `pytest tests/`
 
-- [ ] 16. Write Integration Tests
+- [x] 16. Write Integration Tests
 
   **What to do**:
   - Create integration tests for CLI and TUI:
@@ -2615,7 +2615,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `tests/test_cli_integration.py`, `tests/test_tui_integration.py`
   - Pre-commit: `pytest tests/test_cli_integration.py tests/test_tui_integration.py`
 
-- [ ] 17. Create SDK Examples
+- [x] 17. Create SDK Examples
 
   **What to do**:
   - Create `examples/` directory in opencode_python package
@@ -2724,7 +2724,7 @@ Parallel Speedup: ~35% faster than sequential
   - Files: `examples/basic_sdk_usage.py`, `examples/custom_io_handler.py`, `examples/error_handling.py`, `examples/sync_vs_async.py`
   - Pre-commit: `python examples/*.py`
 
-- [ ] 18. Write Documentation
+- [x] 18. Write Documentation
 
   **What to do**:
   - Update `README.md` with SDK section:
@@ -2942,15 +2942,15 @@ python examples/basic_sdk_usage.py
 ```
 
 ### Final Checklist
-- [ ] All I/O handler protocols defined with @runtime_checkable
-- [ ] Core services accept handlers via constructor with default no-op implementations
-- [ ] CLI and TUI implement all I/O handler protocols
-- [ ] SDK provides both sync (Client) and async (AsyncClient) APIs
-- [ ] SessionManager is thread-safe with shared session storage
-- [ ] Optional dependencies work: `pip install opencode[core]`, `[cli]`, `[tui]`, `[full]`
-- [ ] Backward compatibility maintained (deprecation warnings in Phase 1-3)
-- [ ] Unit tests for protocols and core services with mocked handlers (50+ tests)
-- [ ] Integration tests for CLI and TUI (12+ tests)
-- [ ] SDK examples and documentation (4 examples + README + migration guide)
-- [ ] All tests pass (0 failures)
-- [ ] Test coverage > 80% (optional but recommended)
+- [x] All I/O handler protocols defined with @runtime_checkable
+- [x] Core services accept handlers via constructor with default no-op implementations
+- [x] CLI and TUI implement all I/O handler protocols
+- [x] SDK provides both sync (Client) and async (AsyncClient) APIs
+- [x] SessionManager is thread-safe with shared session storage
+- [x] Optional dependencies work: `pip install opencode[core]`, `[cli]`, `[tui]`, `[full]`
+- [x] Backward compatibility maintained (deprecation warnings in Phase 1-3)
+- [x] Unit tests for protocols and core services with mocked handlers (50+ tests)
+- [x] Integration tests for CLI and TUI (12+ tests)
+- [x] SDK examples and documentation (4 examples + README + migration guide)
+- [x] All tests pass (0 failures)
+- [x] Test coverage > 80% (optional but recommended)

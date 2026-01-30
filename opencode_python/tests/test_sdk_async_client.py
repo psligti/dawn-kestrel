@@ -1,102 +1,333 @@
-"""Tests for async SDK client.
+"""Tests for async SDK client."""
+from __future__ import annotations
 
-Placeholder tests for OpenCodeAsyncClient SDK client.
-All tests are skipped because the SDK client is not yet implemented.
-
-These tests will be unskipped when the SDK client is implemented in future tasks.
-"""
-
+from unittest.mock import Mock, AsyncMock, patch
 import pytest
+from opencode_python.sdk.client import OpenCodeAsyncClient
+from opencode_python.core.models import Session
+from opencode_python.core.exceptions import SessionError
 
 
-@pytest.mark.skip(reason="SDK client not yet implemented")
 class TestOpenCodeAsyncClientInitialization:
     """Tests for OpenCodeAsyncClient initialization."""
 
-    def test_async_client_initialization_default(self) -> None:
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_initialization_default(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient initialization with default config."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        # from opencode_python.sdk.client import OpenCodeAsyncClient
-        # client = OpenCodeAsyncClient()
-        # assert client is not None
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        from opencode_python.core.config import SDKConfig
 
-    def test_async_client_initialization_with_sdk_config(self) -> None:
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        client = OpenCodeAsyncClient()
+        
+        assert client is not None
+        assert client._service == mock_service
+        assert client._on_progress is None
+        assert client._on_notification is None
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_initialization_with_sdk_config(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient initialization with SDKConfig."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        # from opencode_python.sdk.client import OpenCodeAsyncClient
-        # from opencode_python.core.config import SDKConfig
-        # config = SDKConfig()
-        # client = OpenCodeAsyncClient(config=config)
-        # assert client is not None
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        from opencode_python.core.config import SDKConfig
+
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        config = SDKConfig(auto_confirm=True)
+        client = OpenCodeAsyncClient(config=config)
+        
+        assert client is not None
+        assert client._service == mock_service
+        assert client._on_progress is None
+        assert client._on_notification is None
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_initialization_with_handlers(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient initialization with custom handlers."""
+        from opencode_python.interfaces.io import QuietIOHandler, NoOpProgressHandler, NoOpNotificationHandler
+
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        io_handler = QuietIOHandler()
+        progress_handler = NoOpProgressHandler()
+        notification_handler = NoOpNotificationHandler()
+
+        client = OpenCodeAsyncClient(
+            io_handler=io_handler,
+            progress_handler=progress_handler,
+            notification_handler=notification_handler,
+        )
+        
+        assert client is not None
+        assert client._service == mock_service
+        assert client._on_progress is None
+        assert client._on_notification is None
 
 
-@pytest.mark.skip(reason="SDK client not yet implemented")
+class TestOpenCodeAsyncClientCallbacks:
+    """Tests for OpenCodeAsyncClient callback registration."""
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_on_progress_callback_registration(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test progress callback registration."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        client = OpenCodeAsyncClient()
+        
+        progress_callback = Mock()
+        client.on_progress(progress_callback)
+        
+        assert client._on_progress == progress_callback
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_on_notification_callback_registration(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test notification callback registration."""
+        from opencode_python.interfaces.io import Notification, NotificationType
+
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        client = OpenCodeAsyncClient()
+        
+        notification_callback = Mock()
+        client.on_notification(notification_callback)
+        
+        assert client._on_notification == notification_callback
+
+
 class TestOpenCodeAsyncClientSessionMethods:
     """Tests for OpenCodeAsyncClient session management methods."""
 
-    def test_async_client_create_session(self) -> None:
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_create_session(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient.create_session() method."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    def test_async_client_get_session(self) -> None:
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session = Session(
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        mock_service.create_session = AsyncMock(return_value=session)
+
+        client = OpenCodeAsyncClient()
+        result = await client.create_session(title="Test Session")
+        
+        assert result == session
+        mock_service.create_session.assert_called_once_with("Test Session")
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_get_session(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient.get_session() method."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    def test_async_client_list_sessions(self) -> None:
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session = Session(
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        mock_service.get_session = AsyncMock(return_value=session)
+
+        client = OpenCodeAsyncClient()
+        result = await client.get_session(session_id="ses_001")
+        
+        assert result == session
+        mock_service.get_session.assert_called_once_with("ses_001")
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_get_session_not_found(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient.get_session() when session not found."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        mock_service.get_session = AsyncMock(return_value=None)
+
+        client = OpenCodeAsyncClient()
+        result = await client.get_session(session_id="nonexistent")
+        
+        assert result is None
+        mock_service.get_session.assert_called_once_with("nonexistent")
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_list_sessions(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient.list_sessions() method."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    def test_async_client_delete_session(self) -> None:
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        session1 = Session(
+            id="ses_001",
+            title="Test Session 1",
+            slug="test-session-1",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        session2 = Session(
+            id="ses_002",
+            title="Test Session 2",
+            slug="test-session-2",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567900,
+            version="1.0.0",
+        )
+        mock_service.list_sessions = AsyncMock(return_value=[session1, session2])
+
+        client = OpenCodeAsyncClient()
+        result = await client.list_sessions()
+        
+        assert result == [session1, session2]
+        mock_service.list_sessions.assert_called_once()
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_delete_session(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient.delete_session() method."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
 
-@pytest.mark.skip(reason="SDK client not yet implemented")
-class TestOpenCodeAsyncClientMessaging:
-    """Tests for OpenCodeAsyncClient messaging methods."""
+        mock_service.delete_session = AsyncMock(return_value=True)
 
-    def test_async_client_add_message(self) -> None:
+        client = OpenCodeAsyncClient()
+        result = await client.delete_session(session_id="ses_001")
+        
+        assert result is True
+        mock_service.delete_session.assert_called_once_with("ses_001")
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_delete_session_not_found(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeAsyncClient.delete_session() when session not found."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        mock_service.delete_session = AsyncMock(return_value=False)
+
+        client = OpenCodeAsyncClient()
+        result = await client.delete_session(session_id="nonexistent")
+        
+        assert result is False
+        mock_service.delete_session.assert_called_once_with("nonexistent")
+
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_add_message(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
         """Test OpenCodeAsyncClient.add_message() method."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
 
-@pytest.mark.skip(reason="SDK client not yet implemented")
-class TestOpenCodeAsyncClientHandlerIntegration:
-    """Tests for OpenCodeAsyncClient handler integration."""
+        mock_service.add_message = AsyncMock(return_value="msg_001")
 
-    def test_async_client_io_handler_integration(self) -> None:
-        """Test OpenCodeAsyncClient handler integration (io_handler)."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        client = OpenCodeAsyncClient()
+        result = await client.add_message(
+            session_id="ses_001",
+            role="user",
+            content="Test message",
+        )
+        
+        assert result == "msg_001"
+        mock_service.add_message.assert_called_once_with("ses_001", "user", "Test message")
 
-    def test_async_client_progress_handler_integration(self) -> None:
-        """Test OpenCodeAsyncClient handler integration (progress_handler)."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+    @patch("opencode_python.sdk.client.SessionStorage")
+    @patch("opencode_python.sdk.client.DefaultSessionService")
+    def test_async_client_exception_handling(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test that service exceptions are propagated to SDK user."""
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    def test_async_client_notification_handler_integration(self) -> None:
-        """Test OpenCodeAsyncClient handler integration (notification_handler)."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
 
+        mock_service.create_session = AsyncMock(
+            side_effect=ValueError("Storage error")
+        )
 
-@pytest.mark.skip(reason="SDK client not yet implemented")
-class TestOpenCodeAsyncClientCallbacks:
-    """Tests for OpenCodeAsyncClient callback methods."""
-
-    def test_async_client_on_progress_callback(self) -> None:
-        """Test OpenCodeAsyncClient on_progress callback."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
-
-    def test_async_client_on_notification_callback(self) -> None:
-        """Test OpenCodeAsyncClient on_notification callback."""
-        # TODO: Implement when OpenCodeAsyncClient is available
-        pytest.skip("OpenCodeAsyncClient not yet implemented")
+        client = OpenCodeAsyncClient()
+        
+        with pytest.raises(SessionError, match="Failed to create session"):
+            await client.create_session(title="Test")
