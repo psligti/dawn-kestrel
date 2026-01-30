@@ -17,6 +17,7 @@ from opencode_python.agents import AgentExecutor, create_agent_manager
 from opencode_python.core.session import SessionManager
 from opencode_python.storage.store import SessionStorage
 from opencode_python.core.models import Session
+from opencode_python.ai_session import AISession
 
 
 class TestAgentExecutorSession:
@@ -138,6 +139,86 @@ class TestAgentExecutorSession:
             state = agent_manager.get_agent_state(session.id)
             assert state is not None
             assert state.agent_name == "build"
+
+
+class TestToolRegistryWiring:
+
+    def test_ai_session_has_builtin_tools(self) -> None:
+        session = Session(
+            id="test_session",
+            slug="test",
+            project_id="test-project",
+            directory="/tmp/test",
+            title="Test Session",
+            version="1.0"
+        )
+
+        ai_session = AISession(
+            session=session,
+            provider_id="anthropic",
+            model="claude-3-5-sonnet-20241022",
+        )
+
+        assert ai_session.tool_manager is not None
+        assert ai_session.tool_manager.tool_registry is not None
+        assert len(ai_session.tool_manager.tool_registry.tools) > 0
+
+        expected_tools = {"bash", "read", "write", "grep", "glob"}
+        actual_tools = set(ai_session.tool_manager.tool_registry.tools.keys())
+
+        assert expected_tools.issubset(actual_tools), f"Missing tools: {expected_tools - actual_tools}"
+
+    def test_ai_session_custom_tool_registry(self) -> None:
+        from opencode_python.tools.framework import ToolRegistry
+
+        session = Session(
+            id="test_session",
+            slug="test",
+            project_id="test-project",
+            directory="/tmp/test",
+            title="Test Session",
+            version="1.0"
+        )
+
+        custom_registry = ToolRegistry()
+        ai_session = AISession(
+            session=session,
+            provider_id="anthropic",
+            model="claude-3-5-sonnet-20241022",
+            tool_registry=custom_registry,
+        )
+
+        assert ai_session.tool_manager.tool_registry is custom_registry
+
+    def test_get_tool_definitions_returns_non_empty(self) -> None:
+        session = Session(
+            id="test_session",
+            slug="test",
+            project_id="test-project",
+            directory="/tmp/test",
+            title="Test Session",
+            version="1.0"
+        )
+
+        ai_session = AISession(
+            session=session,
+            provider_id="anthropic",
+            model="claude-3-5-sonnet-20241022",
+        )
+
+        tool_definitions = ai_session._get_tool_definitions()
+
+        assert len(tool_definitions) > 0
+        assert "bash" in tool_definitions or "read" in tool_definitions
+
+        if "bash" in tool_definitions:
+            bash_def = tool_definitions["bash"]
+            assert "type" in bash_def
+            assert bash_def["type"] == "function"
+            assert "function" in bash_def
+            assert "name" in bash_def["function"]
+            assert "description" in bash_def["function"]
+            assert "parameters" in bash_def["function"]
 
 
 class TestPhase1Placeholder:

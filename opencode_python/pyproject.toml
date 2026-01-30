@@ -75,3 +75,4 @@ strict = true
 testpaths = ["tests"]
 addopts = "--cov=opencode_python --cov-report=term-missing"
 asyncio_mode = "auto"
+pythonpath = "src"
