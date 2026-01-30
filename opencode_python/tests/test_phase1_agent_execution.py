@@ -10,6 +10,8 @@
 Note: Test uses mock session and stub provider to avoid pre-existing storage bugs that are outside scope of this task. Given time constraints and complexity, the integration test is comprehensive and touches many components, I'm creating a focused test that exercises the core integration path end-to-end without getting bogged down by pre-existing issues.
 """
 import pytest
+from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, AsyncMock, patch
 
 from opencode_python.agents.runtime import create_agent_runtime
@@ -32,7 +34,7 @@ class TestEndToEndIntegration:
     """
 
     @pytest.mark.asyncio
-    async def test_full_agent_execution_flow(self, tmp_path):
+    async def test_full_agent_execution_flow(self, tmp_path: Path) -> None:
         """Test complete agent execution flow with custom agent and skills."""
         # Create agent registry and runtime with fresh instances
         storage_dir = tmp_path / "test-storage"
@@ -88,10 +90,12 @@ class TestEndToEndIntegration:
         }
 
         # Mock AISession.process_message to capture filtered tools
-        async def mock_process_message(self, user_message, options=None):
+        async def mock_process_message(
+            self, user_message: str, options: Any = None
+        ) -> Message:
             """Mock process_message to capture context without network calls."""
             captured_context["tools_registry"] = self.tool_manager.tool_registry
-            captured_context["filtered_tools"] = set(self.tool_manager.tool_registry.tools.keys())
+            captured_context["filtered_tools"] = set(self.tool_manager.tool_registry.tools.keys())  # type: ignore[assignment]
 
             mock_message = Message(
                 id="msg-test-123",
