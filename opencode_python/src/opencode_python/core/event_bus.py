@@ -123,3 +123,8 @@ class Events:
     AGENT_EXECUTING = "agent.executing"
     AGENT_ERROR = "agent.error"
     AGENT_CLEANUP = "agent.cleanup"
+    TASK_STARTED = "task.started"
+    TASK_COMPLETED = "task.completed"
+    TASK_FAILED = "task.failed"
+    TASK_CANCELLED = "task.cancelled"
+    SUBTASK_ADDED = "subtask.added"
