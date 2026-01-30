@@ -368,3 +368,364 @@ class TestAgentTypes:
 
         # Runtime check should pass
         assert isinstance(mock_provider, ProviderLike)
+
+
+class TestToolPermissionFilter:
+    """Test ToolPermissionFilter for filtering tools based on agent permissions."""
+
+    def test_plan_agent_denies_edit_and_write(self) -> None:
+        """PLAN agent permission rules should deny edit and write tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+        from opencode_python.tools.framework import ToolRegistry
+
+        # PLAN agent permissions (from agents/builtin.py)
+        plan_permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "question", "pattern": "*", "action": "allow"},
+            {"permission": "plan_exit", "pattern": "*", "action": "deny"},
+            {"permission": "edit", "pattern": "*", "action": "deny"},
+            {"permission": "write", "pattern": "*", "action": "deny"},
+            {"permission": "plan_exit", "pattern": ".opencode/plans/*.md", "action": "allow"},
+        ]
+
+        # Create a mock tool registry with common tools
+        registry = ToolRegistry()
+        tool_ids = {"bash", "read", "write", "edit", "grep", "glob", "question"}
+
+        filter_obj = ToolPermissionFilter(
+            permissions=plan_permissions,
+            tool_registry=registry,
+        )
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # edit and write should be denied
+        assert "edit" not in allowed_ids, "edit should be denied for PLAN agent"
+        assert "write" not in allowed_ids, "write should be denied for PLAN agent"
+
+        # Other tools should be allowed
+        assert "bash" in allowed_ids, "bash should be allowed for PLAN agent"
+        assert "read" in allowed_ids, "read should be allowed for PLAN agent"
+        assert "grep" in allowed_ids, "grep should be allowed for PLAN agent"
+        assert "glob" in allowed_ids, "glob should be allowed for PLAN agent"
+        assert "question" in allowed_ids, "question should be allowed for PLAN agent"
+
+    def test_build_agent_allows_all(self) -> None:
+        """BUILD agent permission rules should allow all tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+        from opencode_python.tools.framework import ToolRegistry
+
+        # BUILD agent permissions (from agents/builtin.py)
+        build_permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "question", "pattern": "*", "action": "allow"},
+            {"permission": "plan_enter", "pattern": "*", "action": "allow"},
+        ]
+
+        registry = ToolRegistry()
+        tool_ids = {"bash", "read", "write", "edit", "grep", "glob", "question"}
+
+        filter_obj = ToolPermissionFilter(
+            permissions=build_permissions,
+            tool_registry=registry,
+        )
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # All tools should be allowed
+        assert allowed_ids == tool_ids, f"Expected all tools, got {allowed_ids}"
+
+    def test_wildcard_permission_allows_all_tools(self) -> None:
+        """Wildcard permission should match all tool IDs."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+        ]
+
+        tool_ids = {"bash", "read", "write", "edit", "grep", "glob"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        assert allowed_ids == tool_ids, "Wildcard should allow all tools"
+
+    def test_specific_tool_permission(self) -> None:
+        """Specific tool permission should only match that tool."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "bash", "pattern": "*", "action": "allow"},
+            {"permission": "read", "pattern": "*", "action": "allow"},
+        ]
+
+        tool_ids = {"bash", "read", "write", "edit"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        assert "bash" in allowed_ids, "bash should be allowed"
+        assert "read" in allowed_ids, "read should be allowed"
+        assert "write" not in allowed_ids, "write should be denied (no rule)"
+        assert "edit" not in allowed_ids, "edit should be denied (no rule)"
+
+    def test_last_matching_rule_wins(self) -> None:
+        """Rules are evaluated in order, last matching rule wins."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},  # First: allow all
+            {"permission": "edit", "pattern": "*", "action": "deny"},  # Last: deny edit
+        ]
+
+        tool_ids = {"bash", "read", "write", "edit"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # edit should be denied (last matching rule wins)
+        assert "edit" not in allowed_ids, "edit should be denied by last rule"
+        # Other tools should be allowed by first rule
+        assert "bash" in allowed_ids, "bash should be allowed"
+        assert "read" in allowed_ids, "read should be allowed"
+        assert "write" in allowed_ids, "write should be allowed"
+
+    def test_deny_then_allow_ordering(self) -> None:
+        """Deny then allow rules: last matching rule wins."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "bash", "pattern": "*", "action": "deny"},
+            {"permission": "bash", "pattern": "*", "action": "allow"},
+        ]
+
+        tool_ids = {"bash"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # Last rule (allow) should win
+        assert "bash" in allowed_ids, "Last rule (allow) should win"
+
+    def test_allow_then_deny_ordering(self) -> None:
+        """Allow then deny rules: last matching rule wins."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "bash", "pattern": "*", "action": "allow"},
+            {"permission": "bash", "pattern": "*", "action": "deny"},
+        ]
+
+        tool_ids = {"bash"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # Last rule (deny) should win
+        assert "bash" not in allowed_ids, "Last rule (deny) should win"
+
+    def test_empty_permissions_default_to_deny(self) -> None:
+        """Empty permissions should default to deny all tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        filter_obj = ToolPermissionFilter(permissions=[])
+
+        tool_ids = {"bash", "read", "write"}
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        assert len(allowed_ids) == 0, "Empty permissions should deny all"
+
+    def test_none_permissions_handled(self) -> None:
+        """None permissions should be handled gracefully."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        filter_obj = ToolPermissionFilter(permissions=None)
+
+        tool_ids = {"bash", "read"}
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        assert len(allowed_ids) == 0, "None permissions should deny all"
+
+    def test_is_tool_allowed(self) -> None:
+        """is_tool_allowed should correctly check individual tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "edit", "pattern": "*", "action": "deny"},
+        ]
+
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        assert filter_obj.is_tool_allowed("bash") is True
+        assert filter_obj.is_tool_allowed("read") is True
+        assert filter_obj.is_tool_allowed("edit") is False
+        assert filter_obj.is_tool_allowed("unknown") is True  # wildcard matches
+
+    def test_get_filtered_tool_ids_uses_registry_if_none_provided(self) -> None:
+        """get_filtered_tool_ids should use registry tools if tool_ids is None."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+        from opencode_python.tools.framework import ToolRegistry
+        from unittest.mock import Mock
+
+        registry = ToolRegistry()
+        registry.tools = {
+            "bash": Mock(),
+            "read": Mock(),
+            "write": Mock(),
+        }
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "write", "pattern": "*", "action": "deny"},
+        ]
+
+        filter_obj = ToolPermissionFilter(
+            permissions=permissions,
+            tool_registry=registry,
+        )
+
+        # Don't provide tool_ids, should use registry
+        allowed_ids = filter_obj.get_filtered_tool_ids()
+
+        assert "bash" in allowed_ids
+        assert "read" in allowed_ids
+        assert "write" not in allowed_ids
+
+    def test_get_filtered_registry_returns_new_registry(self) -> None:
+        """get_filtered_registry should return new registry with only allowed tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+        from opencode_python.tools.framework import ToolRegistry
+        from unittest.mock import Mock
+
+        registry = ToolRegistry()
+        registry.tools = {
+            "bash": Mock(),
+            "read": Mock(),
+            "write": Mock(),
+        }
+        registry.tool_metadata = {
+            "bash": {"category": "system"},
+            "read": {"category": "io"},
+        }
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "write", "pattern": "*", "action": "deny"},
+        ]
+
+        filter_obj = ToolPermissionFilter(
+            permissions=permissions,
+            tool_registry=registry,
+        )
+
+        filtered_registry = filter_obj.get_filtered_registry()
+
+        assert filtered_registry is not None
+        assert "bash" in filtered_registry.tools
+        assert "read" in filtered_registry.tools
+        assert "write" not in filtered_registry.tools
+
+        # Metadata should be preserved
+        assert filtered_registry.get_metadata("bash") == {"category": "system"}
+        assert filtered_registry.get_metadata("read") == {"category": "io"}
+
+    def test_get_filtered_registry_with_none_registry(self) -> None:
+        """get_filtered_registry should return None if no registry available."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        filter_obj = ToolPermissionFilter(permissions=[], tool_registry=None)
+
+        assert filter_obj.get_filtered_registry() is None
+
+    def test_general_agent_denies_todos(self) -> None:
+        """GENERAL agent permission rules should deny todoread and todowrite."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        # GENERAL agent permissions (from agents/builtin.py)
+        general_permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {"permission": "todoread", "pattern": "*", "action": "deny"},
+            {"permission": "todowrite", "pattern": "*", "action": "deny"},
+        ]
+
+        tool_ids = {"bash", "read", "write", "todoread", "todowrite"}
+        filter_obj = ToolPermissionFilter(permissions=general_permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        assert "todoread" not in allowed_ids, "todoread should be denied for GENERAL agent"
+        assert "todowrite" not in allowed_ids, "todowrite should be denied for GENERAL agent"
+        assert "bash" in allowed_ids, "bash should be allowed"
+        assert "read" in allowed_ids, "read should be allowed"
+        assert "write" in allowed_ids, "write should be allowed"
+
+    def test_explore_agent_specific_permissions(self) -> None:
+        """EXPLORE agent should only allow specific tools."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        # EXPLORE agent permissions (from agents/builtin.py)
+        explore_permissions = [
+            {"permission": "*", "pattern": "*", "action": "deny"},
+            {"permission": "grep", "pattern": "*", "action": "allow"},
+            {"permission": "glob", "pattern": "*", "action": "allow"},
+            {"permission": "list", "pattern": "*", "action": "allow"},
+            {"permission": "bash", "pattern": "*", "action": "allow"},
+            {"permission": "webfetch", "pattern": "*", "action": "allow"},
+            {"permission": "websearch", "pattern": "*", "action": "allow"},
+            {"permission": "codesearch", "pattern": "*", "action": "allow"},
+            {"permission": "read", "pattern": "*", "action": "allow"},
+        ]
+
+        tool_ids = {"grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch", "read", "write", "edit"}
+        filter_obj = ToolPermissionFilter(permissions=explore_permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # Only allowed tools should be present
+        expected_allowed = {"grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch", "read"}
+        assert allowed_ids == expected_allowed, f"Expected {expected_allowed}, got {allowed_ids}"
+
+        # Write and edit should be denied
+        assert "write" not in allowed_ids
+        assert "edit" not in allowed_ids
+
+    def test_invalid_permission_rules_ignored(self) -> None:
+        """Invalid permission rules should be ignored."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        permissions = [
+            {"permission": "*", "pattern": "*", "action": "allow"},
+            {},  # Empty rule
+            {"action": "allow"},  # Missing permission
+            {"permission": "bash"},  # Missing action
+            None,  # None rule
+            {"permission": "read", "pattern": "*", "action": "deny"},
+        ]
+
+        tool_ids = {"bash", "read", "write"}
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        allowed_ids = filter_obj.get_filtered_tool_ids(tool_ids)
+
+        # Valid rules should still work
+        assert "bash" in allowed_ids
+        assert "read" not in allowed_ids
+        assert "write" in allowed_ids
+
+    def test_pattern_field_reserved_for_future(self) -> None:
+        """Pattern field should be parsed but not used in current implementation."""
+        from opencode_python.tools.permission_filter import ToolPermissionFilter
+
+        # Pattern field is reserved for future use (e.g., file paths)
+        # Currently, both rules match because they have the same permission field
+        permissions = [
+            {"permission": "read", "pattern": "*.py", "action": "allow"},
+            {"permission": "read", "pattern": "*.md", "action": "deny"},
+        ]
+
+        filter_obj = ToolPermissionFilter(permissions=permissions)
+
+        # Both rules match based on permission field, last one wins (deny)
+        is_allowed = filter_obj.is_tool_allowed("read")
+        assert is_allowed is False, "Last matching rule (deny) should determine permission"
