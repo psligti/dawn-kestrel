@@ -21,6 +21,9 @@ from opencode_python.agents.runtime import create_agent_runtime
 from opencode_python.core.agent_types import AgentResult
 from opencode_python.agents.registry import create_agent_registry
 from opencode_python.tools import create_builtin_registry
+from opencode_python.providers.registry import create_provider_registry
+from opencode_python.core.provider_config import ProviderConfig
+from opencode_python.core.session_lifecycle import SessionLifecycle
 
 
 class OpenCodeAsyncClient:
@@ -33,6 +36,8 @@ class OpenCodeAsyncClient:
         config: SDKConfig instance for client configuration.
         _service: SessionService instance for core operations.
         _runtime: AgentRuntime instance for agent execution.
+        _provider_registry: ProviderRegistry instance for provider management.
+        _lifecycle: SessionLifecycle instance for lifecycle events.
         _on_progress: Optional callback for progress updates.
         _on_notification: Optional callback for notifications.
     """
@@ -68,6 +73,9 @@ class OpenCodeAsyncClient:
             notification_handler=notification_handler,
         )
 
+        self._provider_registry = create_provider_registry(storage_dir)
+        self._lifecycle = SessionLifecycle()
+
         agent_registry = create_agent_registry(
             persistence_enabled=False,
             storage_dir=storage_dir,
@@ -75,7 +83,10 @@ class OpenCodeAsyncClient:
         self._runtime = create_agent_runtime(
             agent_registry=agent_registry,
             base_dir=project_dir,
+            session_lifecycle=self._lifecycle,
         )
+
+        self._provider_registry.register_lifecycle(self._lifecycle)
 
     def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
         """Register progress callback.
@@ -306,6 +317,191 @@ class OpenCodeAsyncClient:
         except Exception as e:
             raise SessionError(f"Failed to execute agent: {e}") from e
 
+    async def register_provider(
+        self,
+        name: str,
+        provider_id: str,
+        model: str,
+        api_key: Optional[str] = None,
+        is_default: bool = False,
+    ) -> ProviderConfig:
+        """Register a provider configuration.
+
+        Args:
+            name: Name for this provider configuration
+            provider_id: Provider ID (e.g., "anthropic", "openai")
+            model: Model ID to use
+            api_key: API key for the provider (optional)
+            is_default: Whether to set as default provider
+
+        Returns:
+            Registered ProviderConfig
+
+        Raises:
+            ValueError: If provider with same name already exists
+            SessionError: If registration fails
+
+        Example:
+            >>> await client.register_provider(
+            ...     name="my-anthropic",
+            ...     provider_id="anthropic",
+            ...     model="claude-sonnet-4-20250514"
+            ... )
+        """
+        try:
+            config = ProviderConfig(
+                provider_id=provider_id,
+                model=model,
+                api_key=api_key,
+                is_default=is_default,
+            )
+            return await self._provider_registry.register_provider(name, config, is_default)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise SessionError(f"Failed to register provider: {e}") from e
+
+    async def get_provider(self, name: str) -> Optional[ProviderConfig]:
+        """Get a provider configuration by name.
+
+        Args:
+            name: Provider name
+
+        Returns:
+            ProviderConfig or None if not found
+
+        Example:
+            >>> provider = await client.get_provider("my-anthropic")
+            >>> if provider:
+            ...     print(f"Model: {provider.model}")
+        """
+        return await self._provider_registry.get_provider(name)
+
+    async def list_providers(self) -> list[Dict[str, Any]]:
+        """List all provider configurations.
+
+        Returns:
+            List of provider configuration dictionaries
+
+        Example:
+            >>> providers = await client.list_providers()
+            >>> for p in providers:
+            ...     print(f"{p['name']}: {p['config']['model']}")
+        """
+        return await self._provider_registry.list_providers()
+
+    async def remove_provider(self, name: str) -> bool:
+        """Remove a provider configuration.
+
+        Args:
+            name: Provider name
+
+        Returns:
+            True if removed, False if not found
+
+        Raises:
+            SessionError: If removal fails
+
+        Example:
+            >>> removed = await client.remove_provider("my-anthropic")
+            >>> print(f"Removed: {removed}")
+        """
+        try:
+            return await self._provider_registry.remove_provider(name)
+        except Exception as e:
+            raise SessionError(f"Failed to remove provider: {e}") from e
+
+    async def update_provider(
+        self,
+        name: str,
+        provider_id: str,
+        model: str,
+        api_key: Optional[str] = None,
+    ) -> ProviderConfig:
+        """Update an existing provider configuration.
+
+        Args:
+            name: Provider name
+            provider_id: New provider ID
+            model: New model ID
+            api_key: New API key (optional)
+
+        Returns:
+            Updated ProviderConfig
+
+        Raises:
+            ValueError: If provider not found
+            SessionError: If update fails
+
+        Example:
+            >>> await client.update_provider(
+            ...     name="my-anthropic",
+            ...     model="claude-sonnet-4-20250514"
+            ... )
+        """
+        try:
+            config = ProviderConfig(
+                provider_id=provider_id,
+                model=model,
+                api_key=api_key,
+            )
+            return await self._provider_registry.update_provider(name, config)
+        except ValueError:
+            raise
+        except Exception as e:
+            raise SessionError(f"Failed to update provider: {e}") from e
+
+    def on_session_created(self, callback: Any) -> None:
+        """Register callback for session creation events.
+
+        Args:
+            callback: Function called with session data when session is created
+
+        Example:
+            >>> def on_created(data):
+            ...     print(f"Session created: {data['id']}")
+            >>> client.on_session_created(on_created)
+        """
+        self._lifecycle.on_session_created(callback)
+
+    def on_session_updated(self, callback: Any) -> None:
+        """Register callback for session update events.
+
+        Args:
+            callback: Function called with session data when session is updated
+
+        Example:
+            >>> def on_updated(data):
+            ...     print(f"Session updated: {data['id']}")
+            >>> client.on_session_updated(on_updated)
+        """
+        self._lifecycle.on_session_updated(callback)
+
+    def on_message_added(self, callback: Any) -> None:
+        """Register callback for message addition events.
+
+        Args:
+            callback: Function called with message data when message is added
+
+        Example:
+            >>> def on_message(data):
+            ...     print(f"Message added: {data['role']}")
+            >>> client.on_message_added(on_message)
+        """
+        self._lifecycle.on_message_added(callback)
+
+    def on_session_archived(self, callback: Any) -> None:
+        """Register callback for session archive events.
+
+        Args:
+            callback: Function called with session data when session is archived
+
+        Example:
+            >>> def on_archived(data):
+            ...     print(f"Session archived: {data['id']}")
+            >>> client.on_session_archived(on_archived)
+        """
+        self._lifecycle.on_session_archived(callback)
 
 class OpenCodeSyncClient:
     """Sync client for OpenCode SDK.
@@ -460,4 +656,57 @@ class OpenCodeSyncClient:
     ) -> AgentResult:
         """Execute an agent for a user message (sync)."""
         return asyncio.run(self._async_client.execute_agent(agent_name, session_id, user_message, options))
+
+    def register_provider(
+        self,
+        name: str,
+        provider_id: str,
+        model: str,
+        api_key: Optional[str] = None,
+        is_default: bool = False,
+    ) -> ProviderConfig:
+        """Register a provider configuration (sync)."""
+        return asyncio.run(
+            self._async_client.register_provider(name, provider_id, model, api_key, is_default)
+        )
+
+    def get_provider(self, name: str) -> Optional[ProviderConfig]:
+        """Get a provider configuration by name (sync)."""
+        return asyncio.run(self._async_client.get_provider(name))
+
+    def list_providers(self) -> list[Dict[str, Any]]:
+        """List all provider configurations (sync)."""
+        return asyncio.run(self._async_client.list_providers())
+
+    def remove_provider(self, name: str) -> bool:
+        """Remove a provider configuration (sync)."""
+        return asyncio.run(self._async_client.remove_provider(name))
+
+    def update_provider(
+        self,
+        name: str,
+        provider_id: str,
+        model: str,
+        api_key: Optional[str] = None,
+    ) -> ProviderConfig:
+        """Update an existing provider configuration (sync)."""
+        return asyncio.run(
+            self._async_client.update_provider(name, provider_id, model, api_key)
+        )
+
+    def on_session_created(self, callback: Any) -> None:
+        """Register callback for session creation events (sync)."""
+        self._async_client.on_session_created(callback)
+
+    def on_session_updated(self, callback: Any) -> None:
+        """Register callback for session update events (sync)."""
+        self._async_client.on_session_updated(callback)
+
+    def on_message_added(self, callback: Any) -> None:
+        """Register callback for message addition events (sync)."""
+        self._async_client.on_message_added(callback)
+
+    def on_session_archived(self, callback: Any) -> None:
+        """Register callback for session archive events (sync)."""
+        self._async_client.on_session_archived(callback)
 

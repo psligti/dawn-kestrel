@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from opencode_python.core.event_bus import bus, Events
 from opencode_python.tools.framework import ToolContext, ToolResult, ToolRegistry
 from opencode_python.core.models import ToolState, ToolPart
+from opencode_python.agents.tool_execution_tracker import ToolExecutionTracker
 
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,18 @@ logger = logging.getLogger(__name__)
 class ToolExecutionManager:
     """Manages tool execution from AI responses"""
 
-    def __init__(self, session_id: str, tool_registry: Optional[ToolRegistry] = None):
+    def __init__(
+        self,
+        session_id: str,
+        tool_registry: Optional[ToolRegistry] = None,
+        session_lifecycle: Optional[Any] = None,
+        tracker: Optional[ToolExecutionTracker] = None,
+    ):
         self.session_id = session_id
         self.active_calls: Dict[str, ToolContext] = {}
         self.tool_registry = tool_registry if tool_registry is not None else ToolRegistry()
+        self._lifecycle = session_lifecycle
+        self.tracker = tracker
     
     async def execute_tool_call(
         self,
@@ -60,7 +69,7 @@ class ToolExecutionManager:
             input=tool_input,
             time_start=None
         )
-        
+
         tool_part = ToolPart(
             id=f"{self.session_id}_{tool_call_id}",
             session_id=self.session_id,
@@ -71,7 +80,7 @@ class ToolExecutionManager:
             state=state,
             source={"provider": model}
         )
-        
+
         await bus.publish(Events.TOOL_STARTED, {
             "part_id": tool_part.id,
             "session_id": self.session_id,
@@ -80,10 +89,20 @@ class ToolExecutionManager:
             "agent": agent,
             "model": model
         })
-        
+
+        if self.tracker:
+            await self.tracker.log_execution(
+                execution_id=tool_part.id,
+                session_id=self.session_id,
+                message_id=message_id,
+                tool_id=tool_name,
+                state=state,
+                start_time=tool_context.time_created,
+            )
+
         try:
             self.active_calls[tool_call_id] = tool_context
-            
+
             result = await tool.execute(tool_input, tool_context)
             
             state.status = "completed"
@@ -92,7 +111,14 @@ class ToolExecutionManager:
             state.output = result.output
             state.title = result.title
             state.metadata = result.metadata
-            
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                    end_time=tool_context.time_finished,
+                )
+
             await bus.publish(Events.TOOL_COMPLETED, {
                 "part_id": tool_part.id,
                 "session_id": self.session_id,
@@ -108,6 +134,13 @@ class ToolExecutionManager:
             logger.warning(f"Tool {tool_name} cancelled by user")
             state.status = "error"
             state.error = "Cancelled by user"
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                )
+
             await bus.publish(Events.TOOL_ERROR, {
                 "part_id": tool_part.id,
                 "session_id": self.session_id,
@@ -125,6 +158,13 @@ class ToolExecutionManager:
             logger.error(f"Tool {tool_name} failed: {e}")
             state.status = "error"
             state.error = str(e)
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                )
+
             await bus.publish(Events.TOOL_ERROR, {
                 "part_id": tool_part.id,
                 "session_id": self.session_id,
@@ -193,7 +233,7 @@ class ToolExecutionManager:
             input=tool_input,
             time_start=tool_context.time_created,
         )
-        
+
         tool_part = ToolPart(
             id=f"{self.session_id}_{tool_call_id}",
             session_id=self.session_id,
@@ -204,7 +244,7 @@ class ToolExecutionManager:
             state=state,
             source={"provider": model}
         )
-        
+
         await bus.publish(Events.TOOL_STARTED, {
             "part_id": tool_part.id,
             "session_id": self.session_id,
@@ -213,10 +253,20 @@ class ToolExecutionManager:
             "agent": agent,
             "model": model
         })
-        
+
+        if self.tracker:
+            await self.tracker.log_execution(
+                execution_id=tool_part.id,
+                session_id=self.session_id,
+                message_id=message_id,
+                tool_id=tool_name,
+                state=state,
+                start_time=tool_context.time_created,
+            )
+
         try:
             self.active_calls[tool_call_id] = tool_context
-            
+
             result = await tool.execute(tool_input, tool_context)
             
             state.status = "completed"
@@ -224,7 +274,14 @@ class ToolExecutionManager:
             state.output = result.output
             state.title = result.title
             state.metadata = result.metadata
-            
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                    end_time=tool_context.time_finished,
+                )
+
             await bus.publish(Events.TOOL_COMPLETED, {
                 "part_id": tool_part.id,
                 "session_id": self.session_id,
@@ -238,11 +295,23 @@ class ToolExecutionManager:
             logger.warning(f"Tool {tool_name} cancelled during stream")
             state.status = "error"
             state.error = "Cancelled"
-            
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                )
+
         except Exception as e:
             logger.error(f"Tool {tool_name} stream failed: {e}")
             state.status = "error"
             state.error = str(e)
+
+            if self.tracker:
+                await self.tracker.update_execution(
+                    execution_id=tool_part.id,
+                    state=state,
+                )
             
         finally:
             if tool_call_id in self.active_calls:
@@ -275,6 +344,11 @@ class ToolExecutionManager:
             logger.info(f"Cleaning up tool call {call_id}")
 
 
-def create_tool_manager(session_id: str, tool_registry: Optional[ToolRegistry] = None) -> ToolExecutionManager:
+def create_tool_manager(
+    session_id: str,
+    tool_registry: Optional[ToolRegistry] = None,
+    session_lifecycle: Optional[Any] = None,
+    tracker: Optional[ToolExecutionTracker] = None,
+) -> ToolExecutionManager:
     """Factory function to create tool manager"""
-    return ToolExecutionManager(session_id, tool_registry)
+    return ToolExecutionManager(session_id, tool_registry, session_lifecycle, tracker)

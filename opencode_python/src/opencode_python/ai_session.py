@@ -13,6 +13,8 @@ from .core.models import Session, Message, Part, TextPart, ToolPart, AgentPart, 
 from .providers.base import ProviderID, ModelInfo
 from .core.event_bus import bus, Events
 from .core.settings import settings
+from .core.provider_config import ProviderConfig
+from .core.session_lifecycle import SessionLifecycle
 from .providers import (
     get_provider,
     ModelInfo,
@@ -35,19 +37,32 @@ class AISession:
         model: str,
         api_key: Optional[str] = None,
         session_manager=None,
-        tool_registry: Optional[ToolRegistry] = None
+        tool_registry: Optional[ToolRegistry] = None,
+        provider_config: Optional[ProviderConfig] = None,
+        session_lifecycle: Optional[SessionLifecycle] = None,
     ):
         self.session = session
         self.provider_id = provider_id
         self.model = model
         self.session_manager = session_manager
+        self.provider_config = provider_config
+        self.session_lifecycle = session_lifecycle
+
         api_key_value = api_key or settings.api_keys.get(provider_id)
-        # Convert string to ProviderID enum
+
+        if provider_config and provider_config.api_key:
+            api_key_value = provider_config.api_key
+
+        if provider_config and provider_config.model:
+            model = provider_config.model
+
+        self.model = model
+
         provider_enum = ProviderID(provider_id) if isinstance(provider_id, str) else provider_id
         self.provider = get_provider(provider_enum, str(api_key_value) if api_key_value else "")
         self.model_info: Optional[ModelInfo] = None
         final_registry = tool_registry if tool_registry is not None else create_builtin_registry()
-        self.tool_manager = ToolExecutionManager(session.id, final_registry)
+        self.tool_manager = ToolExecutionManager(session.id, final_registry, session_lifecycle)
 
     async def _get_model_info(self, model: str) -> ModelInfo:
         if self.provider is None:
@@ -185,6 +200,9 @@ class AISession:
         self.session.message_counter += 1
         await bus.publish(Events.MESSAGE_CREATED, {"info": assistant_message.model_dump()})
 
+        if self.session_lifecycle:
+            await self.session_lifecycle.emit_message_added(assistant_message.model_dump())
+
         return assistant_message
 
     async def process_message(
@@ -215,6 +233,9 @@ class AISession:
         else:
             user_msg_id = user_msg.id
         self.session.message_counter += 1
+
+        if self.session_lifecycle:
+            await self.session_lifecycle.emit_message_added(user_msg.model_dump())
 
         # Build message history for context
         messages = await self.session_manager.list_messages(self.session.id) if self.session_manager else []
