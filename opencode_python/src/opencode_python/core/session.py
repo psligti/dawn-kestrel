@@ -7,6 +7,7 @@ import uuid
 import logging
 
 from opencode_python.storage.store import SessionStorage
+from opencode_python.storage.session_meta import SessionMeta, SessionMetaStorage
 from opencode_python.core.event_bus import bus, Events
 from opencode_python.core.models import (
     Session,
@@ -58,15 +59,13 @@ class SessionManager:
             version=version,
             summary=summary,
         )
-        
-        # Persist
-        created = await self.storage.create_session(session)
-        
+
+        await self.storage.create_session(session)
+
         logger.info(f"Created session: {session_id} ({title})")
-        
-        # Emit event
+
         await bus.publish(Events.SESSION_CREATED, {"session": session.model_dump()})
-        
+
         return session
 
     async def get_session(self, session_id: str) -> Optional[Session]:
@@ -87,15 +86,13 @@ class SessionManager:
         for key, value in kwargs.items():
             if hasattr(session, key):
                 setattr(session, key, value)
-        
+
         session.time_updated = datetime.now().timestamp()
-        
-        # Persist
-        updated = await self.storage.update_session(session)
-        
-        # Emit event
+
+        await self.storage.update_session(session)
+
         await bus.publish(Events.SESSION_UPDATED, {"session": session.model_dump()})
-        
+
         return session
 
     async def delete_session(self, session_id: str) -> bool:
@@ -103,15 +100,13 @@ class SessionManager:
         session = await self.get_session(session_id)
         if not session:
             return False
-        
-        # Delete from storage
-        deleted = await self.storage.delete_session(session_id, session.project_id)
-        
-        # Emit event
+
+        await self.storage.delete_session(session_id, session.project_id)
+
         await bus.publish(Events.SESSION_DELETED, {"session_id": session_id})
-        
+
         logger.info(f"Deleted session: {session_id}")
-        
+
         return True
 
     async def list_sessions(self) -> List[Session]:
@@ -191,10 +186,8 @@ class SessionManager:
         if not message:
             return False
 
-        # Delete from storage
-        deleted = await self.storage.remove(["message", session_id, message_id])
+        await self.storage.remove(["message", session_id, message_id])
 
-        # Emit event
         await bus.publish(Events.MESSAGE_DELETED, {
             "session_id": session_id,
             "message_id": message_id
@@ -265,13 +258,11 @@ class SessionManager:
         session_dict = session_data.get("session", {})
         messages_data = session_data.get("messages", [])
 
-        # Validate required fields
         if not session_dict.get("id") or not session_dict.get("title"):
             raise ValueError("Session data missing required fields: id, title")
 
-        # Create or update session
         existing = await self.storage.get_session(session_dict["id"])
-        project = project_id or self.project_dir.name
+        _project_id = project_id or self.project_dir.name
 
         if existing:
             # Update existing session
@@ -322,12 +313,223 @@ class SessionManager:
     def generate_slug(title: str) -> str:
         """Generate URL-friendly slug from title"""
         import re
-        # Convert to lowercase and replace spaces with hyphens
         slug = title.lower().strip()
-        # Replace multiple spaces/hyphens with single hyphen
         slug = re.sub(r'\s+', '-', slug)
-        # Remove special characters except alphanumeric, hyphens, and underscores
         slug = re.sub(r'[^a-z0-9_-]', '', slug)
-        # Limit length
         slug = slug[:100]
         return slug
+
+    def _get_meta_storage(self) -> SessionMetaStorage:
+        """Get session meta storage instance"""
+        return SessionMetaStorage(self.storage.base_dir)
+
+    async def validate_repo_path(self, repo_path: str) -> bool:
+        """Validate that a repository path exists and is a directory"""
+        path = Path(repo_path)
+        return path.exists() and path.is_dir()
+
+    async def create_with_context(
+        self,
+        title: str,
+        repo_path: str,
+        objective: Optional[str] = None,
+        constraints: Optional[str] = None,
+        parent_id: Optional[str] = None,
+        version: str = "1.0.0",
+    ) -> Session:
+        """Create a new session with repository context
+
+        Args:
+            title: Session title
+            repo_path: Path to git repository
+            objective: Session objective/goal
+            constraints: Session constraints
+            parent_id: Parent session ID
+            version: Session version
+
+        Returns:
+            Created session
+
+        Raises:
+            ValueError: If repo_path does not exist
+        """
+        if not await self.validate_repo_path(repo_path):
+            raise ValueError(f"Invalid repository path: {repo_path}")
+
+        session = await self.create(
+            title=title,
+            parent_id=parent_id,
+            version=version,
+        )
+
+        meta = SessionMeta(
+            repo_path=repo_path,
+            objective=objective,
+            constraints=constraints,
+        )
+
+        meta_storage = self._get_meta_storage()
+        await meta_storage.save_meta(session.id, meta)
+
+        logger.info(f"Created session with context: {session.id} (repo: {repo_path})")
+
+        return session
+
+    async def get_session_meta(self, session_id: str) -> Optional[SessionMeta]:
+        """Get session metadata"""
+        meta_storage = self._get_meta_storage()
+        return await meta_storage.get_meta(session_id)
+
+    async def update_session_meta(
+        self,
+        session_id: str,
+        **kwargs: Any,
+    ) -> SessionMeta:
+        """Update session metadata"""
+        meta_storage = self._get_meta_storage()
+        meta = await meta_storage.update_meta(session_id, **kwargs)
+
+        await bus.publish(Events.SESSION_AUTOSAVE, {
+            "session_id": session_id,
+            "meta": meta.model_dump()
+        })
+
+        return meta
+
+    async def resume_session(self, session_id: str) -> tuple[Session, Optional[SessionMeta]]:
+        """Resume a session exactly as it was saved
+
+        Args:
+            session_id: Session ID to resume
+
+        Returns:
+            Tuple of (session, session_meta)
+
+        Raises:
+            ValueError: If session not found
+        """
+        session = await self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        meta = await self.get_session_meta(session_id)
+
+        await bus.publish(Events.SESSION_RESUMED, {
+            "session_id": session_id,
+            "session": session.model_dump(),
+            "meta": meta.model_dump() if meta else None
+        })
+
+        logger.info(f"Resumed session: {session_id}")
+
+        return session, meta
+
+    async def autosave(self, session_id: str) -> None:
+        """Trigger auto-save for a session (emit event only, data already persisted)"""
+        await bus.publish(Events.SESSION_AUTOSAVE, {
+            "session_id": session_id,
+            "timestamp": datetime.now().timestamp()
+        })
+
+    async def export_session(
+        self,
+        session_id: str,
+        format: Literal["markdown", "json"] = "markdown",
+        redact_secrets: bool = True,
+    ) -> str:
+        """Export a session to the specified format
+
+        Args:
+            session_id: Session ID to export
+            format: Export format ("markdown" or "json")
+            redact_secrets: Whether to redact sensitive information
+
+        Returns:
+            Exported content as string
+        """
+        if format == "json":
+            return await self._export_json(session_id)
+        else:
+            return await self._export_markdown(session_id, redact_secrets)
+
+    async def _export_json(self, session_id: str) -> str:
+        """Export session to JSON format"""
+        import json
+
+        session = await self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        meta = await self.get_session_meta(session_id)
+        messages = await self.list_messages(session_id)
+
+        export_data = {
+            "session": session.model_dump(mode="json"),
+            "meta": meta.model_dump(mode="json") if meta else None,
+            "messages": [msg.model_dump(mode="json", exclude_none=True) for msg in messages],
+        }
+
+        result = json.dumps(export_data, indent=2, ensure_ascii=False)
+
+        await bus.publish(Events.SESSION_EXPORT, {
+            "session_id": session_id,
+            "format": "json"
+        })
+
+        return result
+
+    async def _export_markdown(self, session_id: str, redact_secrets: bool) -> str:
+        """Export session to Markdown format with optional secret redaction"""
+        session = await self.get_session(session_id)
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        meta = await self.get_session_meta(session_id)
+        messages = await self.list_messages(session_id)
+
+        secret_patterns = ["api_key", "token", "password", "secret"]
+
+        def redact_text(text: str) -> str:
+            if not redact_secrets:
+                return text
+            import re
+            for pattern in secret_patterns:
+                text = re.sub(rf'{pattern}["\']?\s*[:=]\s*[^\s,}}]+', f'{pattern}=***REDACTED***', text, flags=re.IGNORECASE)
+            return text
+
+        lines = []
+        lines.append(f"# Session: {session.title}")
+        lines.append(f"**ID:** {session.id}")
+        lines.append(f"**Created:** {datetime.fromtimestamp(session.time_updated).isoformat()}")
+
+        if meta:
+            if meta.repo_path:
+                lines.append(f"\n**Repository:** {meta.repo_path}")
+            if meta.objective:
+                lines.append(f"**Objective:** {meta.objective}")
+            if meta.constraints:
+                lines.append(f"**Constraints:** {meta.constraints}")
+
+        lines.append("\n---\n## Messages\n")
+
+        for msg in messages:
+            lines.append(f"\n### {msg.role.upper()} - Message {msg.id[:8]}")
+            if msg.text:
+                lines.append(f"\n{redact_text(msg.text)}")
+
+            for part in msg.parts:
+                if part.part_type == "tool":
+                    lines.append(f"\n**Tool Call:** {part.tool}")
+                    if part.state.error:
+                        lines.append(f"**Error:** {part.state.error}")
+                    if part.state.output:
+                        lines.append(f"**Output:**\n```\n{redact_text(str(part.state.output))}\n```")
+
+        result = "\n".join(lines)
+
+        await bus.publish(Events.SESSION_EXPORT, {
+            "session_id": session_id,
+            "format": "markdown"
+        })
+
+        return result
