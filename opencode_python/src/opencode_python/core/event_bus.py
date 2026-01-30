@@ -139,3 +139,8 @@ class Events:
     SKILL_DISABLED = "skill.disable"
     SKILL_BLOCKED = "skill.block"
     SKILL_EXECUTE = "skill.execute"
+    # Observability events (Epic 8)
+    TIMELINE_LABEL = "timeline:label"
+    SESSION_BLOCKED = "session:blocked"
+    DESTRUCTIVE_REQUEST = "destructive:request"
+    DRYRUN_TOGGLE = "dryrun:toggle"

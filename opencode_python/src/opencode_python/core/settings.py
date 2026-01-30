@@ -77,6 +77,11 @@ class Settings(pydantic_settings.BaseSettings):
     agent_default_temperature: float = Field(default=0.7, alias="AGENT_DEFAULT_TEMPERATURE")
     agent_default_budget: Optional[int] = Field(default=None, alias="AGENT_DEFAULT_BUDGET")
 
+    # Observability & Safety settings (Epic 8)
+    dry_run_enabled: bool = Field(default=False, alias="DRY_RUN_ENABLED")
+    timeline_enabled: bool = Field(default=True, alias="TIMELINE_ENABLED")
+    destructive_confirmations: bool = Field(default=True, alias="DESTRUCTIVE_CONFIRMATIONS")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
