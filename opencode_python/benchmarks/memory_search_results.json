@@ -1,0 +1,54 @@
+{
+  "report_name": "memory_search_benchmark",
+  "timestamp": "2026-01-30 14:42:35",
+  "results": [
+    {
+      "benchmark_name": "memory_search",
+      "metric_name": "short_query_time",
+      "metric_value": 0.001872640368528664,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.001872640368528664,
+      "median": 0.0018841454293578863,
+      "std_dev": 5.690111069468814e-05,
+      "p95": 0.001891458174213767,
+      "p99": 0.0019006668590009212,
+      "min_value": 0.0015129169914871454,
+      "max_value": 0.0019302500877529383,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:42:35"
+    },
+    {
+      "benchmark_name": "memory_search",
+      "metric_name": "long_query_time",
+      "metric_value": 0.0006354091456159949,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.0006354091456159949,
+      "median": 0.0006346669979393482,
+      "std_dev": 8.832242853883245e-06,
+      "p95": 0.0006484589539468288,
+      "p99": 0.000668457942083478,
+      "min_value": 0.0005862920079380274,
+      "max_value": 0.0006738749798387289,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:42:35"
+    },
+    {
+      "benchmark_name": "memory_search",
+      "metric_name": "no_match_time",
+      "metric_value": 0.0006331608258187771,
+      "unit": "s",
+      "count": 100,
+      "mean": 0.0006331608258187771,
+      "median": 0.0006347295129671693,
+      "std_dev": 1.551944179248608e-05,
+      "p95": 0.0006427501793950796,
+      "p99": 0.0006559579633176327,
+      "min_value": 0.0005186249036341906,
+      "max_value": 0.0006822920404374599,
+      "memory_created": 0,
+      "timestamp": "2026-01-30 14:42:35"
+    }
+  ]
+}
