@@ -221,13 +221,13 @@ Wave 4 (After Wave 3):
 
 ### Wave 1: Foundation
 
-- [ ] 0. Setup TUI Testing Infrastructure
+- [x] 0. Setup TUI Testing Infrastructure
 
   **What to do**:
-  - [ ] Create `tests/tui/` directory
-  - [ ] Create `tests/conftest.py` with Textual app fixtures
-  - [ ] Create `tests/tui/test_app.py` with basic app test
-  - [ ] Create test utilities for widget testing
+  - [x] Create `tests/tui/` directory
+  - [x] Create `tests/conftest.py` with Textual app fixtures
+  - [x] Create `tests/tui/test_app.py` with basic app test
+  - [x] Create test utilities for widget testing
 
   **Must NOT do**:
   - [ ] Do NOT create complex headless testing setup
@@ -310,14 +310,14 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 1. Create Keybinding System
+- [x] 1. Create Keybinding System
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/keybindings.py`
-  - [ ] Define essential keybindings (q, Ctrl+C, arrows, /, Enter, Escape)
-  - [ ] Integrate with Textual's BINDINGS and Actions system
-  - [ ] Create keybinding context for per-screen bindings
-  - [ ] Write tests for keybinding registration and execution
+  - [x] Create `opencode_python/src/opencode_python/tui/keybindings.py`
+  - [x] Define essential keybindings (q, Ctrl+C, arrows, /, Enter, Escape)
+  - [x] Integrate with Textual's BINDINGS and Actions system
+  - [x] Create keybinding context for per-screen bindings
+  - [x] Write tests for keybinding registration and execution
 
   **Must NOT do**:
   - [ ] Do NOT implement complex context-sensitive keybinding system
@@ -400,14 +400,14 @@ Wave 4 (After Wave 3):
 
 ### Wave 2: Core Dialogs and Screens
 
-- [ ] 2. Create Dialog Infrastructure
+- [x] 2. Create Dialog Infrastructure
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/dialogs/__init__.py`
-  - [ ] Create base `BaseDialog` class extending `ModalScreen`
-  - [ ] Implement standard dialog patterns (ok/cancel, confirm, select, prompt)
-  - [ ] Create tests for dialog lifecycle (show, close, return value)
-  - [ ] Write tests for all dialog types
+  - [x] Create `opencode_python/src/opencode_python/tui/dialogs/__init__.py`
+  - [x] Create base `BaseDialog` class extending `ModalScreen`
+  - [x] Implement standard dialog patterns (ok/cancel, confirm, select, prompt)
+  - [x] Create tests for dialog lifecycle (show, close, return value)
+  - [x] Write tests for all dialog types
 
   **Must NOT do**:
   - [ ] Do NOT create complex dialog transition animations
@@ -492,19 +492,19 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 3. Create Session List Screen
+- [x] 3. Create Session List Screen
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/screens/session_list_screen.py`
-  - [ ] Use DataTable to display sessions (id, title, time)
-  - [ ] Implement session selection with Enter key
-  - [ ] Handle session loading and navigation to MessageScreen
-  - [ ] Write tests for session list rendering and selection
+  - [x] Create `opencode_python/src/opencode_python/tui/screens/session_list_screen.py`
+  - [x] Use DataTable to display sessions (id, title, time)
+  - [x] Implement session selection with Enter key
+  - [x] Handle session loading and navigation to MessageScreen
+  - [x] Write tests for session list rendering and selection
 
   **Must NOT do**:
-  - [ ] Do NOT implement complex session filtering/search yet
-  - [ ] Do NOT add session deletion/forking dialogs (Phase 2+)
-  - [ ] Do NOT implement session status indicators yet
+  - [x] Do NOT implement complex session filtering/search yet
+  - [x] Do NOT add session deletion/forking dialogs (Phase 2+)
+  - [x] Do NOT implement session status indicators yet
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.
@@ -583,19 +583,19 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 4. Create Model Select Dialog
+- [x] 4. Create Model Select Dialog
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/dialogs/model_select_dialog.py`
-  - [ ] Extend BaseDialog with SelectDialog
-  - [ ] Display available models (from settings/provider)
-  - [ ] Handle model selection and persistence
-  - [ ] Write tests for model selection and persistence
+  - [x] Create `opencode_python/src/opencode_python/tui/dialogs/model_select_dialog.py`
+  - [x] Extend BaseDialog with SelectDialog
+  - [x] Display available models (from settings/provider)
+  - [x] Handle model selection and persistence
+  - [x] Write tests for model selection and persistence
 
   **Must NOT do**:
-  - [ ] Do NOT implement fuzzy search yet (Phase 2+)
-  - [ ] Do NOT add model favorites/recents (Phase 2+)
-  - [ ] Do NOT implement provider selection yet (Phase 2+)
+  - [x] Do NOT implement fuzzy search yet (Phase 2+)
+  - [x] Do NOT add model favorites/recents (Phase 2+)
+  - [x] Do NOT implement provider selection yet (Phase 2+)
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.
@@ -676,19 +676,19 @@ Wave 4 (After Wave 3):
 
 ### Wave 3: Enhanced Features
 
-- [ ] 5. Create Theme Select Dialog
+- [x] 5. Create Theme Select Dialog
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/dialogs/theme_select_dialog.py`
-  - [ ] Extend BaseDialog with SelectDialog
-  - [ ] Display 3 essential themes (light, dark, dracula)
-  - [ ] Implement theme switching with CSS application
-  - [ ] Write tests for theme selection and application
+  - [x] Create `opencode_python/src/opencode_python/tui/dialogs/theme_select_dialog.py`
+  - [x] Extend BaseDialog with SelectDialog
+  - [x] Display 3 essential themes (light, dark, dracula)
+  - [x] Implement theme switching with CSS application
+  - [x] Write tests for theme selection and application
 
   **Must NOT do**:
-  - [ ] Do NOT port all 30+ themes from TypeScript
-  - [ ] Do NOT implement custom theme editor yet
-  - [ ] Do NOT add theme preview screenshots yet
+  - [x] Do NOT port all 30+ themes from TypeScript
+  - [x] Do NOT implement custom theme editor yet
+  - [x] Do NOT add theme preview screenshots yet
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.
@@ -768,19 +768,19 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 6. Enhance MessageScreen (scroll navigation)
+- [x] 6. Enhance MessageScreen (scroll navigation)
 
   **What to do**:
-  - [ ] Enhance `opencode_python/src/opencode_python/tui/screens/message_screen.py`
-  - [ ] Add scroll navigation (page up/down, half page, line-by-line)
-  - [ ] Add jump to first/last message (G, Shift+G)
-  - [ ] Add line numbers for tool output (optional)
-  - [ ] Write tests for scroll navigation commands
+  - [x] Enhance `opencode_python/src/opencode_python/tui/screens/message_screen.py`
+  - [x] Add scroll navigation (page up/down, half page, line-by-line)
+  - [x] Add jump to first/last message (G, Shift+G)
+  - [x] Add line numbers for tool output (optional)
+  - [x] Write tests for scroll navigation commands
 
   **Must NOT do**:
-  - [ ] Do NOT implement virtual scrolling (use Textual's ScrollableContainer)
-  - [ ] Do NOT add animations yet (Phase 2+)
-  - [ ] Do NOT implement message search/filtering yet (Phase 2+)
+  - [x] Do NOT implement virtual scrolling (use Textual's ScrollableContainer)
+  - [x] Do NOT add animations yet (Phase 2+)
+  - [x] Do NOT implement message search/filtering yet (Phase 2+)
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.
@@ -861,20 +861,20 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 7. Implement Command Palette
+- [x] 7. Implement Command Palette
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/dialogs/command_palette_dialog.py`
-  - [ ] Extend BaseDialog with SelectDialog
-  - [ ] Integrate with keybinding system (/ key to open)
-  - [ ] Display commands (session-list, model-select, theme-select, quit)
-  - [ ] Implement fuzzy search for commands (optional, basic search acceptable)
-  - [ ] Write tests for command palette and command execution
+  - [x] Create `opencode_python/src/opencode_python/tui/dialogs/command_palette_dialog.py`
+  - [x] Extend BaseDialog with SelectDialog
+  - [x] Integrate with keybinding system (/ key to open)
+  - [x] Display commands (session-list, model-select, theme-select, quit)
+  - [x] Implement fuzzy search for commands (optional, basic search acceptable)
+  - [x] Write tests for command palette and command execution
 
   **Must NOT do**:
-  - [ ] Do NOT implement slash commands in prompt yet (Phase 2+)
-  - [ ] Do NOT add complex command categories yet
-  - [ ] Do NOT implement command history yet (Phase 2+)
+  - [x] Do NOT implement slash commands in prompt yet (Phase 2+)
+  - [x] Do NOT add complex command categories yet
+  - [x] Do NOT implement command history yet (Phase 2+)
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.
@@ -956,20 +956,20 @@ Wave 4 (After Wave 3):
 
 ### Wave 4: Polish
 
-- [ ] 8. Enhance Header (breadcrumbs, model display)
+- [x] 8. Enhance Header (breadcrumbs, model display)
 
   **What to do**:
-  - [ ] Create `opencode_python/src/opencode_python/tui/widgets/header.py`
-  - [ ] Add breadcrumb navigation (parent session path)
-  - [ ] Add model display in header
-  - [ ] Add session title (read-only)
-  - [ ] Integrate with OpenCodeTUI app
-  - [ ] Write tests for header components
+  - [x] Create `opencode_python/src/opencode_python/tui/widgets/header.py`
+  - [x] Add breadcrumb navigation (parent session path)
+  - [x] Add model display in header
+  - [x] Add session title (read-only)
+  - [x] Integrate with OpenCodeTUI app
+  - [x] Write tests for header components
 
   **Must NOT do**:
-  - [ ] Do NOT implement session cycling yet (Phase 2+)
-  - [ ] Do NOT add agent indicator yet (Phase 2+)
-  - [ ] Do NOT implement complex status indicators yet
+  - [x] Do NOT implement session cycling yet (Phase 2+)
+  - [x] Do NOT add agent indicator yet (Phase 2+)
+  - [x] Do NOT implement complex status indicators yet
 
   **Recommended Agent Profile**:
   > Select category + skills based on task domain. Justify each choice.

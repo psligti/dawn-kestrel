@@ -12,7 +12,7 @@ class TestApp(App[None]):
     BINDINGS = keybindings
 
     def compose(self) -> ComposeResult:
-        pass
+        yield from ()
 
     def action_navigate_up(self) -> None:
         """Navigate up action"""
