@@ -6,6 +6,15 @@ import asyncio
 import logging
 
 from .builtin import Agent, get_all_agents, get_agent_by_name
+from .profiles import (
+    AgentProfile,
+    Prerequisite,
+    get_default_profiles,
+    get_profile_by_id,
+    check_prerequisites,
+)
+from .config import AgentConfig, AuditEntry
+from .storage import AgentConfigStorage, get_default_storage
 from opencode_python.core.event_bus import Events, bus
 from opencode_python.core.models import Session
 

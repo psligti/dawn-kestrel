@@ -72,6 +72,11 @@ class Settings(pydantic_settings.BaseSettings):
         alias="PROVIDERS_STORAGE_DIR"
     )
 
+    # Agent settings
+    agent_default_model: str = Field(default="claude-3-5-sonnet-20241022", alias="AGENT_DEFAULT_MODEL")
+    agent_default_temperature: float = Field(default=0.7, alias="AGENT_DEFAULT_TEMPERATURE")
+    agent_default_budget: Optional[int] = Field(default=None, alias="AGENT_DEFAULT_BUDGET")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
