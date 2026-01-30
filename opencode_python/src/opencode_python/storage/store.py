@@ -79,9 +79,11 @@ class SessionStorage(Storage):
 
     async def get_session(self, session_id: str) -> Optional[Session]:
         """Get session by ID"""
-        data = await self.read(["session", session_id])
-        if data:
-            return Session(**data)
+        keys = await self.list(["session"])
+        for key in keys:
+            data = await self.read(key)
+            if data and data.get("id") == session_id:
+                return Session(**data)
         return None
 
     async def list_sessions(self, project_id: str) -> List[Session]:

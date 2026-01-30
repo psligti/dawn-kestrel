@@ -19,6 +19,9 @@ from opencode_python.core.exceptions import OpenCodeError, SessionError
 from opencode_python.core.settings import get_storage_dir
 from opencode_python.agents.runtime import AgentRuntime, create_agent_runtime
 from opencode_python.core.agent_types import AgentResult
+from opencode_python.agents.registry import create_agent_registry
+from opencode_python.tools import create_builtin_registry
+from opencode_python.tools.framework import ToolRegistry
 
 
 class OpenCodeAsyncClient:
@@ -66,7 +69,14 @@ class OpenCodeAsyncClient:
             notification_handler=notification_handler,
         )
 
-        self._runtime = create_agent_runtime(session_manager=self._service)
+        agent_registry = create_agent_registry(
+            persistence_enabled=False,
+            storage_dir=storage_dir,
+        )
+        self._runtime = create_agent_runtime(
+            agent_registry=agent_registry,
+            base_dir=project_dir,
+        )
 
     def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
         """Register progress callback.
@@ -216,7 +226,7 @@ class OpenCodeAsyncClient:
             >>> await client.register_agent(custom_agent)
         """
         try:
-            return await self._runtime.register_agent(agent)
+            return await self._runtime.agent_registry.register_agent(agent)
         except Exception as e:
             if isinstance(e, ValueError):
                 raise
@@ -237,7 +247,7 @@ class OpenCodeAsyncClient:
             ...     print(f"Found: {agent.description}")
         """
         try:
-            return await self._runtime.get_agent(name)
+            return self._runtime.agent_registry.get_agent(name)
         except Exception as e:
             if isinstance(e, ValueError):
                 raise
@@ -277,11 +287,19 @@ class OpenCodeAsyncClient:
             >>> print(f"Response: {result.response}")
             >>> print(f"Tools used: {result.tools_used}")
         """
+        options = options or {}
+
+        skills = options.get("skills", [])
+        tools = create_builtin_registry()
+
         try:
-            return await self._runtime.execute(
+            return await self._runtime.execute_agent(
                 agent_name=agent_name,
                 session_id=session_id,
                 user_message=user_message,
+                session_manager=self._service,
+                tools=tools,
+                skills=skills,
                 options=options,
             )
         except ValueError:
