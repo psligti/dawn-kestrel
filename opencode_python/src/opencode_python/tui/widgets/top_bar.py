@@ -7,6 +7,7 @@ from textual.widget import Widget
 from textual.reactive import reactive
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Static, Button
+from textual.message import Message
 from enum import Enum
 
 
