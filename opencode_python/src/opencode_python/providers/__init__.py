@@ -21,6 +21,7 @@ __all__ = [
     # Provider classes
     "AnthropicProvider",
     "OpenAIProvider",
+    "ZAIProvider",
     # Provider functions
     "get_provider",
     "get_available_models",
@@ -272,10 +273,89 @@ class OpenAIProvider:
         return cost
 
 
-def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, None]:
+class ZAIProvider:
+    def __init__(self, api_key: str) -> None:
+        self.api_key = api_key
+        self.base_url = "https://api.z.ai/v1"
+
+    async def get_models(self) -> List[ModelInfo]:
+        models = []
+        if self.api_key:
+            models.append(ModelInfo(
+                id="zai-gpt-4",
+                provider_id=ProviderID.Z_AI,
+                api_id="zai-gpt-4",
+                api_url=self.base_url,
+                name="Z.AI GPT-4",
+                family="gpt",
+                capabilities=ModelCapabilities(
+                    temperature=True,
+                    reasoning=True,
+                    toolcall=True,
+                    input={"text": True}
+                ),
+                cost=ModelCost(
+                    input=Decimal("30.00"),
+                    output=Decimal("60.00"),
+                    cache={}
+                ),
+                limit=ModelLimits(
+                    context=128000,
+                    input=128000,
+                    output=4000
+                ),
+                status="active",
+                options={},
+                headers={}
+            ))
+        return models
+
+    async def stream(
+        self,
+        model: ModelInfo,
+        messages: List[Dict[str, Any]],
+        tools: Dict[str, Any],
+        options: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[StreamEvent]:
+        yield StreamEvent(
+            event_type="start",
+            data={"model": model.id},
+            timestamp=0
+        )
+        yield StreamEvent(
+            event_type="text-delta",
+            data={"delta": "Hello, this is a test stream from Z.AI."},
+            timestamp=1
+        )
+        yield StreamEvent(
+            event_type="text-end",
+            data={},
+            timestamp=2
+        )
+        yield StreamEvent(
+            event_type="finish",
+            data={"finish_reason": "stop"},
+            timestamp=3
+        )
+
+    def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
+        return TokenUsage(
+            input=response.get("prompt_tokens", 0),
+            output=response.get("completion_tokens", 0),
+            cache_read=response.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+        )
+
+    def calculate_cost(self, usage: TokenUsage, model: ModelInfo) -> Decimal:
+        cost = (usage.input * model.cost.input) / Decimal("1000000")
+        cost = cost + (usage.output * model.cost.output) / Decimal("1000000")
+        return cost
+
+
+def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, None]:
     providers = {
         ProviderID.ANTHROPIC: AnthropicProvider(api_key),
-        ProviderID.OPENAI: OpenAIProvider(api_key)
+        ProviderID.OPENAI: OpenAIProvider(api_key),
+        ProviderID.Z_AI: ZAIProvider(api_key)
     }
     return providers.get(provider_id)
 
