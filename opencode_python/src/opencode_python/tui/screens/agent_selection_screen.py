@@ -122,14 +122,14 @@ class AgentSelectionScreen(Screen):
                 if profile:
                     self._update_profile_details(profile)
                     self.selected_profile = profile
-                    self.query_one(Button, "#btn-select").disabled = False
+                    self.query_one("#btn-select", Button).disabled = False
         except Exception as e:
             logger.error(f"Error selecting profile: {e}")
 
     def _update_profile_details(self, profile: AgentProfile) -> None:
-        description_widget = self.query_one(Static, "#agent-details-description")
-        capabilities_widget = self.query_one(Static, "#agent-details-capabilities")
-        prereq_widget = self.query_one(Static, "#agent-details-prerequisites")
+        description_widget = self.query_one("#agent-details-description", Static)
+        capabilities_widget = self.query_one("#agent-details-capabilities", Static)
+        prereq_widget = self.query_one("#agent-details-prerequisites", Static)
 
         description_widget.update(
             f"[bold]{profile.name}[/bold]\n\n{profile.description}"

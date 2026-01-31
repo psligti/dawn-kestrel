@@ -78,7 +78,7 @@ class AccountEditDialog(ModalScreen[Optional[Account]]):
             yield Input(placeholder="Enter API key", id="input-api-key", password=True)
 
         yield Label("Description (optional):")
-        yield TextArea(placeholder="Account description", id="input-description", value=self.description_value)
+        yield TextArea(placeholder="Account description", id="input-description", text=self.description_value)
 
         yield Label("Active Account:")
         yield Vertical(

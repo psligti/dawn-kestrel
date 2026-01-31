@@ -90,7 +90,7 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
         """Called when dialog is mounted."""
         list_view = self.query_one(ListView)
         list_view.focus()
-        list_view.highlighted = 0
+        list_view.index = 0
 
     def select_option(self, model: ModelInfo) -> None:
         """Select a model by ModelInfo object.
@@ -104,8 +104,8 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
                 self._result = model
                 try:
                     list_view = self.query_one(ListView)
-                    if list_view.highlighted != idx:
-                        list_view.highlighted = idx
+                    if list_view.index != idx:
+                        list_view.index = idx
                 except Exception:
                     pass
                 # Call on_select callback if provided

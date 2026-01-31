@@ -1,0 +1,38 @@
+metadata:
+  name: Posting
+  slug: posting
+  description: Deep navy canvas with neon accents, inspired by Posting app interface
+  author: OpenCode
+  version: 1.0.0
+  preview_colors:
+    bg: "#1a1d2e"
+    accent: "#10b981"
+
+primary: "#10b981"
+secondary: "#d946ef"
+accent: "#10b981"
+
+error: "#ef4444"
+warning: "#f59e0b"
+success: "#10b981"
+info: "#10b981"
+
+text: "#f3f4f6"
+text_muted: "#9ca3af"
+text_selection: "#2968c3"
+
+background: "#1a1d2e"
+background_panel: "#242838"
+background_element: "#242838"
+background_menu: "#242838"
+
+border: "#6b7280"
+border_active: "#a855f7"
+border_subtle: "#6b7280"
+
+font_family: monospace
+font_size: 14
+line_height: 1.4
+
+animations_enabled: true
+reduced_motion: false

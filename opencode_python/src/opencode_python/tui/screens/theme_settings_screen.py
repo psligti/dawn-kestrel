@@ -17,12 +17,11 @@ from textual.widgets import (
 from textual.containers import Vertical, Horizontal
 
 from opencode_python.core.settings import get_settings, Settings
-from opencode_python.themes import (
-    ThemeLoader,
-    get_theme_loader,
-    ThemeChangeEvent,
-    LayoutToggleEvent,
-)
+from opencode_python.themes import ThemeLoader, get_theme_loader
+from opencode_python.themes.models import Theme, ThemeMetadata
+from opencode_python.core.event_bus import bus, Events, ThemeChangeEvent
+from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+from opencode_python.tui.dialogs.command_palette_dialog import CommandPaletteDialog as CommandPalette
 
 
 class ThemeSettingsScreen(ModalScreen[dict]):
@@ -152,9 +151,9 @@ class ThemeSettingsScreen(ModalScreen[dict]):
         # Set initial theme highlight
         try:
             theme_index = self._find_theme_index(self._selected_theme)
-            theme_list.highlighted = theme_index
+            theme_list.index = theme_index
         except Exception:
-            theme_list.highlighted = 0
+            theme_list.index = 0
 
         # Populate density list
         density_list = self.query_one("#density_list", ListView)
@@ -168,9 +167,9 @@ class ThemeSettingsScreen(ModalScreen[dict]):
         # Set initial density highlight
         try:
             density_index = self._find_density_index(self._selected_density)
-            density_list.highlighted = density_index
+            density_list.index = density_index
         except Exception:
-            density_list.highlighted = 1  # Default to normal
+            density_list.index = 1  # Default to normal
 
         # Set reduced motion switch
         reduced_motion_switch = self.query_one("#reduced_motion_switch", Switch)
@@ -220,13 +219,15 @@ class ThemeSettingsScreen(ModalScreen[dict]):
 
         if list_view.id == "theme_list":
             themes = self._theme_loader.list_themes()
-            if event.index < len(themes):
-                self._selected_theme = themes[event.index].slug
+            index = list_view.index
+            if index is not None and index < len(themes):
+                self._selected_theme = themes[index].slug
                 self._apply_theme_preview()
 
         elif list_view.id == "density_list":
-            if event.index < len(self.DENSITY_OPTIONS):
-                self._selected_density = self.DENSITY_OPTIONS[event.index].get("value")
+            index = list_view.index
+            if index is not None and index < len(self.DENSITY_OPTIONS):
+                self._selected_density = self.DENSITY_OPTIONS[index].get("value")
 
     def _apply_theme_preview(self) -> None:
         """Apply theme preview to current app."""

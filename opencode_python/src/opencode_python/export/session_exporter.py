@@ -6,7 +6,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 
-from opencode_python.core.models import Session, Message
+from opencode_python.core.models import Session, Message, ToolPart
 from opencode_python.storage.session_meta import SessionMeta
 
 
@@ -82,7 +82,7 @@ class MarkdownExporter(BaseExporter):
                 lines.append(f"\n{self._redact_text(msg.text)}")
 
             for part in msg.parts:
-                if part.part_type == "tool":
+                if isinstance(part, ToolPart):
                     lines.append(f"\n**Tool Call:** {part.tool}")
                     if part.state.error:
                         lines.append(f"**Error:** {part.state.error}")

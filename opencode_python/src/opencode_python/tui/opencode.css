@@ -3,14 +3,14 @@
  * Based on modern TUI design principles
  * ======================================== */
 
-* {
+ * {
   scrollbar-color: #56b6c2 10%;
   scrollbar-color-hover: #56b6c2 80%;
   scrollbar-color-active: #56b6c2;
   scrollbar-background: #1e1e1e;
   scrollbar-background-hover: #141414;
   scrollbar-background-active: #141414;
-  scrollbar-size-vertical: 1ch;
+  scrollbar-size-vertical: 2;
 }
 
 *:focus {
@@ -90,16 +90,152 @@ Footer {
 }
 
 /* ========================================
-   Drawer Widget
+   Drawer Widget - Posting Theme
    ======================================== */
 
 DrawerWidget {
-  dock: right;
-  width: 40%;
-  max-width: 60;
-  min-width: 30;
-  background: #141414;
-  border-left: solid #9d7cd8 40%;
+  dock: left;
+  width: 35%;
+  max-width: 50;
+  min-width: 25;
+  background: #242838;
+  border-right: solid #6b7280;
+  border-title-color: #a855f7;
+  border-title-style: bold;
+}
+
+DrawerWidget .drawer-header {
+  padding: 1 2;
+  background: #1a1d2e;
+  color: #f3f4f6;
+  text-style: bold;
+  text-align: center;
+  border-bottom: solid #6b7280;
+}
+
+DrawerWidget .tab-buttons {
+  padding: 1;
+  background: #242838;
+  border-bottom: solid #6b7280;
+}
+
+DrawerWidget TabButton {
+  padding: 0 1;
+  margin: 0 0 1 0;
+  border: none;
+  background: transparent;
+  text-align: center;
+  color: #f3f4f6;
+}
+
+DrawerWidget TabButton:hover {
+  background: #1a1d2e;
+  color: #10b981;
+}
+
+DrawerWidget TabButton.-active {
+  background: #10b981;
+  color: #1a1d2e;
+  text-style: bold;
+}
+
+DrawerWidget .tab-content {
+  background: #242838;
+  padding: 1;
+}
+
+DrawerWidget TodoList,
+DrawerWidget SubagentList,
+DrawerWidget NavigatorTimeline,
+DrawerWidget SessionList {
+  height: 1fr;
+  padding: 0;
+  background: #242838;
+}
+
+DrawerWidget .todo-item,
+DrawerWidget .subagent-item,
+DrawerWidget .nav-item,
+DrawerWidget .session-info {
+  padding: 1 2;
+  margin: 0 0 1 0;
+  border-bottom: solid #6b7280;
+  color: #f3f4f6;
+}
+
+DrawerWidget .todo-item:hover,
+DrawerWidget .subagent-item:hover,
+DrawerWidget .nav-item:hover {
+  background: #1a1d2e;
+}
+
+DrawerWidget .todo-completed {
+  text-style: dim;
+  color: #10b981;
+}
+
+DrawerWidget .status-running {
+  color: #10b981;
+}
+
+DrawerWidget .status-blocked {
+  color: #ef4444;
+}
+
+DrawerWidget SessionList .session-header {
+  padding: 1 2;
+  background: #1a1d2e;
+  color: #f3f4f6;
+  text-style: bold;
+  border-bottom: solid #a855f7;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget SessionList .session-actions,
+DrawerWidget SessionList .settings-section {
+  padding: 1;
+  background: #242838;
+  border-bottom: solid #6b7280;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget SessionList .session-info-label {
+  color: #9ca3af;
+  margin-bottom: 1;
+  text-style: dim;
+}
+
+DrawerWidget SessionList Label {
+  color: #f3f4f6;
+  padding: 0 1;
+}
+
+DrawerWidget SessionList Static {
+  color: #f3f4f6;
+  padding: 0 1;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget ScrollableContainer {
+  scrollbar-background: #1a1d2e;
+  scrollbar-color: #10b981;
+  scrollbar-color-hover: #d946ef;
+  scrollbar-color-active: #a855f7;
+}
+
+DrawerWidget .drawer-header {
+  padding: 1 2;
+  background: #1a1d2e;
+  color: #f3f4f6;
+  text-style: bold;
+  text-align: center;
+  border-bottom: solid #6b7280;
+}
+
+DrawerWidget .tab-buttons {
+  padding: 1;
+  background: #242838;
+  border-bottom: solid #6b7280;
 }
 
 DrawerWidget TabButton {
@@ -109,49 +245,102 @@ DrawerWidget TabButton {
   background: transparent;
   text-align: center;
   width: 100%;
+  color: #f3f4f6;
 }
 
 DrawerWidget TabButton:hover {
-  background: #1e1e1e;
+  background: #1a1d2e;
+  color: #10b981;
 }
 
 DrawerWidget TabButton.-active {
-  background: #3c3c3c;
+  background: #10b981;
+  color: #1a1d2e;
   text-style: bold;
+}
+
+DrawerWidget .tab-content {
+  background: #242838;
+  padding: 1;
 }
 
 DrawerWidget TodoList,
 DrawerWidget SubagentList,
-DrawerWidget NavigatorList {
+DrawerWidget NavigatorTimeline,
+DrawerWidget SessionList {
   height: 1fr;
   padding: 0;
+  background: #242838;
 }
 
 DrawerWidget .todo-item,
 DrawerWidget .subagent-item,
-DrawerWidget .nav-item {
-  padding: 0 1;
-  border-bottom: solid #56b6c2 15%;
-  color: #f5f5f5;
+DrawerWidget .nav-item,
+DrawerWidget .session-info {
+  padding: 1 2;
+  margin: 0 0 1 0;
+  border-bottom: solid #6b7280;
+  color: #f3f4f6;
 }
 
 DrawerWidget .todo-item:hover,
 DrawerWidget .subagent-item:hover,
 DrawerWidget .nav-item:hover {
-  background: #1e1e1e;
+  background: #1a1d2e;
 }
 
 DrawerWidget .todo-completed {
   text-style: dim;
-  color: #7fd88f;
+  color: #10b981;
 }
 
 DrawerWidget .status-running {
-  color: #7fd88f;
+  color: #10b981;
 }
 
 DrawerWidget .status-blocked {
-  color: #e06c75;
+  color: #ef4444;
+}
+
+DrawerWidget SessionList .session-header {
+  padding: 1 2;
+  background: #1a1d2e;
+  color: #f3f4f6;
+  text-style: bold;
+  border-bottom: solid #a855f7;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget SessionList .session-actions,
+DrawerWidget SessionList .settings-section {
+  padding: 1;
+  background: #242838;
+  border-bottom: solid #6b7280;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget SessionList .session-info-label {
+  color: #9ca3af;
+  margin-bottom: 1;
+  text-style: dim;
+}
+
+DrawerWidget SessionList Label {
+  color: #f3f4f6;
+  padding: 0 1;
+}
+
+DrawerWidget SessionList Static {
+  color: #f3f4f6;
+  padding: 0 1;
+  margin: 0 0 1 0;
+}
+
+DrawerWidget ScrollableContainer {
+  scrollbar-background: #1a1d2e;
+  scrollbar-color: #10b981;
+  scrollbar-color-hover: #d946ef;
+  scrollbar-color-active: #a855f7;
 }
 
 /* ========================================
@@ -246,13 +435,11 @@ Button:disabled {
 
 Button:hover {
   background: #1e1e1e;
-  border-color: #9d7cd8 60%;
 }
 
 Button.-primary {
   background: #56b6c2;
   color: #ffffff;
-  border-color: transparent;
 }
 
 Button.-primary:hover {
@@ -262,13 +449,11 @@ Button.-primary:hover {
 Button.-success {
   background: #7fd88f;
   color: #ffffff;
-  border-color: transparent;
 }
 
 Button.-danger {
   background: #e06c75;
   color: #ffffff;
-  border-color: transparent;
 }
 
 /* ========================================
@@ -343,7 +528,7 @@ CommandPalette CommandList > .option-list--option:hover {
 }
 
 .section:focus-within {
-  border-color: #9d7cd8;
+  border: solid #9d7cd8;
   border-subtitle-color: #2968c3;
 }
 
@@ -414,7 +599,7 @@ SettingsScreen .settings-section {
 }
 
 SettingsScreen .settings-section:focus-within {
-  border-color: #9d7cd8;
+  border: solid #9d7cd8;
 }
 
 SettingsScreen .settings-label {
@@ -501,7 +686,6 @@ ToolLogViewerScreen {
 ToolLogViewerScreen .log-entry {
   padding: 0 1;
   border-bottom: solid #56b6c2 10%;
-  font-family: monospace;
 }
 
 ToolLogViewerScreen .log-success {
@@ -541,13 +725,13 @@ ThemeSettingsScreen .theme-option {
 
 ThemeSettingsScreen .theme-option:hover {
   background: #3c3c3c;
-  border-color: #9d7cd8;
+  border: solid #9d7cd8;
 }
 
 ThemeSettingsScreen .theme-option.-active {
   background: #9d7cd8;
   color: #ffffff;
-  border-color: #9d7cd8;
+  border: solid #9d7cd8;
 }
 
 /* ========================================
@@ -645,11 +829,10 @@ MessageScreen .message.system {
 
 *:focus {
   outline: solid #9d7cd8;
-  outline-offset: 0;
 }
 
 *:focus-within {
-  border-color: #9d7cd8;
+  border: solid #9d7cd8;
 }
 
 /* ========================================
@@ -657,10 +840,8 @@ MessageScreen .message.system {
    ======================================== */
 
 .status-indicator {
-  display: inline-block;
-  width: 1ch;
-  height: 1ch;
-  border-radius: 50%;
+  width: 1;
+  height: 1;
   margin-right: 1;
 }
 
@@ -685,17 +866,14 @@ MessageScreen .message.system {
    ======================================== */
 
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: block;
   height: 10;
   color: #a0a0a0;
   text-style: dim;
+  padding: 1;
 }
 
 .empty-state .empty-icon {
-  font-size: 300%;
   margin-bottom: 1;
 }
 
@@ -709,5 +887,4 @@ MessageScreen .message.system {
 
 .loading {
   opacity: 60%;
-  pointer-events: none;
 }

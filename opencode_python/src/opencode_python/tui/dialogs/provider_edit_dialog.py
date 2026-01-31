@@ -69,10 +69,10 @@ class ProviderEditDialog(ModalScreen[Optional[Provider]]):
         yield Input(placeholder="e.g., https://api.openai.com/v1", id="input-base-url", value=self.base_url_value)
 
         yield Label("Models (comma-separated):")
-        yield TextArea(placeholder="e.g., gpt-4,gpt-3.5-turbo", id="input-models", value=self.models_value)
+        yield TextArea(placeholder="e.g., gpt-4,gpt-3.5-turbo", id="input-models", text=self.models_value)
 
         yield Label("Description (optional):")
-        yield TextArea(placeholder="Provider description", id="input-description", value=self.description_value)
+        yield TextArea(placeholder="Provider description", id="input-description", text=self.description_value)
 
         yield Vertical(
             Button("Save (Enter)", id="btn-save", variant="primary"),

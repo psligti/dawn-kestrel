@@ -78,7 +78,7 @@ class ThemeSelectDialog(ModalScreen[str]):
         list_view = self.query_one(ListView)
         list_view.focus()
         try:
-            list_view.highlighted = 0
+            list_view.index = 0
         except Exception:
             pass
 
@@ -96,8 +96,8 @@ class ThemeSelectDialog(ModalScreen[str]):
                     self.on_select(value)
                 try:
                     list_view = self.query_one(ListView)
-                    if list_view.highlighted != idx:
-                        list_view.highlighted = idx
+                    if list_view.index != idx:
+                        list_view.index = idx
                 except Exception:
                     pass
                 return

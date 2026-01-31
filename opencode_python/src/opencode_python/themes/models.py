@@ -110,6 +110,15 @@ class Theme(BaseModel):
             "$border-subtle": self.border_subtle,
         }
 
+    @staticmethod
+    def get_theme_settings() -> ThemeSettings:
+        """Get default theme settings.
+
+        Returns:
+            Default ThemeSettings instance with normal density and motion enabled.
+        """
+        return ThemeSettings()
+
 
 class ThemeSettings(BaseModel):
     """User theme preferences and settings."""

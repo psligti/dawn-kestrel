@@ -22,6 +22,8 @@ from opencode_python.themes.events import (
     LayoutToggleEvent,
 )
 
+from opencode_python.themes.registry import ThemeRegistry, get_registry
+
 __all__ = [
     # Models
     "Theme",
@@ -31,6 +33,9 @@ __all__ = [
     # Loader
     "ThemeLoader",
     "get_theme_loader",
+    # Registry
+    "ThemeRegistry",
+    "get_registry",
     # Events
     "ThemeChangeEvent",
     "KeybindingUpdateEvent",

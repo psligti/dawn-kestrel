@@ -220,6 +220,7 @@ class Session(pd.BaseModel):
     share: Optional[SessionShare] = None
     permission: Optional[List[Dict[str, Any]]] = None
     revert: Optional[SessionRevert] = None
+    drawer_state: Optional[DrawerModel] = pd.Field(default=None, description="Drawer widget state for persistence")
     time_created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_updated: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_compacting: Optional[float] = None
@@ -239,7 +240,7 @@ class DrawerModel(pd.BaseModel):
     Manages the state of the side drawer widget including:
     - Visibility state (open/closed)
     - Width configuration (30-45% of terminal)
-    - Active tab selection (todos, subagents, navigator)
+    - Active tab selection (todos, subagents, navigator, session)
     - Focus state for keyboard navigation
 
     This model serves as the single source of truth for drawer state
@@ -248,7 +249,7 @@ class DrawerModel(pd.BaseModel):
 
     visible: bool = pd.Field(default=False, description="Whether drawer is currently visible")
     width_percent: int = pd.Field(default=35, ge=30, le=45, description="Drawer width as percentage of terminal (30-45)")
-    active_tab: Literal["todos", "subagents", "navigator"] = pd.Field(default="todos", description="Currently active tab")
+    active_tab: Literal["todos", "subagents", "navigator", "session"] = pd.Field(default="todos", description="Currently active tab")
     has_focus: bool = pd.Field(default=False, description="Whether drawer currently has keyboard focus")
 
     model_config = pd.ConfigDict(extra="forbid")

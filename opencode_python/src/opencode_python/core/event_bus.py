@@ -144,3 +144,22 @@ class Events:
     SESSION_BLOCKED = "session:blocked"
     DESTRUCTIVE_REQUEST = "destructive:request"
     DRYRUN_TOGGLE = "dryrun:toggle"
+    FOCUS_WILL_CHANGE = "focus:will:change"
+    FOCUS_DID_CHANGE = "focus:did:change"
+    THEME_CHANGED = "theme.changed"
+    DRAWER_OPEN = "drawer.opened"
+    DRAWER_CLOSE = "drawer.closed"
+    DRAWER_TAB_CHANGED = "drawer.tab:changed"
+
+
+class ThemeChangeEvent(Event):
+    """Theme change event"""
+
+    def __init__(
+        self,
+        theme_name: str,
+        theme_data: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__("theme.changed")
+        self.theme_name = theme_name
+        self.theme_data = theme_data or {}

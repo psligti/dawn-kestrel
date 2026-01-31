@@ -153,19 +153,19 @@ class SettingsScreen(ModalScreen[str]):
 
         theme_list.focus()
         try:
-            theme_list.highlighted = self._find_theme_index(self._settings.tui_theme)
+            theme_list.index = self._find_theme_index(self._settings.tui_theme)
         except Exception:
             pass
 
         model_list.focus()
         try:
-            model_list.highlighted = self._find_model_index(self._settings.model_default)
+            model_list.index = self._find_model_index(self._settings.model_default)
         except Exception:
             pass
 
         agent_list.focus()
         try:
-            agent_list.highlighted = self._find_agent_index(self._settings.agent_default)
+            agent_list.index = self._find_agent_index(self._settings.agent_default)
         except Exception:
             pass
 
@@ -231,7 +231,7 @@ class SettingsScreen(ModalScreen[str]):
         self._selected_theme = theme_value
         try:
             theme_list = self.query_one("#theme_list", ListView)
-            theme_list.highlighted = self._find_theme_index(theme_value)
+            theme_list.index = self._find_theme_index(theme_value)
         except Exception:
             pass
 
@@ -244,7 +244,7 @@ class SettingsScreen(ModalScreen[str]):
         self._selected_model = model
         try:
             model_list = self.query_one("#model_list", ListView)
-            model_list.highlighted = self._find_model_index(model.id)
+            model_list.index = self._find_model_index(model.id)
         except Exception:
             pass
 
@@ -257,7 +257,7 @@ class SettingsScreen(ModalScreen[str]):
         self._selected_agent = agent_name
         try:
             agent_list = self.query_one("#agent_list", ListView)
-            agent_list.highlighted = self._find_agent_index(agent_name)
+            agent_list.index = self._find_agent_index(agent_name)
         except Exception:
             pass
 

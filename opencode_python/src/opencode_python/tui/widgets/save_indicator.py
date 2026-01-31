@@ -1,12 +1,12 @@
 """OpenCode Python - Save Indicator Widget"""
 from __future__ import annotations
 
-from textual.widget import Widget
+from textual.widgets import Static
 from textual.reactive import reactive
 import asyncio
 
 
-class SaveIndicator(Widget):
+class SaveIndicator(Static):
     """Non-intrusive save status indicator"""
 
     CSS = """

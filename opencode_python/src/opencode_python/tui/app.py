@@ -15,6 +15,7 @@ from textual.reactive import reactive, Reactive
 
 from opencode_python.tui.widgets.header import SessionHeader
 from opencode_python.tui.widgets.drawer import DrawerWidget
+from opencode_python.core.focus_manager import get_focus_manager
 
 from opencode_python.core.models import Message, TextPart
 from opencode_python.tui.screens.message_screen import MessageScreen
@@ -26,11 +27,15 @@ logger = logging.getLogger(__name__)
 class OpenCodeTUI(App[None]):
     """OpenCode Textual TUI application"""
 
-    CSS_PATH = "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/tui/opencode_python/src/opencode_python/tui/opencode.css"
+    CSS_PATH = Path(__file__).parent / "opencode.css"
 
     BINDINGS = [
         Binding("ctrl+q", "quit", "Quit"),
         Binding("ctrl+c", "quit", "Quit"),
+        Binding("ctrl+b", "toggle_drawer", "Toggle Drawer"),
+        Binding("escape", "close_drawer", "Close Drawer"),
+        Binding("tab", "next_drawer_tab", "Next Tab"),
+        Binding("shift+tab", "prev_drawer_tab", "Previous Tab"),
         Binding("/", "open_command", "Open Command Palette"),
         Binding("s", "open_settings", "Settings"),
     ]
@@ -96,3 +101,60 @@ class OpenCodeTUI(App[None]):
         from opencode_python.tui.screens import SettingsScreen
 
         self.push_screen(SettingsScreen())
+
+    def action_toggle_drawer(self) -> None:
+        """Toggle drawer visibility"""
+        drawer = self.query_one(DrawerWidget)
+        drawer.toggle_visible()
+        focus_manager = get_focus_manager()
+
+        if drawer.visible:
+            focus_manager.set_drawer_focused()
+        else:
+            focus_manager.set_main_focused()
+
+        logger.info(f"Drawer toggled: visible={drawer.visible}")
+
+    def action_close_drawer(self) -> None:
+        """Close drawer and release focus"""
+        drawer = self.query_one(DrawerWidget)
+        focus_manager = get_focus_manager()
+
+        if drawer.visible:
+            drawer.visible = False
+            focus_manager.set_main_focused()
+            logger.info("Drawer closed via Escape")
+
+    def action_next_drawer_tab(self) -> None:
+        """Navigate to next drawer tab"""
+        drawer = self.query_one(DrawerWidget)
+
+        if not drawer.visible:
+            return
+
+        tabs = ["todos", "subagents", "navigator", "session"]
+        current_index = tabs.index(drawer.active_tab)
+        next_index = (current_index + 1) % len(tabs)
+        drawer.switch_tab(tabs[next_index])
+
+        focus_manager = get_focus_manager()
+        focus_manager.set_drawer_focused()
+
+        logger.info(f"Drawer tab: {drawer.active_tab}")
+
+    def action_prev_drawer_tab(self) -> None:
+        """Navigate to previous drawer tab"""
+        drawer = self.query_one(DrawerWidget)
+
+        if not drawer.visible:
+            return
+
+        tabs = ["todos", "subagents", "navigator", "session"]
+        current_index = tabs.index(drawer.active_tab)
+        prev_index = (current_index - 1) % len(tabs)
+        drawer.switch_tab(tabs[prev_index])
+
+        focus_manager = get_focus_manager()
+        focus_manager.set_drawer_focused()
+
+        logger.info(f"Drawer tab: {drawer.active_tab}")

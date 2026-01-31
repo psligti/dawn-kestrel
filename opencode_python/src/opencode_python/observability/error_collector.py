@@ -95,30 +95,31 @@ class ErrorCollector:
             error_details=error_details,
         )
 
-        with self._lock:
-            self._errors[record_id] = error_record
-            if session_id not in self._by_session:
-                self._by_session[session_id] = []
-            self._by_session[session_id].append(record_id)
+        try:
+            with self._lock:
+                self._errors[record_id] = error_record
+                if session_id not in self._by_session:
+                    self._by_session[session_id] = []
+                self._by_session[session_id].append(record_id)
 
-            if level not in self._by_level:
-                self._by_level[level] = []
-            self._by_level[level].append(record_id)
+                if level not in self._by_level:
+                    self._by_level[level] = []
+                self._by_level[level].append(record_id)
 
-            # Emit event for error display
-            asyncio.create_task(
-                bus.publish(
-                    "DRAWER_ERROR_DISPLAYED",
-                    {
-                        "record_id": record_id,
-                        "level": level.value,
-                        "message": message,
-                        "session_id": session_id,
-                        "source": source,
-                        "timestamp": error_record.timestamp,
-                    },
+                # Emit event for error display
+                asyncio.create_task(
+                    bus.publish(
+                        "DRAWER_ERROR_DISPLAYED",
+                        {
+                            "record_id": record_id,
+                            "level": level.value,
+                            "message": message,
+                            "session_id": session_id,
+                            "source": source,
+                            "timestamp": error_record.timestamp,
+                        },
+                    )
                 )
-            )
         except RuntimeError:
             pass
 

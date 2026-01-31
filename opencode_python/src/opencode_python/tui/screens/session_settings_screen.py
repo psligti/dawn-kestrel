@@ -141,9 +141,9 @@ class SessionSettingsScreen(Screen):
             logger.error("No config storage available")
             return
 
-        model = self.query_one(Input, "#model-input").value
-        temp_str = self.query_one(Input, "#temperature-input").value
-        budget_str = self.query_one(Input, "#budget-input").value
+        model = self.query_one("#model-input", Input).value
+        temp_str = self.query_one("#temperature-input", Input).value
+        budget_str = self.query_one("#budget-input", Input).value
 
         try:
             temp = float(temp_str) if temp_str else None
@@ -186,7 +186,7 @@ class SessionSettingsScreen(Screen):
         if not self.config:
             return
 
-        audit_widget = self.query_one(Static, "#audit-trail-content")
+        audit_widget = self.query_one("#audit-trail-content", Static)
         summary = self.config.get_audit_summary()
 
         if not summary:

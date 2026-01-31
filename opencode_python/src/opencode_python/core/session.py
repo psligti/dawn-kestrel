@@ -14,6 +14,7 @@ from opencode_python.core.models import (
     Message,
     MessageSummary,
     Part,
+    ToolPart,
 )
 
 
@@ -518,7 +519,7 @@ class SessionManager:
                 lines.append(f"\n{redact_text(msg.text)}")
 
             for part in msg.parts:
-                if part.part_type == "tool":
+                if isinstance(part, ToolPart):
                     lines.append(f"\n**Tool Call:** {part.tool}")
                     if part.state.error:
                         lines.append(f"**Error:** {part.state.error}")

@@ -5,7 +5,11 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from textual.app import ComposeResult
 from textual.containers import Vertical, ScrollableContainer
 from textual.screen import ModalScreen
-from textual.widgets import Input, Label, Static
+from textual.widgets import Input, Label, Static, Button
+
+from opencode_python.themes.models import Theme, ThemeMetadata, ThemeSettings
+from opencode_python.themes import get_theme_loader
+from opencode_python.core.event_bus import bus, Events
 
 T = TypeVar("T")
 
@@ -63,14 +67,29 @@ class CommandPaletteDialog(ModalScreen[T]):
                 "description": "Choose color theme",
             },
             {
-                "value": "settings",
-                "title": "Open Settings",
-                "description": "Open settings screen",
+                "value": "switch_theme",
+                "title": "Switch Theme",
+                "description": "Change active theme (live)",
+            },
+            {
+                "value": "list_themes",
+                "title": "List Themes",
+                "description": "Show all available themes",
+            },
+            {
+                "value": "preview_theme",
+                "title": "Preview Theme",
+                "description": "Preview theme colors",
+            },
+            {
+                "value": "theme_settings",
+                "title": "Theme Settings",
+                "description": "Open theme settings screen",
             },
             {
                 "value": "quit",
                 "title": "Quit",
-                "description": "Exit the TUI application",
+                "description": "Exit to TUI application",
             },
         ]
 
@@ -93,84 +112,108 @@ class CommandPaletteDialog(ModalScreen[T]):
 
         yield Static("Press Enter to execute, Escape to cancel")
 
-    def filter_commands(self, query: str) -> None:
-        """Filter commands by search query.
-
-        Args:
-            query: Search string to filter commands by.
-        """
-        query = query.lower()
-
-        if not query:
-            self.filtered_commands = list(self.commands)
-        else:
-            self.filtered_commands = [
-                cmd
-                for cmd in self.commands
-                if query in cmd.get("title", "").lower()
-                or query in cmd.get("description", "").lower()
-            ]
-
-        self._selected_index = 0
-        self._render_content()
-
-    def select_command(self, value: str) -> Optional[str]:
-        """Select a command by value.
-
-        Args:
-            value: Command value to select.
-
-        Returns:
-            The selected command value, or None if not found.
-        """
-        for idx, command in enumerate(self.filtered_commands):
-            if command.get("value") == value:
-                self._selected_index = idx
-                return value
-        return None
-
-    def close_dialog(self, value: Optional[str] = None) -> None:
-        """Close dialog and return selected value.
-
-        Args:
-            value: Selected command value (defaults to current selection).
-        """
-        if value is None:
-            if self.filtered_commands and self._selected_index < len(
-                self.filtered_commands
-            ):
-                value = self.filtered_commands[self._selected_index].get("value")
-
-        self._result = value
-        self._closed = True
-        self.dismiss()
-
-    def get_result(self) -> Optional[str]:
-        """Get dialog result.
-
-        Returns:
-            Selected command value or None.
-        """
-        return self._result
-
-    def is_closed(self) -> bool:
-        """Check if dialog was closed.
-
-        Returns:
-            True if dialog was closed.
-        """
-        return self._closed
-
     def action_enter(self) -> None:
         """Handle Enter key - execute selected command and close."""
         if self.filtered_commands and self._selected_index < len(self.filtered_commands):
             command = self.filtered_commands[self._selected_index]
             value = command.get("value")
 
-            if self.on_command:
-                self.on_command(value)  # type: ignore[arg-type]
+            # Handle theme commands
+            if value == "switch_theme":
+                self._handle_switch_theme()
+            elif value == "list_themes":
+                self._handle_list_themes()
+            elif value == "preview_theme":
+                self._handle_preview_theme()
+            elif value == "theme_settings":
+                self._handle_theme_settings()
+            else:
+                if self.on_command:
+                    self.on_command(value)  # type: ignore[arg-type]
 
             self.close_dialog(value)
+
+    def _handle_switch_theme(self) -> None:
+        """Handle switch_theme command - prompt for theme name."""
+        from opencode_python.themes.registry import get_registry
+
+        registry = get_registry()
+        themes = registry.list_themes_metadata()
+
+        if not themes:
+            yield Static("No themes available")
+            return
+
+        theme_names = [tm.slug for tm in themes]
+
+        yield Label("Enter theme name:")
+        theme_input = Input(id="theme_name_input", placeholder="e.g., 'posting', 'dark', 'dracula'")
+
+        async def on_submit():
+            theme_name = theme_input.value.strip()
+            if theme_name not in theme_names:
+                yield Static(f"Theme '{theme_name}' not found. Available: {', '.join(theme_names)}")
+                return
+
+            await get_registry().set_active_theme(theme_name)
+            self.close_dialog(theme_name)
+
+        yield theme_input
+        yield Button("Switch", id="theme_switch_button", on_press=on_submit)
+        yield Button("Cancel", id="theme_cancel_button", on_press=self.action_escape)
+
+    def _handle_list_themes(self) -> None:
+        """Handle list_themes command - show theme selection dialog."""
+        from opencode_python.themes.registry import get_registry
+        from opencode_python.tui.screens.theme_settings_screen import ThemeSettingsScreen
+
+        registry = get_registry()
+        themes = registry.list_themes_metadata()
+
+        if not themes:
+            yield Static("No themes available")
+            return
+
+        def show_theme_selector():
+            self.dismiss()
+            result = ThemeSettingsScreen(
+                title="Available Themes",
+                on_apply=lambda settings: self.close_dialog(settings.get("theme"))
+            )
+            self.app.push_screen(result)
+
+        yield Static("Press Enter to select")
+        yield Button("Select", id="theme_select_button", on_press=show_theme_selector)
+
+    def _handle_preview_theme(self) -> None:
+        """Handle preview_theme command - show theme preview."""
+        from opencode_python.themes.registry import get_registry
+
+        registry = get_registry()
+        themes = registry.list_themes_metadata()
+
+        if not themes:
+            yield Static("No themes available")
+            return
+
+        def show_theme_preview():
+            self.dismiss()
+            for tm in themes:
+                yield Static(f"{tm.name}: {tm.preview_colors}")
+
+        yield Static("Press Enter to close")
+        yield Button("Close", id="theme_preview_button", on_press=self.action_escape)
+
+    def _handle_theme_settings(self) -> None:
+        """Handle theme_settings command - open theme settings screen."""
+        from opencode_python.themes.registry import get_registry
+        from opencode_python.tui.screens.theme_settings_screen import ThemeSettingsScreen
+
+        self.dismiss()
+        result = ThemeSettingsScreen(
+            title="Theme Settings",
+        )
+        self.app.push_screen(result)
 
     def action_escape(self) -> None:
         """Handle Escape key - close without execution."""

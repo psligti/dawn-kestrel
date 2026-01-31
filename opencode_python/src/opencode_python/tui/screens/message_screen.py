@@ -553,17 +553,19 @@ class MessageScreen(Screen):
                 "is_streaming": is_streaming,
             }
         )
-        
+
         message_view.set_class(True, message.role)
-        
-        await self.messages_container.mount(message_view)
+
+        if self.messages_container:
+            await self.messages_container.mount(message_view)
         
         if message.role == "assistant" and is_streaming:
             self._current_assistant_view = message_view
 
     def action_scroll_home(self) -> None:
         """Scroll to top of messages"""
-        self.messages_container.scroll_to(animate=False)
+        if self.messages_container:
+            self.messages_container.scroll_home()
 
     def action_scroll_end(self) -> None:
         """Scroll to end of messages"""
@@ -571,15 +573,18 @@ class MessageScreen(Screen):
 
     def action_scroll_page_up(self) -> None:
         """Scroll up one page"""
-        self.messages_container.scroll_page_up()
+        if self.messages_container:
+            self.messages_container.scroll_page_up()
 
     def action_scroll_page_down(self) -> None:
         """Scroll down one page"""
-        self.messages_container.scroll_page_down()
+        if self.messages_container:
+            self.messages_container.scroll_page_down()
 
     def action_scroll_to_top(self) -> None:
         """Scroll to top of messages"""
-        self.messages_container.scroll_to(animate=False)
+        if self.messages_container:
+            self.messages_container.scroll_home()
 
     def action_scroll_to_bottom(self) -> None:
         """Scroll to bottom of messages"""
@@ -587,15 +592,18 @@ class MessageScreen(Screen):
 
     def action_scroll_half_page_up(self) -> None:
         """Scroll up by half a page"""
-        self.messages_container.scroll_up(percentage=50)
+        if self.messages_container:
+            self.messages_container.scroll_up()
 
     def action_scroll_half_page_down(self) -> None:
         """Scroll down by half a page"""
-        self.messages_container.scroll_down(percentage=50)
+        if self.messages_container:
+            self.messages_container.scroll_down()
 
     def action_jump_to_top(self) -> None:
         """Jump to top of messages"""
-        self.messages_container.scroll_to_top(animate=False)
+        if self.messages_container:
+            self.messages_container.scroll_home()
 
     def action_jump_to_bottom(self) -> None:
         """Jump to bottom of messages"""
@@ -654,4 +662,5 @@ class MessageScreen(Screen):
 
     def _scroll_to_bottom(self) -> None:
         """Scroll messages to bottom"""
-        self.messages_container.scroll_end(animate=False)
+        if self.messages_container:
+            self.messages_container.scroll_end()

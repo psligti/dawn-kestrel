@@ -1,11 +1,18 @@
 """Drawer Widget for OpenCode TUI"""
 from __future__ import annotations
 
+import logging
+from datetime import datetime
 from typing import Literal, Optional
 
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.reactive import reactive
-from textual.widgets import Button, Static
+from textual.widgets import Button, Static, Label
+
+from opencode_python.core.event_bus import bus, Events
+from opencode_python.core.focus_manager import FocusManager, get_focus_manager, FocusState
+
+logger = logging.getLogger(__name__)
 
 
 class TabButton(Button):
@@ -24,14 +31,17 @@ class TabButton(Button):
         border: none;
         background: transparent;
         text-align: center;
+        color: #f3f4f6;
     }
 
     TabButton:hover {
-        background: $surface;
+        background: #1a1d2e;
+        color: #10b981;
     }
 
     TabButton.-active {
-        background: $primary;
+        background: #10b981;
+        color: #1a1d2e;
         text-style: bold;
     }
     """
@@ -60,16 +70,23 @@ class TodoList(ScrollableContainer):
     DEFAULT_CSS = """
     TodoList {
         height: 1fr;
+        background: #242838;
     }
 
     TodoList .todo-item {
-        padding: 0 1;
-        border-bottom: solid $primary;
+        padding: 1 2;
+        margin: 0 0 1 0;
+        border-bottom: solid #6b7280;
+        color: #f3f4f6;
+    }
+
+    TodoList .todo-item:hover {
+        background: #1a1d2e;
     }
 
     TodoList .todo-completed {
         text-style: dim;
-        color: $success;
+        color: #10b981;
     }
     """
 
@@ -87,19 +104,26 @@ class SubagentList(ScrollableContainer):
     DEFAULT_CSS = """
     SubagentList {
         height: 1fr;
+        background: #242838;
     }
 
     SubagentList .subagent-item {
-        padding: 0 1;
-        border-bottom: solid $primary;
+        padding: 1 2;
+        margin: 0 0 1 0;
+        border-bottom: solid #6b7280;
+        color: #f3f4f6;
+    }
+
+    SubagentList .subagent-item:hover {
+        background: #1a1d2e;
     }
 
     SubagentList .status-running {
-        color: $success;
+        color: #10b981;
     }
 
     SubagentList .status-pending {
-        color: $warning;
+        color: #f59e0b;
     }
     """
 
@@ -117,15 +141,22 @@ class NavigatorTimeline(ScrollableContainer):
     DEFAULT_CSS = """
     NavigatorTimeline {
         height: 1fr;
+        background: #242838;
     }
 
     NavigatorTimeline .timeline-item {
-        padding: 0 1;
-        border-bottom: solid $primary;
+        padding: 1 2;
+        margin: 0 0 1 0;
+        border-bottom: solid #6b7280;
+        color: #f3f4f6;
+    }
+
+    NavigatorTimeline .timeline-item:hover {
+        background: #1a1d2e;
     }
 
     NavigatorTimeline .timestamp {
-        color: $text-muted;
+        color: #9ca3af;
     }
     """
 
@@ -133,22 +164,139 @@ class NavigatorTimeline(ScrollableContainer):
         yield Static("[dim]No timeline events[/dim]")
 
 
+class SessionList(ScrollableContainer):
+    """Session list tab content
+
+    Displays session metadata, export options, and settings.
+    Connected to actual session system via event bus.
+    """
+
+    DEFAULT_CSS = """
+    SessionList {
+        height: 1fr;
+        background: #242838;
+    }
+
+    SessionList .session-header {
+        padding: 1 2;
+        background: #1a1d2e;
+        text-style: bold;
+        border-bottom: solid #a855f7;
+        color: #f3f4f6;
+        margin: 0 0 1 0;
+    }
+
+    SessionList .session-info {
+        padding: 1 2;
+        border-bottom: solid #6b7280;
+        color: #f3f4f6;
+        margin: 0 0 1 0;
+    }
+
+    SessionList .session-info-label {
+        color: #9ca3af;
+        text-style: dim;
+    }
+
+    SessionList .session-actions {
+        padding: 1;
+        border-bottom: solid #6b7280;
+        background: #242838;
+        margin: 0 0 1 0;
+    }
+
+    SessionList .settings-section {
+        padding: 1;
+        border-bottom: solid #6b7280;
+        background: #242838;
+        margin: 0 0 1 0;
+    }
+
+    SessionList .settings-toggle {
+        padding: 0 1;
+    }
+
+    SessionList Label {
+        color: #f3f4f6;
+    }
+
+    SessionList Static {
+        color: #f3f4f6;
+    }
+    """
+
+    session_data: reactive[Optional[dict]] = reactive(None)
+    drawer_width: reactive[int] = reactive(35)
+    reduced_motion: reactive[bool] = reactive(False)
+
+    def compose(self):
+        """Build session list UI"""
+        yield Label("Session Information", classes="session-header")
+        yield Label("No active session", classes="session-info", id="session-info")
+
+        with Container(classes="session-actions"):
+            yield Label("Actions", classes="session-info-label")
+            yield Static("[dim]Export as JSON[/dim]", id="btn-export-json")
+            yield Static("[dim]Export as Markdown[/dim]", id="btn-export-md")
+            yield Static("[dim]Copy to Clipboard[/dim]", id="btn-copy")
+
+        with Container(classes="settings-section"):
+            yield Label("Drawer Settings", classes="session-info-label")
+            yield Static(f"Width: {self.drawer_width}%", id="drawer-width-label")
+            yield Static(f"Reduced Motion: {'On' if self.reduced_motion else 'Off'}", id="reduced-motion-label")
+
+    def watch_session_data(self, old_value: Optional[dict], new_value: Optional[dict]) -> None:
+        """Called when session data changes"""
+        if new_value is None:
+            self.query_one("#session-info", Static).update("[dim]No active session[/dim]")
+            return
+
+        created = datetime.fromtimestamp(new_value.get("time_created", 0)).strftime("%Y-%m-%d %H:%M")
+        messages = new_value.get("message_count", 0)
+        cost = new_value.get("total_cost", 0.0)
+
+        info = (
+            f"ID: {new_value.get('id', 'N/A')}\n"
+            f"Created: {created}\n"
+            f"Messages: {messages}\n"
+            f"Total Cost: ${cost:.4f}\n"
+            f"Agent: {new_value.get('agent', 'N/A')}"
+        )
+        self.query_one("#session-info", Static).update(info)
+
+    def watch_drawer_width(self, old_value: int, new_value: int) -> None:
+        """Called when drawer width changes"""
+        if self.is_mounted:
+            self.query_one("#drawer-width-label", Static).update(f"Width: {new_value}%")
+
+    def watch_reduced_motion(self, old_value: bool, new_value: bool) -> None:
+        """Called when reduced motion setting changes"""
+        if self.is_mounted:
+            state = "On" if new_value else "Off"
+            self.query_one("#reduced-motion-label", Static).update(f"Reduced Motion: {state}")
+
+    def update_session(self, session_data: dict) -> None:
+        """Update session information display"""
+        self.session_data = session_data
+
+
 class DrawerWidget(Container):
-    """Side drawer widget for accessing todos, subagents, and navigator
+    """Side drawer widget for accessing todos, subagents, navigator, and session
 
     Features:
-    - 3 tabs: Todos (📋), Subagents (🤖), Navigator (🧭)
+    - 4 tabs: Todos (📋), Subagents (🤖), Navigator (🧭), Session (📝)
     - Slide animation when toggling visibility
     - Configurable width (30-45% of terminal)
     - Overlay mode - main content remains visible when open
     - Preserves tab state when hidden
+    - FocusManager integration for keyboard navigation
 
-    Default keyboard binding: Ctrl+D to toggle
+    Default keyboard binding: Ctrl+B to toggle
     """
 
     visible: reactive[bool] = reactive(False)
     width_percent: reactive[int] = reactive(35)
-    active_tab: reactive[Literal["todos", "subagents", "navigator"]] = reactive("todos")
+    active_tab: reactive[Literal["todos", "subagents", "navigator", "session"]] = reactive("todos")
     has_focus: reactive[bool] = reactive(False)
 
     DEFAULT_CSS = """
@@ -158,8 +306,8 @@ class DrawerWidget(Container):
         width: 35;
         offset-x: -35;
         transition: offset-x 150ms;
-        background: $panel;
-        border: thick $primary;
+        background: #242838;
+        border: thick #6b7280;
         display: block;
     }
 
@@ -172,25 +320,31 @@ class DrawerWidget(Container):
     }
 
     DrawerWidget .drawer-header {
-        padding: 1;
-        background: $secondary;
+        padding: 1 2;
+        background: #1a1d2e;
         text-style: bold;
         text-align: center;
+        color: #f3f4f6;
+        border-bottom: solid #6b7280;
     }
 
     DrawerWidget .tab-buttons {
         height: 12;
         padding: 1;
-        background: $surface;
+        background: #242838;
+        border-bottom: solid #6b7280;
     }
 
     DrawerWidget .tab-content {
         height: 1fr;
+        background: #242838;
     }
 
     DrawerWidget ScrollableContainer {
-        scrollbar-background: $surface;
-        scrollbar-color: $primary;
+        scrollbar-background: #1a1d2e;
+        scrollbar-color: #10b981;
+        scrollbar-color-hover: #d946ef;
+        scrollbar-color-active: #a855f7;
     }
     """
 
@@ -211,7 +365,6 @@ class DrawerWidget(Container):
         self.width_percent = clamped_width
 
     def compose(self):
-        """Build drawer UI"""
         with Vertical():
             yield Static("[bold]Drawer[/bold]", classes="drawer-header")
 
@@ -219,20 +372,38 @@ class DrawerWidget(Container):
                 self._btn_todos = TabButton("📋", "Todos", id="btn-todos")
                 self._btn_subagents = TabButton("🤖", "Subagents", id="btn-subagents")
                 self._btn_navigator = TabButton("🧭", "Navigator", id="btn-navigator")
+                self._btn_session = TabButton("📝", "Session", id="btn-session")
                 yield self._btn_todos
                 yield self._btn_subagents
                 yield self._btn_navigator
+                yield self._btn_session
 
             with Container(classes="tab-content"):
                 self._todo_list = TodoList(id="tab-todos")
                 self._subagent_list = SubagentList(id="tab-subagents")
                 self._navigator_timeline = NavigatorTimeline(id="tab-navigator")
+                self._session_list = SessionList(id="tab-session")
                 yield self._todo_list
                 yield self._subagent_list
                 yield self._navigator_timeline
+                yield self._session_list
 
     def on_mount(self) -> None:
-        """Called when drawer is mounted"""
+        import asyncio
+
+        focus_manager = get_focus_manager()
+
+        # Subscribe to focus changes
+        async def on_focus_did_change(event):
+            logger.debug(f"Focus changed: {event.target_widget}")
+            self.has_focus = (event.target_widget == "drawer")
+
+        asyncio.create_task(bus.subscribe(Events.FOCUS_DID_CHANGE, on_focus_did_change))
+
+        # Sync initial state
+        self.has_focus = (focus_manager.get_current_state() == FocusState.DRAWER_FOCUSED)
+
+        logger.info("DrawerWidget mounted and integrated with FocusManager")
         self._update_active_tab()
         self._update_width()
 
@@ -253,6 +424,7 @@ class DrawerWidget(Container):
         self._btn_todos.set_class(False, "-active")
         self._btn_subagents.set_class(False, "-active")
         self._btn_navigator.set_class(False, "-active")
+        self._btn_session.set_class(False, "-active")
 
         if self.active_tab == "todos":
             self._btn_todos.set_class(True, "-active")
@@ -260,10 +432,13 @@ class DrawerWidget(Container):
             self._btn_subagents.set_class(True, "-active")
         elif self.active_tab == "navigator":
             self._btn_navigator.set_class(True, "-active")
+        elif self.active_tab == "session":
+            self._btn_session.set_class(True, "-active")
 
         self._todo_list.display = (self.active_tab == "todos")
         self._subagent_list.display = (self.active_tab == "subagents")
         self._navigator_timeline.display = (self.active_tab == "navigator")
+        self._session_list.display = (self.active_tab == "session")
 
     def watch_visible(self, old_value: bool, new_value: bool) -> None:
         """Called when visibility changes"""
@@ -280,8 +455,17 @@ class DrawerWidget(Container):
             self._update_width()
 
     def watch_active_tab(self, old_value: str, new_value: str) -> None:
+        import asyncio
+
         if self.is_mounted:
             self._update_active_tab()
+            # Emit DRAWER_TAB_CHANGED event
+            asyncio.create_task(
+                bus.publish(
+                    Events.DRAWER_TAB_CHANGED,
+                    {"old_tab": old_value, "new_tab": new_value}
+                )
+            )
 
     def watch_has_focus(self, old_value: bool, new_value: bool) -> None:
         """Called when focus state changes"""
@@ -289,7 +473,6 @@ class DrawerWidget(Container):
             self.focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle tab button presses"""
         button_id = event.button.id
 
         if button_id == "btn-todos":
@@ -298,6 +481,8 @@ class DrawerWidget(Container):
             self.switch_tab("subagents")
         elif button_id == "btn-navigator":
             self.switch_tab("navigator")
+        elif button_id == "btn-session":
+            self.switch_tab("session")
 
     def toggle_visible(self) -> None:
         """Toggle drawer visibility
@@ -308,16 +493,8 @@ class DrawerWidget(Container):
         """
         self.visible = not self.visible
 
-    def switch_tab(self, tab_id: Literal["todos", "subagents", "navigator"]) -> None:
-        """Switch to the specified tab
-
-        Args:
-            tab_id: Tab identifier ("todos", "subagents", or "navigator")
-
-        Raises:
-            ValueError: If tab_id is not a valid tab
-        """
-        valid_tabs = ["todos", "subagents", "navigator"]
+    def switch_tab(self, tab_id: Literal["todos", "subagents", "navigator", "session"]) -> None:
+        valid_tabs = ["todos", "subagents", "navigator", "session"]
 
         if tab_id not in valid_tabs:
             raise ValueError(f"Invalid tab_id: {tab_id}. Must be one of {valid_tabs}")

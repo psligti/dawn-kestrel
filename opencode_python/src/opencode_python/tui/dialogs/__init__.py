@@ -1,6 +1,6 @@
 """Dialog system for TUI using Textual ModalScreen."""
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, TypeVar
 
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
@@ -14,7 +14,7 @@ T = TypeVar("T")
 from .model_select_dialog import ModelSelectDialog
 
 
-class BaseDialog(ModalScreen[str]):
+class BaseDialog(ModalScreen[T]):
     """Base dialog class extending Textual ModalScreen.
 
     Args:
@@ -30,18 +30,18 @@ class BaseDialog(ModalScreen[str]):
         border: thick panel;
         padding: 1;
     }
-
-    BaseDialog > Vertical {
-        height: auto;
-        width: 100%;
-    }
     """
 
-    def __init__(self, title: str = "", body: Optional[ComposeResult] = None):
+    def __init__(
+        self,
+        title: str = "",
+        body: Optional[ComposeResult] = None,
+    ) -> None:
+        """Initialize base dialog."""
         super().__init__()
         self.title = title
         self.body_content = body
-        self._result: Optional[str] = None
+        self._result: Optional[T] = None
         self._closed = False
 
     def compose(self) -> ComposeResult:
@@ -68,7 +68,7 @@ class BaseDialog(ModalScreen[str]):
         self._closed = True
         self.dismiss()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> Optional[T]:
         """Get dialog result.
 
         Returns:
@@ -152,7 +152,7 @@ class SelectDialog(ModalScreen[T]):
         """Called when dialog is mounted."""
         list_view = self.query_one(ListView)
         list_view.focus()
-        list_view.highlighted = 0
+        list_view.index = 0
 
     def select_option(self, value: T) -> None:
         """Select an option by value.
@@ -166,8 +166,8 @@ class SelectDialog(ModalScreen[T]):
                 self._result = value
                 try:
                     list_view = self.query_one(ListView)
-                    if list_view.highlighted != idx:
-                        list_view.highlighted = idx
+                    if list_view.index != idx:
+                        list_view.index = idx
                 except Exception:
                     pass
                 return
@@ -205,7 +205,7 @@ class SelectDialog(ModalScreen[T]):
         super().close_dialog(None)
 
 
-class ConfirmDialog(BaseDialog):
+class ConfirmDialog(BaseDialog[bool]):
     """Confirmation dialog with confirm/cancel buttons.
 
     Args:
@@ -363,14 +363,13 @@ class PromptDialog(ModalScreen[str]):
 
     async def on_mount(self) -> None:
         """Called when dialog is mounted."""
-        input_field = self.query_one("Input")
+        input_field = self.query_one("#prompt_input", Input)
         input_field.focus()
-        input_field.cursor_blink = True
-        input_field.value = ""
+        input_field.value = self.initial_value
 
     def action_enter(self) -> None:
         """Handle Enter key - submit input."""
-        input_field = self.query_one("Input")
+        input_field = self.query_one("#prompt_input", Input)
         value = input_field.value
         if self.on_submit:
             self.on_submit(value)
