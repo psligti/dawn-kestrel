@@ -188,9 +188,9 @@ output = ReviewOutput.model_validate_json(llm_json)
 ```
 
 **Evidence to Capture:**
-- [ ] Pytest test results (pass/fail counts per agent)
-- [ ] Code coverage reports (before/after conversion)
-- [ ] Sample ReviewOutput JSON from test mocks
+- [x] Pytest test results (pass/fail counts per agent)
+- [x] Code coverage reports (before/after conversion)
+- [x] Sample ReviewOutput JSON from test mocks
 
 ---
 
