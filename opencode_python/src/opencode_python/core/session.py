@@ -74,7 +74,7 @@ class SessionManager:
 
     async def get_session(self, session_id: str) -> Optional[Session]:
         """Get a session by ID"""
-        return await self.storage.get_session(session_id)
+        return await self.storage.get_session(session_id, self.project_dir.name)
 
     async def update_session(
         self,

@@ -44,6 +44,14 @@ async def health_check() -> dict[str, str | bool]:
     return {"status": "healthy", "database": True}
 
 
+# Include API routes
+from api import health, messages, sessions
+
+app.include_router(health.router, prefix="/api/v1")
+app.include_router(messages.router)
+app.include_router(sessions.router)
+
+
 @app.get("/api/v1/info", tags=["api"])
 async def api_info() -> dict[str, str]:
     return {

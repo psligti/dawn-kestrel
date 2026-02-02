@@ -54,4 +54,4 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 addopts = "--cov=. --cov-report=term-missing"
 asyncio_mode = "auto"
-pythonpath = "."
+pythonpath = "../opencode_python/src:."
