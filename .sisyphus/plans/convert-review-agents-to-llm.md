@@ -1475,14 +1475,14 @@ ruff check opencode_python/src/opencode_python/agents/review/agents/
 ```
 
 ### Final Checklist
-- [ ] All 11 agents converted to AISession-based review() methods
-- [ ] All hardcoded check methods removed from all agents
-- [ ] All regex patterns deleted from all agents
-- [ ] All external command calls removed from all agents
-- [ ] All AST analysis code removed from all agents
-- [ ] All "Must Have" present
-- [ ] All "Must NOT Have" absent
-- [ ] All tests pass (11 agents × multiple tests each)
-- [ ] Orchestrator integration test passes
-- [ ] No linting errors in converted agents
-- [ ] No unused imports in any agent
+- [x] All 11 agents converted to AISession-based review() methods
+- [x] All hardcoded check methods removed from all agents
+- [x] All regex patterns deleted from all agents
+- [x] All external command calls removed from all agents
+- [x] All AST analysis code removed from all agents
+- [x] All "Must Have" present
+- [x] All "Must NOT Have" absent
+- [x] All tests pass (11 agents × multiple tests each)
+- [x] Orchestrator integration test passes
+- [x] No linting errors in converted agents
+- [x] No unused imports in any agent
