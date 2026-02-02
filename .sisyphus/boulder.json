@@ -1,13 +1,6 @@
 {
-  "active_plan": "/Users/parkermsligting/develop/agentic_python/.worktrees/python-sdk/.sisyphus/plans/bridge-pattern-sdk.md",
-  "started_at": "2026-01-29T18:18:31.300Z",
-  "session_ids": [
-    "ses_3f5080724ffefIPUowqy2YnMjc",
-    "ses_3f4b95b4affepTsb4mCTJLNXoL",
-    "ses_3f43b0061ffebovuI2ge0YSW30",
-    "ses_3f3e4a6d9ffeEbsE6HVbiPqvFh",
-    "ses_3f055c15bffewhFNeJ13ET7H99",
-    "ses_3f00c9d58ffepxE1G8ti4y0h5z"
-  ],
-  "plan_name": "bridge-pattern-sdk"
+  "active_plan": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/tui/.sisyphus/plans/tui-implementation.md",
+  "started_at": "2026-02-02T16:35:34.246Z",
+  "session_ids": ["ses_3e0ca5f30ffeQhmppyyQyCO2Cm"],
+  "plan_name": "tui-implementation"
 }
