@@ -1,18 +1,19 @@
 """Architecture Reviewer agent for checking architectural issues."""
 from __future__ import annotations
-from typing import List, Literal
-import re
+from typing import List
 import pydantic as pd
+import uuid
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import (
     ReviewOutput,
     Scope,
-    Check,
-    Skip,
     Finding,
     MergeGate,
 )
+from opencode_python.ai_session import AISession
+from opencode_python.core.models import Session
+from opencode_python.core.settings import settings
 
 
 class ArchitectureReviewer(BaseReviewerAgent):
@@ -108,494 +109,91 @@ Return JSON only.
         return ["**/*.py"]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform architectural review on the given context.
+        """Perform architectural review on the given context using LLM.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
             ReviewOutput with findings, severity, and merge gate decision
+
+        Raises:
+            ValueError: If API key is missing or invalid
+            TimeoutError: If LLM request times out
+            Exception: For other API-related errors
         """
         relevant_files = []
-        ignored_files = []
-
         for file_path in context.changed_files:
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
-            else:
-                ignored_files.append(file_path)
 
-        if not relevant_files:
-            return ReviewOutput(
-                agent=self.get_agent_name(),
-                summary="No relevant architectural changes detected.",
-                severity="merge",
-                scope=Scope(
-                    relevant_files=[],
-                    ignored_files=ignored_files,
-                    reasoning="No Python files changed that require architectural review.",
-                ),
-                merge_gate=MergeGate(decision="approve"),
+        provider_id = settings.provider_default
+        model = settings.model_default
+        api_key = settings.api_key.get_secret_value() if settings.api_key else None
+
+        session = Session(
+            id=str(uuid.uuid4()),
+            slug="architecture-review",
+            project_id="review",
+            directory=context.repo_root or "/tmp",
+            title="Architecture Review",
+            version="1.0"
+        )
+
+        ai_session = AISession(
+            session=session,
+            provider_id=provider_id,
+            model=model,
+            api_key=api_key
+        )
+
+        system_prompt = self.get_system_prompt()
+        formatted_context = self.format_inputs_for_prompt(context)
+
+        user_message = f"""{system_prompt}
+
+{formatted_context}
+
+Please analyze the above changes for architectural issues and provide your review in the specified JSON format."""
+
+        try:
+            response_message = await ai_session.process_message(
+                user_message,
+                options={
+                    "temperature": 0.3,
+                    "top_p": 0.9
+                }
             )
 
-        findings = self._analyze_architecture(context.diff, relevant_files)
-        severity: Literal["merge", "warning", "critical", "blocking"] = self._compute_severity(findings)
-        merge_gate = self._compute_merge_gate(findings, severity)
+            if not response_message.text:
+                raise ValueError("Empty response from LLM")
 
-        return ReviewOutput(
-            agent=self.get_agent_name(),
-            summary=self._generate_summary(findings, severity),
-            severity=severity,
-            scope=Scope(
-                relevant_files=relevant_files,
-                ignored_files=ignored_files,
-                reasoning=f"Reviewed {len(relevant_files)} Python file(s) for architectural issues.",
-            ),
-            findings=findings,
-            merge_gate=merge_gate,
-        )
-
-    def _analyze_architecture(
-        self, diff: str, relevant_files: List[str]
-    ) -> List[Finding]:
-        """Analyze diff for architectural issues.
-
-        Args:
-            diff: Unified diff string
-            relevant_files: List of relevant file paths
-
-        Returns:
-            List of architectural findings
-        """
-        findings = []
-
-        findings.extend(self._check_circular_imports(diff))
-        findings.extend(self._check_boundary_violations(diff, relevant_files))
-        findings.extend(self._check_tight_coupling(diff))
-        findings.extend(self._check_hardcoded_config(diff))
-        findings.extend(self._check_god_objects(diff))
-        findings.extend(self._check_breaking_changes(diff))
-
-        return findings
-
-    def _check_circular_imports(self, diff: str) -> List[Finding]:
-        """Check for potential circular imports.
-
-        Args:
-            diff: Unified diff string
-
-        Returns:
-            List of findings about circular imports
-        """
-        findings = []
-        import_lines = []
-
-        for line in diff.split("\n"):
-            if line.strip().startswith(("+", "-")):
-                stripped = line[1:].strip()
-                if stripped.startswith(("import ", "from ")):
-                    import_lines.append(line)
-
-        file_imports = {}
-        for line in import_lines:
-            if line.startswith("+"):
-                match = re.search(r"^\+\s*from\s+(\S+)", line[1:])
-                if match:
-                    module = match.group(1)
-                    file_match = re.search(r"^\+\+\+\s*(\S+)", diff)
-                    if file_match:
-                        file_path = file_match.group(1)
-                        if file_path not in file_imports:
-                            file_imports[file_path] = []
-                        file_imports[file_path].append(module)
-
-        for file_a, modules_a in file_imports.items():
-            for file_b, modules_b in file_imports.items():
-                if file_a != file_b:
-                    for mod_a in modules_a:
-                        for mod_b in modules_b:
-                            mod_a_parts = mod_a.split(".")
-                            mod_b_parts = mod_b.split(".")
-
-                            if (
-                                len(mod_a_parts) > 1
-                                and len(mod_b_parts) > 1
-                                and mod_a_parts[0] == mod_b_parts[0]
-                            ):
-                                findings.append(
-                                    Finding(
-                                        id="ARCH-CIRCULAR-001",
-                                        title="Potential circular dependency detected",
-                                        severity="critical",
-                                        confidence="medium",
-                                        owner="dev",
-                                        estimate="M",
-                                        evidence=f"Cross-module imports found:\n{file_a} imports from {mod_a}\n{file_b} imports from {mod_b}",
-                                        risk="Circular dependencies can cause import-time errors and make code hard to test.",
-                                        recommendation="Refactor to use dependency injection or introduce a new module to break the cycle.",
-                                        suggested_patch=None,
-                                    )
-                                )
-                                break
-
-        return findings
-
-    def _check_boundary_violations(
-        self, diff: str, relevant_files: List[str]
-    ) -> List[Finding]:
-        """Check for boundary violations (cross-layer dependencies).
-
-        Args:
-            diff: Unified diff string
-            relevant_files: List of relevant file paths
-
-        Returns:
-            List of findings about boundary violations
-        """
-        findings = []
-
-        layer_patterns = {
-            "presentation": ["handlers", "views", "api", "routes", "controllers"],
-            "application": ["services", "use_cases", "workflows", "orchestrators"],
-            "domain": ["entities", "models", "domain", "value_objects"],
-            "infrastructure": ["repositories", "adapters", "external", "db", "storage"],
-        }
-
-        for file_path in relevant_files:
-            file_layer = None
-            for layer, patterns in layer_patterns.items():
-                if any(pattern in file_path.lower() for pattern in patterns):
-                    file_layer = layer
-                    break
-
-            if not file_layer:
-                continue
-
-            for line in diff.split("\n"):
-                if not line.startswith("+"):
-                    continue
-
-                stripped = line[1:].strip()
-                if not stripped.startswith(("import ", "from ")):
-                    continue
-
-                if "from infrastructure" in stripped and file_layer == "presentation":
-                    line_match = re.search(r"@@\s+\-(\d+),\d+\s+\+\d+,\d+\s+@@", diff)
-                    line_num = line_match.group(1) if line_match else "unknown"
-
-                    findings.append(
-                        Finding(
-                            id="ARCH-BOUNDARY-001",
-                            title="Boundary violation: presentation imports infrastructure",
-                            severity="warning",
-                            confidence="high",
-                            owner="dev",
-                            estimate="M",
-                            evidence=f"{file_path}:{line_num}\n{stripped}",
-                            risk="Direct infrastructure imports in presentation layer violate clean architecture principles.",
-                            recommendation="Introduce an application service or repository interface to abstract infrastructure concerns.",
-                            suggested_patch=None,
-                        )
-                    )
-
-        return findings
-
-    def _check_tight_coupling(self, diff: str) -> List[Finding]:
-        """Check for tight coupling between components.
-
-        Args:
-            diff: Unified diff string
-
-        Returns:
-            List of findings about tight coupling
-        """
-        findings = []
-        module_imports = {}
-
-        for line in diff.split("\n"):
-            if not line.startswith("+"):
-                continue
-
-            stripped = line[1:].strip()
-            if not stripped.startswith(("import ", "from ")):
-                continue
-
-            if stripped.startswith("from "):
-                match = re.match(r"from\s+(\S+)\s+import", stripped)
-                if match:
-                    module = match.group(1)
-                    if module not in module_imports:
-                        module_imports[module] = 0
-                    module_imports[module] += 1
-
-        for module, count in module_imports.items():
-            if count >= 5:
-                findings.append(
-                    Finding(
-                        id="ARCH-COUPLING-001",
-                        title=f"Potential tight coupling: {count} imports from {module}",
-                        severity="warning",
-                        confidence="medium",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"Module '{module}' imported {count} times in changed files",
-                        risk="High coupling to specific module makes code fragile to changes in that module.",
-                        recommendation="Consider introducing a facade or abstraction layer to reduce coupling.",
-                        suggested_patch=None,
+            try:
+                output = ReviewOutput.model_validate_json(response_message.text)
+            except pd.ValidationError as e:
+                return ReviewOutput(
+                    agent=self.get_agent_name(),
+                    summary=f"Error parsing LLM response: {str(e)}",
+                    severity="critical",
+                    scope=Scope(
+                        relevant_files=relevant_files,
+                        ignored_files=[],
+                        reasoning="Failed to parse LLM JSON response due to validation error."
+                    ),
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="needs_changes",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[
+                            "Review LLM response format and ensure it matches expected schema."
+                        ]
                     )
                 )
 
-        return findings
+            return output
 
-    def _check_hardcoded_config(self, diff: str) -> List[Finding]:
-        """Check for hardcoded configuration values.
-
-        Args:
-            diff: Unified diff string
-
-        Returns:
-            List of findings about hardcoded configuration
-        """
-        findings = []
-
-        hardcoded_patterns = [
-            (r'PORT\s*=\s*\d{4,5}', "hardcoded port"),
-            (r'HOST\s*=\s*["\']localhost["\']', "hardcoded host"),
-            (r'URL\s*=\s*["\']http[s]?://', "hardcoded URL"),
-            (r'API_KEY\s*=\s*["\'][^"\']+["\']', "hardcoded API key"),
-            (r'SECRET\s*=\s*["\'][^"\']+["\']', "hardcoded secret"),
-            (r'TIMEOUT\s*=\s*\d+', "hardcoded timeout"),
-        ]
-
-        for line in diff.split("\n"):
-            if not line.startswith("+"):
-                continue
-
-            for pattern, description in hardcoded_patterns:
-                if re.search(pattern, line[1:], re.IGNORECASE):
-                    line_match = re.search(r"@@\s+\-(\d+),\d+\s+\+\d+,\d+\s+@@", diff)
-                    line_num = line_match.group(1) if line_match else "unknown"
-
-                    findings.append(
-                        Finding(
-                            id="ARCH-CONFIG-001",
-                            title=f"Hardcoded configuration: {description}",
-                            severity="critical",
-                            confidence="high",
-                            owner="dev",
-                            estimate="S",
-                            evidence=f"Line {line_num}: {line[1:]}",
-                            risk="Hardcoded configuration should be in environment variables or config files.",
-                            recommendation="Move configuration to environment variables or config module.",
-                            suggested_patch=f"# Move to config file or environment variable\n# {line[1:]}",
-                        )
-                    )
-                    break
-
-        return findings
-
-    def _check_god_objects(self, diff: str) -> List[Finding]:
-        """Check for potential god objects (very large classes/methods).
-
-        Args:
-            diff: Unified diff string
-
-        Returns:
-            List of findings about god objects
-        """
-        findings = []
-        current_class = None
-        method_count = 0
-
-        for line in diff.split("\n"):
-            stripped = line[1:].strip() if line.startswith(("+", "-")) else line.strip()
-
-            if stripped.startswith("class "):
-                if method_count > 20:
-                    findings.append(
-                        Finding(
-                            id="ARCH-GOD-001",
-                            title=f"Potential god class: {current_class} with {method_count} methods",
-                            severity="warning",
-                            confidence="medium",
-                            owner="dev",
-                            estimate="L",
-                            evidence=f"Class {current_class} has {method_count} methods detected in changes",
-                            risk="God classes violate Single Responsibility Principle and are hard to maintain.",
-                            recommendation="Consider splitting into multiple smaller classes with focused responsibilities.",
-                            suggested_patch=None,
-                        )
-                    )
-
-                match = re.match(r"class\s+(\w+)", stripped)
-                if match:
-                    current_class = match.group(1)
-                    method_count = 0
-                else:
-                    current_class = None
-                    method_count = 0
-
-            if stripped.startswith("def ") and current_class:
-                params = re.findall(r"(\w+)\s*,", stripped)
-                if len(params) > 7:
-                    findings.append(
-                        Finding(
-                            id="ARCH-GOD-002",
-                            title=f"Method with too many parameters: {stripped[:50]}",
-                            severity="warning",
-                            confidence="high",
-                            owner="dev",
-                            estimate="M",
-                            evidence=f"Method has {len(params)} parameters",
-                            risk="Methods with many parameters indicate tight coupling and poor design.",
-                            recommendation="Consider introducing a parameter object or using named parameters.",
-                            suggested_patch=None,
-                        )
-                    )
-                method_count += 1
-
-        return findings
-
-    def _check_breaking_changes(self, diff: str) -> List[Finding]:
-        """Check for breaking API changes.
-
-        Args:
-            diff: Unified diff string
-
-        Returns:
-            List of findings about breaking changes
-        """
-        findings = []
-
-        breaking_patterns = [
-            (r"^\-\s*def\s+(public_|api_)", "removed public function"),
-            (r"^\-\s*class\s+(Public|API)", "removed public class"),
-            (r"^\-\s*@.*(?:public|api|external)", "removed public decorator"),
-        ]
-
-        for line in diff.split("\n"):
-            if not line.startswith("-"):
-                continue
-
-            for pattern, description in breaking_patterns:
-                if re.search(pattern, line[1:]):
-                    line_match = re.search(r"@@\s+\-(\d+),\d+\s+\+\d+,\d+\s+@@", diff)
-                    line_num = line_match.group(1) if line_match else "unknown"
-
-                    findings.append(
-                        Finding(
-                            id="ARCH-BREAKING-001",
-                            title=f"Potential breaking change: {description}",
-                            severity="blocking",
-                            confidence="high",
-                            owner="dev",
-                            estimate="M",
-                            evidence=f"Line {line_num}: {line[1:]}",
-                            risk="Removing public API breaks existing consumers without migration path.",
-                            recommendation="Provide deprecation warning first, or maintain backward compatibility.",
-                            suggested_patch=None,
-                        )
-                    )
-                    break
-
-        return findings
-
-    def _compute_severity(self, findings: List[Finding]) -> Literal["merge", "warning", "critical", "blocking"]:
-        """Compute overall severity from findings.
-
-        Args:
-            findings: List of findings
-
-        Returns:
-            Severity level (merge, warning, critical, blocking)
-        """
-        if not findings:
-            return "merge"
-
-        # Check for blocking findings
-        if any(finding.severity == "blocking" for finding in findings):
-            return "blocking"
-
-        # Check for critical findings
-        if any(finding.severity == "critical" for finding in findings):
-            return "critical"
-
-        # Check for warning findings
-        if any(finding.severity == "warning" for finding in findings):
-            return "warning"
-
-        return "merge"
-
-    def _compute_merge_gate(self, findings: List[Finding], severity: Literal["merge", "warning", "critical", "blocking"]) -> MergeGate:
-        """Compute merge gate decision from findings and severity.
-
-        Args:
-            findings: List of findings
-            severity: Overall severity level
-
-        Returns:
-            MergeGate with decision and fix lists
-        """
-        must_fix = []
-        should_fix = []
-        notes_for_coding_agent = []
-
-        for finding in findings:
-            if finding.severity == "blocking":
-                must_fix.append(finding.id)
-            elif finding.severity == "critical":
-                must_fix.append(finding.id)
-            elif finding.severity == "warning":
-                should_fix.append(finding.id)
-
-            if finding.recommendation:
-                notes_for_coding_agent.append(
-                    f"[{finding.id}] {finding.recommendation}"
-                )
-
-        if severity == "blocking":
-            decision = "block"
-        elif severity == "critical":
-            decision = "needs_changes"
-        elif severity == "warning":
-            decision = "needs_changes"
-        else:
-            decision = "approve"
-
-        return MergeGate(
-            decision=decision,
-            must_fix=must_fix,
-            should_fix=should_fix,
-            notes_for_coding_agent=notes_for_coding_agent,
-        )
-
-    def _generate_summary(self, findings: List[Finding], severity: str) -> str:
-        """Generate summary for review output.
-
-        Args:
-            findings: List of findings
-            severity: Overall severity level
-
-        Returns:
-            Summary string
-        """
-        if not findings:
-            return "No architectural issues detected. Changes follow good architectural principles."
-
-        by_severity = {"blocking": 0, "critical": 0, "warning": 0}
-        for finding in findings:
-            by_severity[finding.severity] += 1
-
-        parts = [
-            f"Architectural review complete.",
-            f"Found {len(findings)} issue(s):",
-        ]
-
-        if by_severity["blocking"] > 0:
-            parts.append(f"- {by_severity['blocking']} blocking")
-        if by_severity["critical"] > 0:
-            parts.append(f"- {by_severity['critical']} critical")
-        if by_severity["warning"] > 0:
-            parts.append(f"- {by_severity['warning']} warning")
-
-        return " ".join(parts)
+        except (TimeoutError, Exception) as e:
+            if isinstance(e, (TimeoutError, ValueError)):
+                raise
+            raise Exception(f"LLM API error: {str(e)}") from e

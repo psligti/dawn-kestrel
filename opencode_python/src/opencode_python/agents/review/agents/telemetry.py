@@ -1,7 +1,6 @@
 """TelemetryMetricsReviewer - checks for logging quality and observability coverage."""
 from __future__ import annotations
-from typing import List, Literal
-import re
+from typing import List
 import pydantic as pd
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
@@ -11,6 +10,10 @@ from opencode_python.agents.review.contracts import (
     Finding,
     MergeGate,
 )
+from opencode_python.ai_session import AISession
+from opencode_python.core.models import Session
+from opencode_python.core.settings import settings
+import uuid
 
 
 TELEMETRY_SYSTEM_PROMPT = """You are the Telemetry & Metrics Review Subagent.
@@ -49,32 +52,6 @@ Output MUST be valid JSON only with agent="telemetry_metrics" and the standard s
 Return JSON only."""
 
 
-# Patterns for detecting telemetry issues
-SILENT_EXCEPTION_PATTERNS = [
-    (r'except\s*:\s*pass', "Silent exception handler"),
-    (r'except\s+\w+\s*:\s*pass', "Silent exception handler with catch"),
-    (r'except\s+\w+\s+as\s+\w+\s*:\s*pass', "Silent exception handler with variable"),
-    (r'except\s*\(\s*\w+\s*(?:,\s*\w+\s*)*\)\s*:\s*pass', "Silent exception handler with multiple catches"),
-]
-
-MISSING_ERROR_LOG_PATTERNS = [
-    (r'except\s+[^:]+:\s*[^l][^o][^g]', "Exception handling without logging"),
-]
-
-MISSING_METRICS_PATTERNS = [
-    (r'(def\s+\w+.*request|def\s+\w+.*fetch|def\s+\w+.*process|def\s+\w+.*handle)[^(]*\([^)]*\):', "IO operation without metrics"),
-]
-
-LOGGING_QUALITY_PATTERNS = [
-    (r'logger\.(debug|info|warning|error|critical)\s*\(\s*["\'][^"\']*\s*\+\s*[^"\']+\s*\)', "String concatenation in log"),
-    (r'logger\.(debug|info|warning|error|critical)\s*\(\s*["\']\{.*\}["\']\)', "Log without structured data"),
-]
-
-SENSITIVE_DATA_PATTERNS = [
-    (r'logger\.(debug|info|warning|error|critical)\s*\([^)]*(?:password|secret|token|api_key|credit_card|ssn)[^)]*\)', "Logging sensitive data"),
-]
-
-
 class TelemetryMetricsReviewer(BaseReviewerAgent):
     """Telemetry reviewer agent that checks for logging quality and observability coverage.
 
@@ -105,449 +82,91 @@ class TelemetryMetricsReviewer(BaseReviewerAgent):
         ]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform telemetry review on the given context.
+        """Perform telemetry review on the given context using LLM.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
             ReviewOutput with telemetry findings, severity, and merge gate decision
+
+        Raises:
+            ValueError: If API key is missing or invalid
+            TimeoutError: If LLM request times out
+            Exception: For other API-related errors
         """
         relevant_files = []
-        ignored_files = []
-
         for file_path in context.changed_files:
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
-            else:
-                ignored_files.append(file_path)
 
-        if not relevant_files:
-            return ReviewOutput(
-                agent=self.get_agent_name(),
-                summary="No relevant code changes for telemetry review.",
-                severity="merge",
-                scope=Scope(
-                    relevant_files=[],
-                    ignored_files=ignored_files,
-                    reasoning="No Python files changed that require telemetry review.",
-                ),
-                merge_gate=MergeGate(decision="approve"),
+        provider_id = settings.provider_default
+        model = settings.model_default
+        api_key = settings.api_key.get_secret_value() if settings.api_key else None
+
+        session = Session(
+            id=str(uuid.uuid4()),
+            slug="telemetry-review",
+            project_id="review",
+            directory=context.repo_root or "/tmp",
+            title="Telemetry Review",
+            version="1.0"
+        )
+
+        ai_session = AISession(
+            session=session,
+            provider_id=provider_id,
+            model=model,
+            api_key=api_key
+        )
+
+        system_prompt = self.get_system_prompt()
+        formatted_context = self.format_inputs_for_prompt(context)
+
+        user_message = f"""{system_prompt}
+
+{formatted_context}
+
+Please analyze the above changes for telemetry and observability issues and provide your review in the specified JSON format."""
+
+        try:
+            response_message = await ai_session.process_message(
+                user_message,
+                options={
+                    "temperature": 0.3,
+                    "top_p": 0.9
+                }
             )
 
-        findings: List[Finding] = []
-
-        # Check for silent failures (swallowed exceptions)
-        silent_failures = self._check_silent_exceptions(context.diff, relevant_files)
-        findings.extend(silent_failures)
-
-        # Check for missing error logging
-        missing_logs = self._check_missing_error_logs(context.diff, relevant_files)
-        findings.extend(missing_logs)
-
-        # Check for logging quality issues
-        logging_issues = self._check_logging_quality(context.diff)
-        findings.extend(logging_issues)
-
-        # Check for sensitive data in logs
-        sensitive_data = self._check_sensitive_data_in_logs(context.diff)
-        findings.extend(sensitive_data)
-
-        # Check for missing metrics on IO operations
-        missing_metrics = self._check_missing_metrics(context.diff, relevant_files)
-        findings.extend(missing_metrics)
-
-        # Compute severity
-        severity: Literal["merge", "warning", "critical", "blocking"] = self._compute_severity(findings)
-        merge_gate = self._compute_merge_gate(findings, severity)
-
-        return ReviewOutput(
-            agent=self.get_agent_name(),
-            summary=self._generate_summary(findings, severity),
-            severity=severity,
-            scope=Scope(
-                relevant_files=relevant_files,
-                ignored_files=ignored_files,
-                reasoning=f"Telemetry review analyzed {len(relevant_files)} relevant files for logging quality and observability coverage.",
-            ),
-            findings=findings,
-            merge_gate=merge_gate,
-        )
-
-    def _check_silent_exceptions(self, diff: str, relevant_files: List[str]) -> List[Finding]:
-        """Check for silent exception handlers that swallow errors.
-
-        Args:
-            diff: Git diff content
-            relevant_files: List of relevant changed files
-
-        Returns:
-            List of findings for silent exceptions
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-        current_file = "unknown"
-        line_num = 1
-
-        for i, line in enumerate(lines):
-            # Track file context
-            if line.startswith('+++ b/') or line.startswith('--- a/'):
-                match = re.search(r'([ab]/.+)$', line)
-                if match:
-                    current_file = match.group(1)[2:]
-                continue
-
-            # Get line number from diff header
-            if '@@' in line:
-                match = re.search(r'@@\s+\-\d+(?:,\d+)?\s+\+(\d+)', line)
-                if match:
-                    line_num = int(match.group(1)) - 1
-                continue
-
-            if not line.startswith('+'):
-                if line.startswith('@@'):
-                    line_num += 1
-                continue
-
-            line_num += 1
-
-            # Check for silent exception patterns
-            for pattern, description in SILENT_EXCEPTION_PATTERNS:
-                match = re.search(pattern, line[1:])
-                if match:
-                    # Check if this is in a test file
-                    if 'test' in current_file.lower():
-                        continue
-
-                    findings.append(Finding(
-                        id=f"silent-exception-{i}",
-                        title=description,
-                        severity="critical",
-                        confidence="high",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"{current_file}:{line_num}\n{line[1:]}",
-                        risk="Silent exception handlers hide errors and make debugging impossible.",
-                        recommendation="Add logging or re-raise the exception with context.",
-                        suggested_patch="except Exception as e:\n    logger.error(f'Error in {current_file}: {e}')\n    raise",
-                    ))
-                    break
-
-        return findings
-
-    def _check_missing_error_logs(self, diff: str, relevant_files: List[str]) -> List[Finding]:
-        """Check for exception handling without logging.
-
-        Args:
-            diff: Git diff content
-            relevant_files: List of relevant changed files
-
-        Returns:
-            List of findings for missing error logging
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-        current_file = "unknown"
-        line_num = 1
-        in_exception_handler = False
-        handler_line = 0
-
-        for i, line in enumerate(lines):
-            # Track file context
-            if line.startswith('+++ b/') or line.startswith('--- a/'):
-                match = re.search(r'([ab]/.+)$', line)
-                if match:
-                    current_file = match.group(1)[2:]
-                continue
-
-            # Get line number from diff header
-            if '@@' in line:
-                match = re.search(r'@@\s+\-\d+(?:,\d+)?\s+\+(\d+)', line)
-                if match:
-                    line_num = int(match.group(1)) - 1
-                continue
-
-            # Check for exception handler start
-            if line.startswith('+') and re.search(r'except\s+[^:]+:', line[1:]):
-                in_exception_handler = True
-                handler_line = line_num + 1
-
-            # Check if logging is present in exception handler
-            if in_exception_handler and line.startswith('+'):
-                if re.search(r'logger\.(error|warning|exception)\s*\(', line[1:]):
-                    in_exception_handler = False  # Logging found, no issue
-
-            # Check if we're out of exception handler
-            if line.startswith('+') and line[1:].strip() and not re.search(r'except|raise|return|continue|break', line[1:]):
-                if in_exception_handler and not re.search(r'logger\.(error|warning|exception)\s*\(', line[1:]):
-                    # No logging in exception handler
-                    pass
-
-            if line.startswith('+'):
-                line_num += 1
-
-        return findings
-
-    def _check_logging_quality(self, diff: str) -> List[Finding]:
-        """Check for logging quality issues.
-
-        Args:
-            diff: Git diff content
-
-        Returns:
-            List of findings for logging quality issues
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-        current_file = "unknown"
-        line_num = 1
-
-        for i, line in enumerate(lines):
-            # Track file context
-            if line.startswith('+++ b/') or line.startswith('--- a/'):
-                match = re.search(r'([ab]/.+)$', line)
-                if match:
-                    current_file = match.group(1)[2:]
-                continue
-
-            # Get line number from diff header
-            if '@@' in line:
-                match = re.search(r'@@\s+\-\d+(?:,\d+)?\s+\+(\d+)', line)
-                if match:
-                    line_num = int(match.group(1)) - 1
-                continue
-
-            if not line.startswith('+'):
-                if line.startswith('@@'):
-                    line_num += 1
-                continue
-
-            line_num += 1
-
-            # Check for logging quality patterns
-            for pattern, description in LOGGING_QUALITY_PATTERNS:
-                match = re.search(pattern, line[1:])
-                if match:
-                    findings.append(Finding(
-                        id=f"log-quality-{i}",
-                        title=description,
-                        severity="warning",
-                        confidence="medium",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"{current_file}:{line_num}\n{line[1:]}",
-                        risk="Poor logging quality makes logs harder to parse and analyze.",
-                        recommendation="Use structured logging with logger.info('message', extra={'key': 'value'}) or f-strings.",
-                        suggested_patch=f"logger.info('message', extra={{'key': 'value'}})",
-                    ))
-                    break
-
-        return findings
-
-    def _check_sensitive_data_in_logs(self, diff: str) -> List[Finding]:
-        """Check for sensitive data being logged.
-
-        Args:
-            diff: Git diff content
-
-        Returns:
-            List of findings for sensitive data in logs
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-        current_file = "unknown"
-        line_num = 1
-
-        for i, line in enumerate(lines):
-            # Track file context
-            if line.startswith('+++ b/') or line.startswith('--- a/'):
-                match = re.search(r'([ab]/.+)$', line)
-                if match:
-                    current_file = match.group(1)[2:]
-                continue
-
-            # Get line number from diff header
-            if '@@' in line:
-                match = re.search(r'@@\s+\-\d+(?:,\d+)?\s+\+(\d+)', line)
-                if match:
-                    line_num = int(match.group(1)) - 1
-                continue
-
-            if not line.startswith('+'):
-                if line.startswith('@@'):
-                    line_num += 1
-                continue
-
-            line_num += 1
-
-            # Check for sensitive data patterns
-            for pattern, description in SENSITIVE_DATA_PATTERNS:
-                match = re.search(pattern, line[1:], re.IGNORECASE)
-                if match:
-                    findings.append(Finding(
-                        id=f"sensitive-log-{i}",
-                        title=description,
-                        severity="critical",
-                        confidence="high",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"{current_file}:{line_num}\n{line[1:][:100]}..." if len(line[1:]) > 100 else f"{current_file}:{line_num}\n{line[1:]}",
-                        risk="Logging sensitive data can lead to security breaches and compliance violations.",
-                        recommendation="Remove sensitive data from logs or redact it before logging.",
-                        suggested_patch="# Redact sensitive data before logging\nlogger.info('operation completed')",
-                    ))
-                    break
-
-        return findings
-
-    def _check_missing_metrics(self, diff: str, relevant_files: List[str]) -> List[Finding]:
-        """Check for missing metrics on IO operations.
-
-        Args:
-            diff: Git diff content
-            relevant_files: List of relevant changed files
-
-        Returns:
-            List of findings for missing metrics
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-        current_file = "unknown"
-        line_num = 1
-
-        for i, line in enumerate(lines):
-            # Track file context
-            if line.startswith('+++ b/') or line.startswith('--- a/'):
-                match = re.search(r'([ab]/.+)$', line)
-                if match:
-                    current_file = match.group(1)[2:]
-                continue
-
-            # Get line number from diff header
-            if '@@' in line:
-                match = re.search(r'@@\s+\-\d+(?:,\d+)?\s+\+(\d+)', line)
-                if match:
-                    line_num = int(match.group(1)) - 1
-                continue
-
-            if not line.startswith('+'):
-                if line.startswith('@@'):
-                    line_num += 1
-                continue
-
-            line_num += 1
-
-            # Check for missing metrics patterns
-            for pattern, description in MISSING_METRICS_PATTERNS:
-                match = re.search(pattern, line[1:])
-                if match:
-                    # Skip test files
-                    if 'test' in current_file.lower():
-                        continue
-
-                    findings.append(Finding(
-                        id=f"missing-metrics-{i}",
-                        title=description,
-                        severity="warning",
-                        confidence="low",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"{current_file}:{line_num}\n{line[1:]}",
-                        risk="Missing metrics make it difficult to monitor performance and identify issues.",
-                        recommendation="Add metrics for IO operations: counters, gauges, or histograms.",
-                        suggested_patch=f"metrics.counter('operation_name').increment()",
-                    ))
-                    break
-
-        return findings
-
-    def _compute_severity(self, findings: List[Finding]) -> Literal["merge", "warning", "critical", "blocking"]:
-        """Compute overall severity from findings.
-
-        Args:
-            findings: List of findings
-
-        Returns:
-            Severity level (merge, warning, critical, blocking)
-        """
-        if not findings:
-            return "merge"
-
-        # Check for blocking findings
-        if any(finding.severity == "critical" for finding in findings):
-            return "critical"
-
-        # Check for warning findings
-        if any(finding.severity == "warning" for finding in findings):
-            return "warning"
-
-        return "merge"
-
-    def _compute_merge_gate(self, findings: List[Finding], severity: Literal["merge", "warning", "critical", "blocking"]) -> MergeGate:
-        """Compute merge gate decision from findings and severity.
-
-        Args:
-            findings: List of findings
-            severity: Overall severity level
-
-        Returns:
-            MergeGate with decision and fix lists
-        """
-        must_fix = []
-        should_fix = []
-        notes_for_coding_agent = []
-
-        for finding in findings:
-            if finding.severity == "critical":
-                must_fix.append(finding.id)
-            elif finding.severity == "warning":
-                should_fix.append(finding.id)
-
-            if finding.recommendation:
-                notes_for_coding_agent.append(
-                    f"[{finding.id}] {finding.recommendation}"
+            if not response_message.text:
+                raise ValueError("Empty response from LLM")
+
+            try:
+                output = ReviewOutput.model_validate_json(response_message.text)
+            except pd.ValidationError as e:
+                return ReviewOutput(
+                    agent=self.get_agent_name(),
+                    summary=f"Error parsing LLM response: {str(e)}",
+                    severity="critical",
+                    scope=Scope(
+                        relevant_files=relevant_files,
+                        ignored_files=[],
+                        reasoning="Failed to parse LLM JSON response due to validation error."
+                    ),
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="needs_changes",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[
+                            "Review LLM response format and ensure it matches expected schema."
+                        ]
+                    )
                 )
 
-        if severity == "critical":
-            decision = "needs_changes"
-        elif severity == "warning":
-            decision = "needs_changes"
-        else:
-            decision = "approve"
+            return output
 
-        return MergeGate(
-            decision=decision,
-            must_fix=must_fix,
-            should_fix=should_fix,
-            notes_for_coding_agent=notes_for_coding_agent,
-        )
-
-    def _generate_summary(self, findings: List[Finding], severity: str) -> str:
-        """Generate summary for review output.
-
-        Args:
-            findings: List of findings
-            severity: Overall severity level
-
-        Returns:
-            Summary string
-        """
-        if not findings:
-            return "No telemetry issues detected. Changes have adequate logging and observability coverage."
-
-        by_severity = {"critical": 0, "warning": 0}
-        for finding in findings:
-            if finding.severity in by_severity:
-                by_severity[finding.severity] += 1
-
-        parts = [
-            f"Telemetry review complete.",
-            f"Found {len(findings)} issue(s):",
-        ]
-
-        if by_severity["critical"] > 0:
-            parts.append(f"- {by_severity['critical']} critical (silent failures, sensitive data)")
-        if by_severity["warning"] > 0:
-            parts.append(f"- {by_severity['warning']} warning (missing metrics, logging quality)")
-
-        return " ".join(parts)
+        except (TimeoutError, Exception) as e:
+            if isinstance(e, (TimeoutError, ValueError)):
+                raise
+            raise Exception(f"LLM API error: {str(e)}") from e

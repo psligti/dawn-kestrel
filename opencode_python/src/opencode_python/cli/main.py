@@ -156,3 +156,6 @@ cli.add_command(run)
 cli.add_command(export_session)
 cli.add_command(import_session)
 cli.add_command(tui)
+
+from opencode_python.agents.review.cli import review
+cli.add_command(review)

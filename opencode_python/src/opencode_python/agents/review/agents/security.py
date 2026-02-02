@@ -1,7 +1,6 @@
 """Security Review Subagent - checks for security vulnerabilities."""
 from __future__ import annotations
-from typing import List, Literal
-import re
+from typing import List
 import pydantic as pd
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
@@ -11,6 +10,10 @@ from opencode_python.agents.review.contracts import (
     Finding,
     MergeGate,
 )
+from opencode_python.ai_session import AISession
+from opencode_python.core.models import Session
+from opencode_python.core.settings import settings
+import uuid
 
 
 SECURITY_SYSTEM_PROMPT = """You are the Security Review Subagent.
@@ -61,24 +64,6 @@ Output MUST be valid JSON only with agent="security" and the standard schema.
 Return JSON only."""
 
 
-SECRET_PATTERNS = [
-    (r'(?i)(api[_-]?key|apikey)["\']?\s*[:=]\s*["\']([a-zA-Z0-9_\-]{20,})["\']', "API key exposed"),
-    (r'(?i)(password|passwd|pwd)["\']?\s*[:=]\s*["\']([^"\']{8,})["\']', "Password exposed"),
-    (r'(?i)(secret|token)["\']?\s*[:=]\s*["\']([a-zA-Z0-9_\-]{20,})["\']', "Secret/token exposed"),
-    (r'(?i)(aws[_-]?(access[_-]?key|secret))["\']?\s*[:=]\s*["\']([A-Z0-9]{20,})["\']', "AWS credential exposed"),
-    (r'(?i)(private[_-]?key)["\']?\s*[:=]\s*["\']([-]+BEGIN[A-Z\s]+PRIVATE KEY[^-]+[-]+END[A-Z\s]+PRIVATE KEY[^-]+[-]+)["\']', "Private key exposed"),
-]
-
-DANGEROUS_PATTERNS = [
-    (r'(?i)(eval|exec)\s*\(', "Code execution via eval/exec"),
-    (r'(?i)(pickle\.load|cPickle\.load)\s*\(', "Unsafe deserialization with pickle"),
-    (r'(?i)(yaml\.load)\s*\([^)]*\)', "Unsafe YAML deserialization"),
-    (r'(?i)(subprocess\.|os\.system|os\.popen)\s*\([^)]*\bshell\s*=\s*True', "Shell command injection risk"),
-    (r'(?i)(sql.*["\']?\s*\+\s*["\'])|(["\']\s*\+\s*.*sql)', "SQL injection risk via string concatenation"),
-    (r'(?i)(flask|django|pyramid)\.(render_template_string)\s*\([^)]*\buser\b', "XSS risk via template injection with user input"),
-]
-
-
 class SecurityReviewer(BaseReviewerAgent):
     """Security reviewer agent that checks for security vulnerabilities.
 
@@ -120,274 +105,92 @@ class SecurityReviewer(BaseReviewerAgent):
         ]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform security review on the given context.
+        """Perform security review on the given context using LLM.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
             ReviewOutput with security findings, severity, and merge gate decision
+
+        Raises:
+            ValueError: If API key is missing or invalid
+            TimeoutError: If LLM request times out
+            Exception: For other API-related errors
         """
         relevant_files = []
         for file_path in context.changed_files:
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
 
-        findings: List[Finding] = []
+        provider_id = settings.provider_default
+        model = settings.model_default
+        api_key = settings.api_key.get_secret_value() if settings.api_key else None
 
-        secret_findings = self._check_for_secrets(context.diff)
-        findings.extend(secret_findings)
-
-        dangerous_findings = self._check_for_dangerous_patterns(context.diff)
-        findings.extend(dangerous_findings)
-
-        cicd_findings = self._check_for_cicd_exposures(context.diff, relevant_files)
-        findings.extend(cicd_findings)
-
-        severity: Literal["merge", "warning", "critical", "blocking"]
-        blocking_findings = [f for f in findings if f.severity == "blocking"]
-        critical_findings = [f for f in findings if f.severity == "critical"]
-
-        if blocking_findings:
-            severity = "blocking"
-        elif critical_findings:
-            severity = "critical"
-        elif findings:
-            severity = "warning"
-        else:
-            severity = "merge"
-
-        if severity == "blocking":
-            gate_decision = "block"
-            must_fix_ids = [f.id for f in blocking_findings]
-            should_fix_ids = [f.id for f in critical_findings]
-        elif severity == "critical":
-            gate_decision = "needs_changes"
-            must_fix_ids = []
-            should_fix_ids = [f.id for f in critical_findings]
-        elif severity == "warning":
-            gate_decision = "needs_changes"
-            must_fix_ids = []
-            should_fix_ids = [f.id for f in findings if f.severity == "warning"]
-        else:
-            gate_decision = "approve"
-            must_fix_ids = []
-            should_fix_ids = []
-
-        if findings:
-            summary_parts = [
-                f"Found {len(findings)} security issue(s).",
-            ]
-            if blocking_findings:
-                summary_parts.append(f"{len(blocking_findings)} blocking (secrets exposed).")
-            if critical_findings:
-                summary_parts.append(f"{len(critical_findings)} critical.")
-            summary = " ".join(summary_parts)
-        else:
-            summary = "No security vulnerabilities detected."
-
-        return ReviewOutput(
-            agent=self.get_agent_name(),
-            summary=summary,
-            severity=severity,
-            scope=Scope(
-                relevant_files=relevant_files,
-                ignored_files=[],
-                reasoning=f"Security review analyzed {len(relevant_files)} relevant files for secrets, injection risks, and auth issues.",
-            ),
-            findings=findings,
-            merge_gate=MergeGate(
-                decision=gate_decision,
-                must_fix=must_fix_ids,
-                should_fix=should_fix_ids,
-                notes_for_coding_agent=[
-                    f"Ensure all secrets are stored in environment variables or secret managers.",
-                    f"Validate all user inputs and use parameterized queries.",
-                    f"Implement proper authentication and authorization checks.",
-                ],
-            ),
+        session = Session(
+            id=str(uuid.uuid4()),
+            slug="security-review",
+            project_id="review",
+            directory=context.repo_root or "/tmp",
+            title="Security Review",
+            version="1.0"
         )
 
-    def _check_for_secrets(self, diff: str) -> List[Finding]:
-        """Check diff for exposed secrets.
+        ai_session = AISession(
+            session=session,
+            provider_id=provider_id,
+            model=model,
+            api_key=api_key
+        )
 
-        Args:
-            diff: Git diff content
+        system_prompt = self.get_system_prompt()
+        formatted_context = self.format_inputs_for_prompt(context)
 
-        Returns:
-            List of findings for exposed secrets
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
+        user_message = f"""{system_prompt}
 
-        for i, line in enumerate(lines, 1):
-            if not line.startswith('+'):
-                continue
+{formatted_context}
 
-            for pattern, description in SECRET_PATTERNS:
-                match = re.search(pattern, line)
-                if match:
-                    findings.append(Finding(
-                        id=f"secret-{i}",
-                        title=description,
-                        severity="blocking",
-                        confidence="high",
-                        owner="security",
-                        estimate="S",
-                        evidence=f"Line {i}: {line[:100]}..." if len(line) > 100 else f"Line {i}: {line}",
-                        risk="Exposed credentials can be used to compromise systems and data.",
-                        recommendation="Remove secrets from code and use environment variables or secret managers.",
-                        suggested_patch="Replace hardcoded secret with os.getenv('SECRET_NAME')",
-                    ))
-                    break
+Please analyze the above changes for security vulnerabilities and provide your review in the specified JSON format."""
 
-        return findings
+        try:
+            response_message = await ai_session.process_message(
+                user_message,
+                options={
+                    "temperature": 0.3,
+                    "top_p": 0.9
+                }
+            )
 
-    def _check_for_dangerous_patterns(self, diff: str) -> List[Finding]:
-        """Check diff for dangerous code patterns.
+            if not response_message.text:
+                raise ValueError("Empty response from LLM")
 
-        Args:
-            diff: Git diff content
+            try:
+                output = ReviewOutput.model_validate_json(response_message.text)
+            except pd.ValidationError as e:
+                return ReviewOutput(
+                    agent=self.get_agent_name(),
+                    summary=f"Error parsing LLM response: {str(e)}",
+                    severity="critical",
+                    scope=Scope(
+                        relevant_files=relevant_files,
+                        ignored_files=[],
+                        reasoning="Failed to parse LLM JSON response due to validation error."
+                    ),
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="needs_changes",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[
+                            "Review LLM response format and ensure it matches expected schema."
+                        ]
+                    )
+                )
 
-        Returns:
-            List of findings for dangerous patterns
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
+            return output
 
-        for i, line in enumerate(lines, 1):
-            if not line.startswith('+'):
-                continue
+        except (TimeoutError, Exception) as e:
+            if isinstance(e, (TimeoutError, ValueError)):
+                raise
+            raise Exception(f"LLM API error: {str(e)}") from e
 
-            for pattern, description in DANGEROUS_PATTERNS:
-                match = re.search(pattern, line)
-                if match:
-                    severity: Literal["critical", "warning", "blocking"]
-                    if "exec" in description or "eval" in description or "command injection" in description:
-                        severity = "critical"
-                    else:
-                        severity = "warning"
-
-                    findings.append(Finding(
-                        id=f"dangerous-{i}",
-                        title=description,
-                        severity=severity,
-                        confidence="medium",
-                        owner="dev",
-                        estimate="M",
-                        evidence=f"Line {i}: {line[:100]}..." if len(line) > 100 else f"Line {i}: {line}",
-                        risk=f"Using {description} can lead to code execution or injection attacks.",
-                        recommendation=self._get_recommendation_for_pattern(description),
-                        suggested_patch=self._get_suggested_patch_for_pattern(description),
-                    ))
-                    break
-
-        return findings
-
-    def _check_for_cicd_exposures(
-        self,
-        diff: str,
-        relevant_files: List[str]
-    ) -> List[Finding]:
-        """Check for CI/CD security exposures.
-
-        Args:
-            diff: Git diff content
-            relevant_files: List of relevant changed files
-
-        Returns:
-            List of findings for CI/CD exposures
-        """
-        findings: List[Finding] = []
-        lines = diff.split('\n')
-
-        cicd_files = [
-            f for f in relevant_files
-            if any(pattern in f for pattern in ['.github/workflows', '.gitlab-ci.yml', 'Jenkinsfile'])
-        ]
-
-        if not cicd_files:
-            return findings
-
-        for i, line in enumerate(lines, 1):
-            if not line.startswith('+'):
-                continue
-
-            for pattern, description in SECRET_PATTERNS:
-                match = re.search(pattern, line)
-                if match:
-                    findings.append(Finding(
-                        id=f"cicd-secret-{i}",
-                        title=f"CI/CD {description}",
-                        severity="blocking",
-                        confidence="high",
-                        owner="devops",
-                        estimate="S",
-                        evidence=f"Line {i}: {line[:100]}..." if len(line) > 100 else f"Line {i}: {line}",
-                        risk="Secrets in CI/CD workflows are exposed in logs and repository history.",
-                        recommendation="Use GitHub Actions secrets, GitLab CI variables, or external secret managers.",
-                    suggested_patch="Replace with ${{ secrets.SECRET_NAME }} or $SECRET_NAME",
-                ))
-                    break
-
-            if re.search(r'(pull-requests: write|contents: write|issues: write)', line, re.IGNORECASE):
-                findings.append(Finding(
-                    id=f"cicd-perms-{i}",
-                    title="Overly permissive CI/CD permissions",
-                    severity="warning",
-                    confidence="medium",
-                    owner="devops",
-                    estimate="S",
-                    evidence=f"Line {i}: {line[:100]}..." if len(line) > 100 else f"Line {i}: {line}",
-                    risk="Excessive permissions in CI/CD workflows can lead to unauthorized changes.",
-                    recommendation="Use least-privilege permissions (read-only where possible).",
-                    suggested_patch="Change write permissions to read where applicable",
-                ))
-
-        return findings
-
-    def _get_recommendation_for_pattern(self, description: str) -> str:
-        """Get security recommendation for a pattern.
-
-        Args:
-            description: Pattern description
-
-        Returns:
-            Recommendation string
-        """
-        if "eval" in description or "exec" in description:
-            return "Avoid eval/exec. Use safer alternatives like ast.literal_eval or proper deserialization."
-        elif "pickle" in description:
-            return "Use safe serialization formats like JSON or implement custom validation."
-        elif "shell" in description or "command injection" in description:
-            return "Use subprocess without shell=True or use shlex.quote() to escape arguments."
-        elif "SQL" in description:
-            return "Use parameterized queries (prepared statements) instead of string concatenation."
-        elif "XSS" in description or "template" in description:
-            return "Validate and sanitize user input before using in templates."
-        else:
-            return "Review and sanitize inputs, use secure coding practices."
-
-    def _get_suggested_patch_for_pattern(self, description: str) -> str:
-        """Get suggested patch for a pattern.
-
-        Args:
-            description: Pattern description
-
-        Returns:
-            Suggested patch string
-        """
-        if "eval" in description:
-            return "Replace eval() with safer alternatives like ast.literal_eval()"
-        elif "exec" in description:
-            return "Remove exec() and use proper function calls or imports"
-        elif "pickle" in description:
-            return "Replace pickle.load with json.load or implement safe deserialization"
-        elif "shell" in description:
-            return "Use subprocess.run([...], shell=False) instead of shell=True"
-        elif "SQL" in description:
-            return "Use cursor.execute('SELECT * FROM table WHERE id = %s', (user_id,))"
-        elif "XSS" in description:
-            return "Escape user input with markupsafe.escape() before rendering"
-        else:
-            return "Review security implications and implement proper sanitization"

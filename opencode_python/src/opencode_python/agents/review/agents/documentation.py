@@ -8,23 +8,23 @@ Reviews code changes for documentation coverage including:
 """
 
 from __future__ import annotations
-from typing import List, Optional
-import ast
-import re
-from pathlib import Path
+from typing import List
+import pydantic as pd
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import (
     ReviewOutput,
-    Finding,
     Scope,
+    Finding,
     MergeGate,
-    Check,
-    Skip,
 )
+from opencode_python.ai_session import AISession
+from opencode_python.core.models import Session
+from opencode_python.core.settings import settings
+import uuid
 
 
-SYSTEM_PROMPT = """You are the Documentation Review Subagent.
+DOCUMENTATION_SYSTEM_PROMPT = """You are the Documentation Review Subagent.
 
 Use this shared behavior:
 - Identify which changed files/diffs are relevant to documentation.
@@ -64,206 +64,26 @@ Output MUST be valid JSON only with agent="documentation" and the standard schem
 Return JSON only."""
 
 
-def _is_public_name(name: str) -> bool:
-    """Check if a function/class name is public (not private/protected).
-
-    Args:
-        name: Function or class name
-
-    Returns:
-        True if name is public (doesn't start with _)
-    """
-    return not name.startswith("_")
-
-
-def _has_docstring(node: ast.FunctionDef | ast.ClassDef | ast.Module) -> bool:
-    """Check if an AST node has a docstring.
-
-    Args:
-        node: AST node to check
-
-    Returns:
-        True if node has a docstring
-    """
-    if not node.body:
-        return False
-
-    first_stmt = node.body[0]
-    if isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant):
-        return isinstance(first_stmt.value.value, str)
-    return False
-
-
-def _extract_function_info(
-    tree: ast.Module,
-) -> List[tuple[str, int, bool, str]]:
-    """Extract function information from AST tree.
-
-    Args:
-        tree: AST module
-
-    Returns:
-        List of (name, line_number, is_public, has_docstring)
-    """
-    functions = []
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            name = node.name
-            is_public = _is_public_name(name)
-            has_doc = _has_docstring(node)
-            functions.append((name, node.lineno, is_public, has_doc))
-
-    return functions
-
-
-def _extract_class_info(
-    tree: ast.Module,
-) -> List[tuple[str, int, bool, bool, int]]:
-    """Extract class information from AST tree.
-
-    Args:
-        tree: AST module
-
-    Returns:
-        List of (name, line_number, is_public, has_docstring, public_method_count)
-    """
-    classes = []
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            name = node.name
-            is_public = _is_public_name(name)
-            has_doc = _has_docstring(node)
-
-            public_methods = 0
-            for item in node.body:
-                if isinstance(item, ast.FunctionDef):
-                    if _is_public_name(item.name):
-                        public_methods += 1
-
-            classes.append((name, node.lineno, is_public, has_doc, public_methods))
-
-    return classes
-
-
-def _check_readme_for_features(
-    file_path: str,
-    repo_root: str,
-) -> Optional[Finding]:
-    """Check if README mentions new public APIs.
-
-    This is a simplified check - in production, would need more sophisticated
-    analysis to understand what's actually "new" vs existing.
-
-    Args:
-        file_path: Path to changed file
-        repo_root: Repository root
-
-    Returns:
-        Finding if README is missing for new features, None otherwise
-    """
-    readme_path = Path(repo_root) / "README.md"
-
-    if not readme_path.exists():
-        return None
-
-    return None
-
-
-def _check_config_documentation(
-    changed_files: List[str],
-    repo_root: str,
-) -> List[Finding]:
-    """Check if config files have corresponding documentation.
-
-    Args:
-        changed_files: List of changed files
-        repo_root: Repository root
-
-    Returns:
-        List of findings about missing config documentation
-    """
-    findings = []
-    config_patterns = ["pyproject.toml", "setup.cfg", ".env.example", "config/**"]
-
-    for file_path in changed_files:
-        for pattern in config_patterns:
-            if _matches_pattern(file_path, pattern):
-                readme_path = Path(repo_root) / "README.md"
-                docs_path = Path(repo_root) / "docs"
-
-                config_doc_exists = readme_path.exists() or docs_path.exists()
-
-                if not config_doc_exists:
-                    findings.append(
-                        Finding(
-                            id="doc-missing-config-docs",
-                            title=f"Configuration file {file_path} lacks documentation",
-                            severity="warning",
-                            confidence="medium",
-                            owner="docs",
-                            estimate="S",
-                            evidence=f"File: {file_path} contains configuration changes but no README.md or docs/ directory found",
-                            risk="Configuration changes may be unclear to users",
-                            recommendation="Document configuration options in README.md or docs/ directory",
-                        )
-                    )
-
-    return findings
-
-
-def _matches_pattern(file_path: str, pattern: str) -> bool:
-    """Simple pattern matching for file paths.
-
-    Args:
-        file_path: File path to check
-        pattern: Pattern to match
-
-    Returns:
-        True if file matches pattern
-    """
-    if "**" in pattern:
-        parts = pattern.split("**")
-        if len(parts) == 2:
-            return file_path.startswith(parts[0].rstrip("/"))
-
-    if "*" in pattern:
-        regex = pattern.replace(".", r"\.").replace("*", ".*")
-        return re.search(regex, file_path) is not None
-
-    return file_path == pattern
-
-
 class DocumentationReviewer(BaseReviewerAgent):
-    """Reviewer agent for documentation quality and coverage."""
+    """Documentation reviewer agent that checks for documentation coverage.
 
-    def __init__(self) -> None:
-        """Initialize the DocumentationReviewer."""
-        self.agent_name = "documentation"
+    This agent specializes in detecting:
+    - Missing docstrings for public functions/classes
+    - Outdated or missing README documentation
+    - Missing configuration documentation
+    - Missing usage examples
+    """
 
     def get_agent_name(self) -> str:
-        """Get the name of this reviewer agent.
-
-        Returns:
-            Agent name string
-        """
-        return self.agent_name
+        """Return the agent identifier."""
+        return "documentation"
 
     def get_system_prompt(self) -> str:
-        """Get the system prompt for this reviewer agent.
-
-        Returns:
-            System prompt string for LLM
-        """
-        return SYSTEM_PROMPT
+        """Get the system prompt for the documentation reviewer."""
+        return DOCUMENTATION_SYSTEM_PROMPT
 
     def get_relevant_file_patterns(self) -> List[str]:
-        """Get file patterns this reviewer is relevant to.
-
-        Returns:
-            List of glob patterns for relevant files
-        """
+        """Get file patterns relevant to documentation review."""
         return [
             "**/*.py",
             "README*",
@@ -275,180 +95,91 @@ class DocumentationReviewer(BaseReviewerAgent):
         ]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform documentation review on the given context.
+        """Perform documentation review on the given context using LLM.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
-            ReviewOutput with findings, severity, and merge gate decision
-        """
-        findings: List[Finding] = []
-        relevant_files: List[str] = []
-        ignored_files: List[str] = []
+            ReviewOutput with documentation findings, severity, and merge gate decision
 
+        Raises:
+            ValueError: If API key is missing or invalid
+            TimeoutError: If LLM request times out
+            Exception: For other API-related errors
+        """
+        relevant_files = []
         for file_path in context.changed_files:
-            if not self.is_relevant_to_changes([file_path]):
-                ignored_files.append(file_path)
-                continue
+            if self.is_relevant_to_changes([file_path]):
+                relevant_files.append(file_path)
 
-            relevant_files.append(file_path)
+        provider_id = settings.provider_default
+        model = settings.model_default
+        api_key = settings.api_key.get_secret_value() if settings.api_key else None
 
-            if file_path.endswith("/"):
-                continue
-
-            full_path = Path(context.repo_root) / file_path
-
-            if not full_path.exists():
-                continue
-
-            if file_path.endswith(".py"):
-                findings.extend(self._check_python_docstrings(file_path, full_path))
-
-        findings.extend(_check_config_documentation(relevant_files, context.repo_root))
-
-        scope = Scope(
-            relevant_files=relevant_files,
-            ignored_files=ignored_files,
-            reasoning=f"Analyzed {len(relevant_files)} relevant files for documentation coverage. "
-            f"Ignored {len(ignored_files)} files not matching documentation patterns.",
+        session = Session(
+            id=str(uuid.uuid4()),
+            slug="documentation-review",
+            project_id="review",
+            directory=context.repo_root or "/tmp",
+            title="Documentation Review",
+            version="1.0"
         )
 
-        severity = "merge"
-        critical_findings = [f for f in findings if f.severity == "critical"]
-        blocking_findings = [f for f in findings if f.severity == "blocking"]
-        warning_findings = [f for f in findings if f.severity == "warning"]
-
-        if blocking_findings:
-            severity = "blocking"
-        elif critical_findings:
-            severity = "critical"
-        elif warning_findings:
-            severity = "warning"
-
-        must_fix = [f.id for f in findings if f.severity in ("blocking", "critical")]
-        should_fix = [f.id for f in findings if f.severity == "warning"]
-
-        merge_gate = MergeGate(
-            decision="block" if blocking_findings else "needs_changes" if must_fix else "approve",
-            must_fix=must_fix,
-            should_fix=should_fix,
-            notes_for_coding_agent=[
-                f"Add docstrings to public functions/classes",
-                "Document configuration changes in README.md",
-                "Update usage examples for new features",
-            ]
-            if warning_findings
-            else [],
+        ai_session = AISession(
+            session=session,
+            provider_id=provider_id,
+            model=model,
+            api_key=api_key
         )
 
-        return ReviewOutput(
-            agent=self.agent_name,
-            summary=self._build_summary(findings),
-            severity=severity,
-            scope=scope,
-            findings=findings,
-            merge_gate=merge_gate,
-        )
+        system_prompt = self.get_system_prompt()
+        formatted_context = self.format_inputs_for_prompt(context)
 
-    def _check_python_docstrings(self, file_path: str, full_path: Path) -> List[Finding]:
-        """Check Python file for docstring coverage.
+        user_message = f"""{system_prompt}
 
-        Args:
-            file_path: Relative file path
-            full_path: Absolute file path
+{formatted_context}
 
-        Returns:
-            List of findings about missing docstrings
-        """
-        findings = []
+Please analyze the above changes for documentation coverage and provide your review in the specified JSON format."""
 
         try:
-            content = full_path.read_text()
-            tree = ast.parse(content)
+            response_message = await ai_session.process_message(
+                user_message,
+                options={
+                    "temperature": 0.3,
+                    "top_p": 0.9
+                }
+            )
 
-            functions = _extract_function_info(tree)
-            for name, lineno, is_public, has_doc in functions:
-                if is_public and not has_doc:
-                    findings.append(
-                        Finding(
-                            id=f"doc-missing-func-{name}-{lineno}",
-                            title=f"Public function '{name}' lacks docstring",
-                            severity="warning",
-                            confidence="high",
-                            owner="dev",
-                            estimate="S",
-                            evidence=f"File: {file_path}:{lineno} - Function '{name}' is public but has no docstring",
-                            risk="Users may not understand the function's purpose, parameters, or return value",
-                            recommendation=f"Add docstring to function '{name}' describing its purpose, parameters, and return value",
-                        )
-                    )
+            if not response_message.text:
+                raise ValueError("Empty response from LLM")
 
-            classes = _extract_class_info(tree)
-            for name, lineno, is_public, has_doc, public_methods in classes:
-                if is_public and not has_doc:
-                    findings.append(
-                        Finding(
-                            id=f"doc-missing-class-{name}-{lineno}",
-                            title=f"Public class '{name}' lacks docstring",
-                            severity="warning",
-                            confidence="high",
-                            owner="dev",
-                            estimate="M",
-                            evidence=f"File: {file_path}:{lineno} - Class '{name}' is public but has no docstring. "
-                            f"Has {public_methods} public methods.",
-                            risk="Users may not understand the class's purpose or how to use it",
-                            recommendation=f"Add docstring to class '{name}' describing its purpose and usage",
-                        )
-                    )
-
-            if not _has_docstring(tree):
-                findings.append(
-                    Finding(
-                        id=f"doc-missing-module-{file_path}",
-                        title=f"Module {file_path} lacks module-level docstring",
-                        severity="warning",
-                        confidence="medium",
-                        owner="dev",
-                        estimate="S",
-                        evidence=f"File: {file_path} - No module-level docstring found",
-                        risk="Module purpose and contracts are not documented",
-                        recommendation="Add module-level docstring explaining the module's purpose and key exports",
+            try:
+                output = ReviewOutput.model_validate_json(response_message.text)
+            except pd.ValidationError as e:
+                return ReviewOutput(
+                    agent=self.get_agent_name(),
+                    summary=f"Error parsing LLM response: {str(e)}",
+                    severity="critical",
+                    scope=Scope(
+                        relevant_files=relevant_files,
+                        ignored_files=[],
+                        reasoning="Failed to parse LLM JSON response due to validation error."
+                    ),
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="needs_changes",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[
+                            "Review LLM response format and ensure it matches expected schema."
+                        ]
                     )
                 )
 
-        except (SyntaxError, UnicodeDecodeError) as e:
-            pass
+            return output
 
-        return findings
-
-    def _build_summary(self, findings: List[Finding]) -> str:
-        """Build a summary of documentation review findings.
-
-        Args:
-            findings: List of findings
-
-        Returns:
-            Summary string
-        """
-        if not findings:
-            return "Documentation review passed. All public functions/classes have docstrings."
-
-        by_severity = {
-            "warning": [f for f in findings if f.severity == "warning"],
-            "critical": [f for f in findings if f.severity == "critical"],
-            "blocking": [f for f in findings if f.severity == "blocking"],
-        }
-
-        parts = []
-
-        if by_severity["blocking"]:
-            parts.append(f"Found {len(by_severity['blocking'])} blocking documentation issues")
-
-        if by_severity["critical"]:
-            parts.append(f"Found {len(by_severity['critical'])} critical documentation issues")
-
-        if by_severity["warning"]:
-            parts.append(f"Found {len(by_severity['warning'])} warnings about missing docstrings")
-
-        return ". ".join(parts) + "."
+        except (TimeoutError, Exception) as e:
+            if isinstance(e, (TimeoutError, ValueError)):
+                raise
+            raise Exception(f"LLM API error: {str(e)}") from e
