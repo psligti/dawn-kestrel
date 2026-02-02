@@ -324,10 +324,10 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] Test file created/updated: `tests/review/base/test_base_reviewer.py`
-  - [ ] Base class compiles: `pytest --collect-only tests/review/` → no errors
-  - [ ] format_inputs_for_prompt() still works: existing tests pass
-  - [ ] pytest tests/review/base/ → PASS
+- [x] Test file created/updated: `tests/review/base/test_base_reviewer.py`
+- [x] Base class compiles: `pytest --collect-only tests/review/` → no errors
+- [x] format_inputs_for_prompt() still works: existing tests pass
+- [x] pytest tests/review/base/ → PASS
 
   **Automated Verification**:
   ```bash
@@ -345,8 +345,8 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all base class tests pass
-  - [ ] No ImportError on base module import
+- [x] Pytest output showing all base class tests pass
+- [x] No ImportError on base module import
 
   **Commit**: YES
   - Message: `refactor(review): optional LLM error helpers in BaseReviewerAgent`
@@ -437,24 +437,24 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with security findings from LLM
-  - [ ] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
-  - [ ] Test expects error ReviewOutput on invalid JSON
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] review() raises asyncio.TimeoutError on AISession timeout
-  - [ ] review() returns ReviewOutput with severity='critical' on invalid JSON
-  - [ ] REFACTOR: SECRET_PATTERNS constant deleted
-  - [ ] REFACTOR: DANGEROUS_PATTERNS constant deleted
-  - [ ] REFACTOR: _check_for_secrets() method deleted
-  - [ ] REFACTOR: _check_for_dangerous_patterns() method deleted
-  - [ ] REFACTOR: _check_for_cicd_exposures() method deleted
-  - [ ] REFACTOR: _get_recommendation_for_pattern() method deleted
-  - [ ] REFACTOR: _get_suggested_patch_for_pattern() method deleted
-  - [ ] REFACTOR: re import removed (if no regex patterns used)
-  - [ ] pytest tests/review/agents/test_security_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with security findings from LLM
+- [x] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
+- [x] Test expects error ReviewOutput on invalid JSON
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] review() raises asyncio.TimeoutError on AISession timeout
+- [x] review() returns ReviewOutput with severity='critical' on invalid JSON
+- [x] REFACTOR: SECRET_PATTERNS constant deleted
+- [x] REFACTOR: DANGEROUS_PATTERNS constant deleted
+- [x] REFACTOR: _check_for_secrets() method deleted
+- [x] REFACTOR: _check_for_dangerous_patterns() method deleted
+- [x] REFACTOR: _check_for_cicd_exposures() method deleted
+- [x] REFACTOR: _get_recommendation_for_pattern() method deleted
+- [x] REFACTOR: _get_suggested_patch_for_pattern() method deleted
+- [x] REFACTOR: re import removed (if no regex patterns used)
+- [x] pytest tests/review/agents/test_security_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -491,9 +491,9 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all SecurityReviewer tests pass
-  - [ ] Grep output confirming no regex patterns remain
-  - [ ] Python script output confirming agent works
+- [x] Pytest output showing all SecurityReviewer tests pass
+- [x] Grep output confirming no regex patterns remain
+- [x] Python script output confirming agent works
 
   **Commit**: YES
   - Message: `refactor(review): convert SecurityReviewer to LLM-based analysis`
@@ -585,27 +585,27 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with linting findings from LLM
-  - [ ] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
-  - [ ] Test expects error ReviewOutput on invalid JSON
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] review() raises asyncio.TimeoutError on AISession timeout
-  - [ ] review() returns ReviewOutput with severity='critical' on invalid JSON
-  - [ ] REFACTOR: __init__ executor parameter deleted
-  - [ ] REFACTOR: CommandExecutor dependency removed
-  - [ ] REFACTOR: All external command calls deleted (ruff check, ruff format)
-  - [ ] REFACTOR: _determine_severity_from_ruff() method deleted
-  - [ ] REFACTOR: _format_finding_evidence() method deleted
-  - [ ] REFACTOR: _get_ruff_recommendation() method deleted
-  - [ ] REFACTOR: _check_type_hints() method deleted (AST analysis)
-  - [ ] REFACTOR: _determine_overall_severity() method deleted
-  - [ ] REFACTOR: _determine_merge_gate() method deleted
-  - [ ] REFACTOR: _generate_summary() method deleted
-  - [ ] REFACTOR: _generate_notes_for_coding_agent() method deleted
-  - [ ] pytest tests/review/agents/test_linting_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with linting findings from LLM
+- [x] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
+- [x] Test expects error ReviewOutput on invalid JSON
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] review() raises asyncio.TimeoutError on AISession timeout
+- [x] review() returns ReviewOutput with severity='critical' on invalid JSON
+- [x] REFACTOR: __init__ executor parameter deleted
+- [x] REFACTOR: CommandExecutor dependency removed
+- [x] REFACTOR: All external command calls deleted (ruff check, ruff format)
+- [x] REFACTOR: _determine_severity_from_ruff() method deleted
+- [x] REFACTOR: _format_finding_evidence() method deleted
+- [x] REFACTOR: _get_ruff_recommendation() method deleted
+- [x] REFACTOR: _check_type_hints() method deleted (AST analysis)
+- [x] REFACTOR: _determine_overall_severity() method deleted
+- [x] REFACTOR: _determine_merge_gate() method deleted
+- [x] REFACTOR: _generate_summary() method deleted
+- [x] REFACTOR: _generate_notes_for_coding_agent() method deleted
+- [x] pytest tests/review/agents/test_linting_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -638,9 +638,9 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all LintingReviewer tests pass
-  - [ ] Grep output confirming no CommandExecutor or external commands
-  - [ ] Python script output confirming agent works
+- [x] Pytest output showing all LintingReviewer tests pass
+- [x] Grep output confirming no CommandExecutor or external commands
+- [x] Python script output confirming agent works
 
   **Commit**: YES
   - Message: `refactor(review): convert LintingReviewer to LLM-based analysis`
@@ -724,26 +724,26 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with architecture findings from LLM
-  - [ ] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
-  - [ ] Test expects error ReviewOutput on invalid JSON
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] review() raises asyncio.TimeoutError on AISession timeout
-  - [ ] review() returns ReviewOutput with severity='critical' on invalid JSON
-  - [ ] REFACTOR: _check_circular_imports() method deleted
-  - [ ] REFACTOR: _check_boundary_violations() method deleted
-  - [ ] REFACTOR: _check_tight_coupling() method deleted
-  - [ ] REFACTOR: _check_hardcoded_config() method deleted
-  - [ ] REFACTOR: _check_god_objects() method deleted
-  - [ ] REFACTOR: _check_breaking_changes() method deleted
-  - [ ] REFACTOR: _analyze_architecture() method deleted
-  - [ ] REFACTOR: _compute_severity() method deleted
-  - [ ] REFACTOR: _compute_merge_gate() method deleted
-  - [ ] REFACTOR: _generate_summary() method deleted
-  - [ ] pytest tests/review/agents/test_architecture_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with architecture findings from LLM
+- [x] Test expects exception on timeout: pytest.raises(asyncio.TimeoutError)
+- [x] Test expects error ReviewOutput on invalid JSON
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] review() raises asyncio.TimeoutError on AISession timeout
+- [x] review() returns ReviewOutput with severity='critical' on invalid JSON
+- [x] REFACTOR: _check_circular_imports() method deleted
+- [x] REFACTOR: _check_boundary_violations() method deleted
+- [x] REFACTOR: _check_tight_coupling() method deleted
+- [x] REFACTOR: _check_hardcoded_config() method deleted
+- [x] REFACTOR: _check_god_objects() method deleted
+- [x] REFACTOR: _check_breaking_changes() method deleted
+- [x] REFACTOR: _analyze_architecture() method deleted
+- [x] REFACTOR: _compute_severity() method deleted
+- [x] REFACTOR: _compute_merge_gate() method deleted
+- [x] REFACTOR: _generate_summary() method deleted
+- [x] pytest tests/review/agents/test_architecture_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -768,9 +768,9 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all ArchitectureReviewer tests pass
-  - [ ] Grep output confirming hardcoded methods removed
-  - [ ] Python script output confirming agent works
+- [x] Pytest output showing all ArchitectureReviewer tests pass
+- [x] Grep output confirming hardcoded methods removed
+- [x] Python script output confirming agent works
 
   **Commit**: YES
   - Message: `refactor(review): convert ArchitectureReviewer to LLM-based analysis`
@@ -827,13 +827,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with documentation findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All AST-based analysis methods deleted
-  - [ ] pytest tests/review/agents/test_documentation_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with documentation findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All AST-based analysis methods deleted
+- [x] pytest tests/review/agents/test_documentation_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -842,7 +842,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all DocumentationReviewer tests pass
+- [x] Pytest output showing all DocumentationReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert DocumentationReviewer to LLM-based analysis`
@@ -895,13 +895,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with telemetry findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded telemetry checks deleted
-  - [ ] pytest tests/review/agents/test_telemetry_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with telemetry findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded telemetry checks deleted
+- [x] pytest tests/review/agents/test_telemetry_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -910,7 +910,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all TelemetryMetricsReviewer tests pass
+- [x] Pytest output showing all TelemetryMetricsReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert TelemetryMetricsReviewer to LLM-based analysis`
@@ -963,13 +963,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with unit test findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded unit test checks deleted
-  - [ ] pytest tests/review/agents/test_unit_tests_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with unit test findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded unit test checks deleted
+- [x] pytest tests/review/agents/test_unit_tests_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -978,7 +978,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all UnitTestsReviewer tests pass
+- [x] Pytest output showing all UnitTestsReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert UnitTestsReviewer to LLM-based analysis`
@@ -1030,13 +1030,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with diff scope findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded diff scoping logic deleted
-  - [ ] pytest tests/review/agents/test_diff_scoper_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with diff scope findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded diff scoping logic deleted
+- [x] pytest tests/review/agents/test_diff_scoper_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -1045,7 +1045,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all DiffScoperReviewer tests pass
+- [x] Pytest output showing all DiffScoperReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert DiffScoperReviewer to LLM-based analysis`
@@ -1097,13 +1097,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with requirements findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded requirements analysis deleted
-  - [ ] pytest tests/review/agents/test_requirements_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with requirements findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded requirements analysis deleted
+- [x] pytest tests/review/agents/test_requirements_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -1112,7 +1112,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all RequirementsReviewer tests pass
+- [x] Pytest output showing all RequirementsReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert RequirementsReviewer to LLM-based analysis`
@@ -1164,13 +1164,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with performance findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded performance analysis deleted
-  - [ ] pytest tests/review/agents/test_performance_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with performance findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded performance analysis deleted
+- [x] pytest tests/review/agents/test_performance_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -1179,7 +1179,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all PerformanceReliabilityReviewer tests pass
+- [x] Pytest output showing all PerformanceReliabilityReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert PerformanceReliabilityReviewer to LLM-based analysis`
@@ -1232,13 +1232,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with dependency findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded dependency/license analysis deleted
-  - [ ] pytest tests/review/agents/test_dependency_license_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with dependency findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded dependency/license analysis deleted
+- [x] pytest tests/review/agents/test_dependency_license_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -1247,7 +1247,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all DependencyLicenseReviewer tests pass
+- [x] Pytest output showing all DependencyLicenseReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert DependencyLicenseReviewer to LLM-based analysis`
@@ -1299,13 +1299,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] RED: Test file updated with mock AISession returning ReviewOutput JSON
-  - [ ] Test expects ReviewOutput with changelog findings from LLM
-  - [ ] GREEN: review() method creates AISession(provider_id, model, api_key)
-  - [ ] review() calls AISession.process_message() with system_prompt + formatted context
-  - [ ] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
-  - [ ] REFACTOR: All hardcoded changelog analysis deleted
-  - [ ] pytest tests/review/agents/test_release_changelog_reviewer.py → PASS
+- [x] RED: Test file updated with mock AISession returning ReviewOutput JSON
+- [x] Test expects ReviewOutput with changelog findings from LLM
+- [x] GREEN: review() method creates AISession(provider_id, model, api_key)
+- [x] review() calls AISession.process_message() with system_prompt + formatted context
+- [x] review() parses LLM response as JSON and validates with ReviewOutput.model_validate_json()
+- [x] REFACTOR: All hardcoded changelog analysis deleted
+- [x] pytest tests/review/agents/test_release_changelog_reviewer.py → PASS
 
   **Automated Verification**:
   ```bash
@@ -1314,7 +1314,7 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all ReleaseChangelogReviewer tests pass
+- [x] Pytest output showing all ReleaseChangelogReviewer tests pass
 
   **Commit**: YES
   - Message: `refactor(review): convert ReleaseChangelogReviewer to LLM-based analysis`
@@ -1373,13 +1373,13 @@ Parallel Speedup: None (sequential requirement)
   > **CRITICAL: AGENT-EXECUTABLE VERIFICATION ONLY**
 
   **If TDD (tests enabled):**
-  - [ ] All 11 agent tests pass: pytest tests/review/agents/ → 100% pass
-  - [ ] No regex patterns remain in any agent file (grep for "SECRET_PATTERNS", "DANGEROUS_PATTERNS", etc.)
-  - [ ] No external command calls remain (grep for "ruff", "subprocess", "executor.execute")
-  - [ ] No AST imports or analysis remain (grep for "import ast", "ast.parse")
-  - [ ] Orchestrator integration test passes: pytest tests/review/test_integration_review_pipeline.py → PASS
-  - [ ] ruff passes with no errors: ruff check opencode_python/src/opencode_python/agents/review/agents/
-  - [ ] No unused imports: python -m pyflakes opencode_python/src/opencode_python/agents/review/agents/ or ruff check
+- [x] All 11 agent tests pass: pytest tests/review/agents/ → 100% pass
+- [x] No regex patterns remain in any agent file (grep for "SECRET_PATTERNS", "DANGEROUS_PATTERNS", etc.)
+- [x] No external command calls remain (grep for "ruff", "subprocess", "executor.execute")
+- [x] No AST imports or analysis remain (grep for "import ast", "ast.parse")
+- [x] Orchestrator integration test passes: pytest tests/review/test_integration_review_pipeline.py → PASS
+- [x] ruff passes with no errors: ruff check opencode_python/src/opencode_python/agents/review/agents/
+- [x] No unused imports: python -m pyflakes opencode_python/src/opencode_python/agents/review/agents/ or ruff check
 
   **Automated Verification**:
   ```bash
@@ -1420,11 +1420,11 @@ Parallel Speedup: None (sequential requirement)
   ```
 
   **Evidence to Capture**:
-  - [ ] Pytest output showing all 11 agent tests pass with 100% pass rate
-  - [ ] Grep output confirming no hardcoded patterns remain
-  - [ ] Ruff check output showing 0 errors
-  - [ ] Python script output confirming all agents work
-  - [ ] Integration test output showing Orchestrator works
+- [x] Pytest output showing all 11 agent tests pass with 100% pass rate
+- [x] Grep output confirming no hardcoded patterns remain
+- [x] Ruff check output showing 0 errors
+- [x] Python script output confirming all agents work
+- [x] Integration test output showing Orchestrator works
 
   **Commit**: YES (final)
   - Message: `refactor(review): final verification of LLM-based agent conversion`
