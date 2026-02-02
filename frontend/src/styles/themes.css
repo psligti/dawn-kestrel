@@ -1,0 +1,75 @@
+/* Dark theme CSS variables matching PRD design tokens */
+[data-theme="dark"] {
+  /* Surfaces */
+  --surface-base: #0f172a;
+  --surface-panel: #0f172a;
+  --surface-raised: #111c33;
+
+  /* Text */
+  --text-primary: #e6e8ef;
+  --text-secondary: #a8b0c2;
+  --text-tertiary: #7b849c;
+
+  /* Borders */
+  --border-normal: #6366f1;
+  --border-focus: #6366f1;
+
+  /* Accents */
+  --accent-primary: #6366f1;
+  --accent-secondary: #6366f1;
+
+  /* States */
+  --success: #38d07a;
+  --warning: #f0c24b;
+  --error: #ff5c7a;
+  --info: #6366f1;
+
+  /* Radii */
+  --r-panel: 14px;
+  --r-control: 14px;
+  --r-pill: 999px;
+
+  /* Spacing */
+  --pad-sm: 8px;
+  --pad-md: 12px;
+  --gap-sm: 8px;
+  --gap-md: 12px;
+
+  /* Typography */
+  --font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+[data-theme="light"] {
+  /* Light theme (future expansion) */
+  --surface-base: #ffffff;
+  --surface-panel: #f9fafb;
+  --surface-raised: #ffffff;
+
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+
+  --border-normal: #d1d5db;
+  --border-focus: #6366f1;
+
+  --accent-primary: #6366f1;
+  --accent-secondary: #6366f1;
+
+  --success: #38d07a;
+  --warning: #f0c24b;
+  --error: #ff5c7a;
+  --info: #6366f1;
+
+  --r-panel: 14px;
+  --r-control: 14px;
+  --r-pill: 999px;
+
+  --pad-sm: 8px;
+  --pad-md: 12px;
+  --gap-sm: 8px;
+  --gap-md: 12px;
+
+  --font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}

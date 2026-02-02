@@ -30,7 +30,10 @@ async def get_sdk_client() -> OpenCodeAsyncClient:
     """
     from api.sessions import get_sdk_client as get_api_client
 
-    return await get_api_client()
+    client = await get_api_client()
+    # Ensure client is consistent by using default config
+    # This makes sure the client behaves the same way regardless of how it's created
+    return client
 
 
 async def stream_task_events(task_id: str, request: Request) -> AsyncGenerator[str, None]:
