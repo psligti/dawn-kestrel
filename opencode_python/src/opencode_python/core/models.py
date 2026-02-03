@@ -219,6 +219,7 @@ class Session(pd.BaseModel):
     share: Optional[SessionShare] = None
     permission: Optional[List[Dict[str, Any]]] = None
     revert: Optional[SessionRevert] = None
+    theme_id: str = pd.Field(default="aurora", description="Theme preset ID (aurora, ocean, ember)")
     time_created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_updated: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_compacting: Optional[float] = None
