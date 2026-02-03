@@ -39,9 +39,13 @@ class AISession:
         self.model = model
         self.session_manager = session_manager
         api_key_value = api_key or settings.api_keys.get(provider_id)
-        # Convert string to ProviderID enum
         provider_enum = ProviderID(provider_id) if isinstance(provider_id, str) else provider_id
-        self.provider = get_provider(provider_enum, str(api_key_value) if api_key_value else "")
+        get_secret_method = getattr(api_key_value, "get_secret_value", None)
+        if api_key_value and get_secret_method:
+            api_key_str = get_secret_method()
+        else:
+            api_key_str = str(api_key_value) if api_key_value else ""
+        self.provider = get_provider(provider_enum, api_key_str)
         self.model_info: Optional[ModelInfo] = None
         self.tool_manager = ToolExecutionManager(session.id)
 
@@ -82,8 +86,11 @@ class AISession:
 
             if event.event_type == "text-delta":
                 if parts and isinstance(parts[-1], TextPart):
+                    existing = parts[-1].model_dump()
+                    existing.pop("text", None)
+                    existing.pop("time", None)
                     parts[-1] = TextPart(
-                        **parts[-1].model_dump(),
+                        **existing,
                         text=parts[-1].text + event.data.get("delta", ""),
                         time={"updated": event.timestamp}
                     )
@@ -151,13 +158,22 @@ class AISession:
         cost: Decimal
     ) -> Message:
         await self._ensure_model_info()
+        created_time = None
+        if parts and isinstance(parts[0], TextPart):
+            created_time = parts[0].time.get("created")
+
+        assistant_text = ""
+        for part in parts:
+            if isinstance(part, TextPart) and part.text:
+                assistant_text += part.text
+
         assistant_message = Message(
             id=f"{self.session.id}_{self.session.message_counter}",
             session_id=self.session.id,
             role="assistant",
-            text="",
+            text=assistant_text,
             parts=parts,
-            time={"created": parts[0].time.get("created") if isinstance(parts[0], TextPart) and parts else None},
+            time={"created": created_time},
             metadata={
                 "parent_id": user_message_id,
                 "model_id": self.model_info.id if self.model_info else "",
@@ -197,6 +213,10 @@ class AISession:
         Returns:
             The assistant's response message
         """
+        logger.debug(f"[{self.session.slug}] Prompt to LLM ({len(user_message)} chars)")
+        if options:
+            logger.debug(f"[{self.session.slug}] LLM Options: {options}")
+
         # Create user message
         user_msg = Message(
             id=f"{self.session.id}_{self.session.message_counter}",
@@ -208,12 +228,11 @@ class AISession:
 
         if self.session_manager:
             user_msg_id = await self.session_manager.add_message(user_msg)
+            messages = await self.session_manager.list_messages(self.session.id)
         else:
             user_msg_id = user_msg.id
+            messages = [user_msg]
         self.session.message_counter += 1
-
-        # Build message history for context
-        messages = await self.session_manager.list_messages(self.session.id) if self.session_manager else []
 
         # Build LLM messages (convert to provider format)
         llm_messages = self._build_llm_messages(messages)
@@ -255,6 +274,8 @@ class AISession:
         # Increment session message counter
         self.session.message_counter += 1
 
+        logger.debug(f"[{self.session.slug}] Response from LLM ({len(assistant_message.text)} chars, {tokens.input}+{tokens.output} tokens)")
+
         return assistant_message
 
     def _now(self) -> int:
@@ -280,19 +301,19 @@ class AISession:
 
         return llm_messages
 
-    def _get_tool_definitions(self) -> Dict[str, Any]:
+    def _get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Get tool definitions for LLM"""
         tools = self.tool_manager.tool_registry.tools
-        tool_definitions = {}
+        tool_definitions = []
 
         for tool_id, tool in tools.items():
-            tool_definitions[tool_id] = {
+            tool_definitions.append({
                 "type": "function",
                 "function": {
                     "name": tool.id,
                     "description": tool.description,
                     "parameters": tool.parameters()
                 }
-            }
+            })
 
         return tool_definitions

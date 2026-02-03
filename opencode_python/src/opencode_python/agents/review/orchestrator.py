@@ -72,83 +72,102 @@ class PRReviewOrchestrator:
     async def run_subagents_parallel(
         self, inputs: ReviewInputs, stream_callback: Callable | None = None
     ) -> List[ReviewOutput]:
+        import logging
+        logger = logging.getLogger(__name__)
+
         tasks = []
+        semaphore = asyncio.Semaphore(4)
+        logger.info(f"Starting parallel review with {len(self.subagents)} agents, max 4 concurrent, timeout={inputs.timeout_seconds}s")
 
-        for agent in self.subagents:
+        for idx, agent in enumerate(self.subagents):
             async def run_with_timeout(current_agent=agent):
-                try:
-                    if stream_callback:
-                        await self.stream_manager.emit_progress(
-                            current_agent.get_agent_name(), "started", {}
+                async with semaphore:
+                    agent_name = current_agent.get_agent_name()
+                    logger.info(f"[{agent_name}] Starting agent (timeout: {inputs.timeout_seconds}s)")
+
+                    try:
+                        if stream_callback:
+                            await self.stream_manager.emit_progress(
+                                agent_name, "started", {}
+                            )
+
+                        logger.info(f"[{agent_name}] Building context...")
+                        context = await self._build_context(inputs, current_agent)
+                        logger.info(f"[{agent_name}] Context built: {len(context.changed_files)} files, {len(context.diff)} chars diff")
+                        logger.debug(f"[{agent_name}] Changed files: {', '.join(context.changed_files[:10])}")
+
+                        logger.info(f"[{agent_name}] Calling LLM...")
+                        result = await asyncio.wait_for(
+                            current_agent.review(context), timeout=inputs.timeout_seconds
                         )
 
-                    context = await self._build_context(inputs, current_agent)
-                    result = await asyncio.wait_for(
-                        current_agent.review(context), timeout=inputs.timeout_seconds
-                    )
+                        logger.info(f"[{agent_name}] LLM response received: {len(result.findings)} findings")
+                        if stream_callback:
+                            await self.stream_manager.emit_result(
+                                agent_name, result
+                            )
 
-                    if stream_callback:
-                        await self.stream_manager.emit_result(
-                            current_agent.get_agent_name(), result
+                        return result
+
+                    except asyncio.TimeoutError:
+                        error_msg = f"Agent {agent_name} timed out after {inputs.timeout_seconds}s"
+                        logger.error(f"[{agent_name}] {error_msg}")
+                        if stream_callback:
+                            await self.stream_manager.emit_error(
+                                agent_name, error_msg
+                            )
+
+                        return ReviewOutput(
+                            agent=agent_name,
+                            summary="Agent timed out",
+                            severity="critical",
+                            scope=Scope(
+                                relevant_files=[], ignored_files=[], reasoning="Timeout"
+                            ),
+                            checks=[],
+                            skips=[],
+                            findings=[],
+                            merge_gate=MergeGate(
+                                decision="needs_changes",
+                                must_fix=[],
+                                should_fix=[],
+                                notes_for_coding_agent=[]
+                            ),
                         )
 
-                    return result
+                    except Exception as e:
+                        error_msg = f"Agent {agent_name} failed: {str(e)}"
+                        logger.error(f"[{agent_name}] {error_msg}", exc_info=True)
+                        if stream_callback:
+                            await self.stream_manager.emit_error(
+                                agent_name, error_msg
+                            )
 
-                except asyncio.TimeoutError:
-                    error_msg = f"Agent {current_agent.get_agent_name()} timed out after {inputs.timeout_seconds}s"
-                    if stream_callback:
-                        await self.stream_manager.emit_error(
-                            current_agent.get_agent_name(), error_msg
+                        return ReviewOutput(
+                            agent=agent_name,
+                            summary="Agent failed with exception",
+                            severity="critical",
+                            scope=Scope(
+                                relevant_files=[], ignored_files=[], reasoning="Exception"
+                            ),
+                            checks=[],
+                            skips=[],
+                            findings=[],
+                            merge_gate=MergeGate(
+                                decision="needs_changes",
+                                must_fix=[],
+                                should_fix=[],
+                                notes_for_coding_agent=[]
+                            ),
                         )
-
-                    return ReviewOutput(
-                        agent=current_agent.get_agent_name(),
-                        summary="Agent timed out",
-                        severity="critical",
-                        scope=Scope(
-                            relevant_files=[], ignored_files=[], reasoning="Timeout"
-                        ),
-                        checks=[],
-                        skips=[],
-                        findings=[],
-                        merge_gate=MergeGate(
-                            decision="needs_changes",
-                            must_fix=[error_msg],
-                            should_fix=[],
-                            notes_for_coding_agent=[],
-                        ),
-                    )
-
-                except Exception as e:
-                    error_msg = f"Agent {current_agent.get_agent_name()} failed: {str(e)}"
-                    if stream_callback:
-                        await self.stream_manager.emit_error(
-                            current_agent.get_agent_name(), error_msg
-                        )
-
-                    logger.error(f"Subagent error: {error_msg}", exc_info=True)
-
-                    return ReviewOutput(
-                        agent=current_agent.get_agent_name(),
-                        summary="Agent failed with exception",
-                        severity="critical",
-                        scope=Scope(
-                            relevant_files=[], ignored_files=[], reasoning="Exception"
-                        ),
-                        checks=[],
-                        skips=[],
-                        findings=[],
-                        merge_gate=MergeGate(
-                            decision="needs_changes",
-                            must_fix=[error_msg],
-                            should_fix=[],
-                            notes_for_coding_agent=[],
-                        ),
-                    )
 
             tasks.append(run_with_timeout())
 
-        return await asyncio.gather(*tasks)
+        logger.info(f"Gathering results from {len(tasks)} parallel agents...")
+        results = await asyncio.gather(*tasks)
+        logger.info(f"All agents completed: {len([r for r in results if r.summary != 'Agent timed out' and r.summary != 'Agent failed with exception'])} successful")
+
+        return results
 
     async def execute_command(self, command: str, timeout: int = 30) -> ExecutionResult:
         """Execute a command via CommandExecutor.

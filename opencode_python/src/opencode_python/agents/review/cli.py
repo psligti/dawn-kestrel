@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -24,6 +26,29 @@ from opencode_python.agents.review.agents.dependencies import DependencyLicenseR
 from opencode_python.agents.review.agents.changelog import ReleaseChangelogReviewer
 
 console = Console()
+
+
+def setup_logging(verbose: bool = False) -> None:
+    """Configure logging for review CLI.
+
+    Args:
+        verbose: Enable debug level logging
+    """
+    log_level = logging.INFO if verbose else logging.WARNING
+    log_format = '%(asctime)s [%(levelname)-8s] %(name)s: %(message)s'
+    date_format = '%H:%M:%S'
+
+    logging.basicConfig(
+        level=log_level,
+        format=log_format,
+        datefmt=date_format,
+        stream=sys.stdout,
+        force=True
+    )
+
+    from opencode_python.core.settings import settings
+    if settings.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
 
 def get_subagents(include_optional: bool = False) -> list:
@@ -65,13 +90,18 @@ def format_terminal_progress(agent_name: str, status: str, data: dict) -> None:
         status: Status of the operation (started, completed, error)
         data: Additional data from the progress event
     """
+    logger = logging.getLogger(__name__)
+
     if status == "started":
         console.print(f"[cyan][{agent_name}][/cyan] [dim]Started review...[/dim]")
+        logger.info(f"[{agent_name}] Starting review...")
     elif status == "completed":
         console.print(f"[green][{agent_name}][/green] [dim]Completed[/dim]")
+        logger.info(f"[{agent_name}] Review completed successfully")
     elif status == "error":
         error_msg = data.get("error", "Unknown error")
         console.print(f"[red][{agent_name}][/red] [dim]Error: {error_msg}[/dim]")
+        logger.error(f"[{agent_name}] Error: {error_msg}")
 
 
 def format_terminal_result(agent_name: str, result) -> None:
@@ -132,19 +162,40 @@ def format_terminal_error(agent_name: str, error_msg: str) -> None:
     is_flag=True,
     help="Include optional review subagents",
 )
+@click.option(
+    "--timeout",
+    type=int,
+    default=300,
+    help="Agent timeout in seconds (default: 300)",
+)
+@click.option(
+    "--verbose", "-v",
+    is_flag=True,
+    help="Enable verbose logging to see detailed progress",
+)
 def review(
     repo_root: Path,
     base_ref: str,
     head_ref: str,
     output: Literal["json", "markdown", "terminal"],
     include_optional: bool,
+    timeout: int,
+    verbose: bool,
 ) -> None:
     """Run multi-agent PR review on a git repository.
 
     Review analyzes code changes between base-ref and head-ref using
     multiple specialized review agents running in parallel.
+
+    Progress will be logged to stdout showing:
+    - Which agents are starting
+    - LLM calls and response sizes
+    - Context building progress
+    - Any errors or retries occurring
     """
     async def run_review() -> None:
+        setup_logging(verbose)
+
         subagents = get_subagents(include_optional)
         orchestrator = PRReviewOrchestrator(subagents=subagents)
 
@@ -153,7 +204,7 @@ def review(
             base_ref=base_ref,
             head_ref=head_ref,
             include_optional=include_optional,
-            timeout_seconds=60,
+            timeout_seconds=timeout,
         )
 
         console.print(f"[cyan]Starting PR review...[/cyan]")
