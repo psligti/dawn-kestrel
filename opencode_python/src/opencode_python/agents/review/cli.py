@@ -338,3 +338,119 @@ def print_terminal_summary(result) -> None:
         console.print()
 
     console.print(f"[dim]Summary: {result.summary}[/dim]")
+
+
+@click.command()
+@click.option(
+    "--agent",
+    type=str,
+    default=None,
+    help="Specific agent name (e.g., security, architecture)",
+)
+@click.option(
+    "--all",
+    "generate_all",
+    is_flag=True,
+    help="Generate documentation for all reviewers",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite existing documentation even if hash matches",
+)
+@click.option(
+    "--output",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Custom output directory for documentation",
+)
+@click.option(
+    "--verbose", "-v",
+    is_flag=True,
+    help="Enable verbose logging",
+)
+def generate_docs(
+    agent: str | None,
+    generate_all: bool,
+    force: bool,
+    output: Path | None,
+    verbose: bool,
+) -> None:
+    """Generate entry point documentation for review agents.
+
+    Analyzes system prompts and extracts patterns to create YAML frontmatter
+    documentation for reviewer agents.
+    """
+    setup_logging(verbose)
+
+    console.print(f"[cyan]Generating reviewer documentation...[/cyan]")
+    console.print()
+
+    from opencode_python.agents.review.doc_gen import DocGenAgent
+    from opencode_python.agents.review.agents.architecture import ArchitectureReviewer
+    from opencode_python.agents.review.agents.security import SecurityReviewer
+    from opencode_python.agents.review.agents.documentation import DocumentationReviewer
+    from opencode_python.agents.review.agents.telemetry import TelemetryMetricsReviewer
+    from opencode_python.agents.review.agents.linting import LintingReviewer
+    from opencode_python.agents.review.agents.unit_tests import UnitTestsReviewer
+    from opencode_python.agents.review.agents.diff_scoper import DiffScoperReviewer
+    from opencode_python.agents.review.agents.requirements import RequirementsReviewer
+    from opencode_python.agents.review.agents.performance import PerformanceReliabilityReviewer
+    from opencode_python.agents.review.agents.dependencies import DependencyLicenseReviewer
+    from opencode_python.agents.review.agents.changelog import ReleaseChangelogReviewer
+
+    all_agents = {
+        'architecture': ArchitectureReviewer(),
+        'security': SecurityReviewer(),
+        'documentation': DocumentationReviewer(),
+        'telemetry': TelemetryMetricsReviewer(),
+        'linting': LintingReviewer(),
+        'unit_tests': UnitTestsReviewer(),
+        'diff_scoper': DiffScoperReviewer(),
+        'requirements': RequirementsReviewer(),
+        'performance': PerformanceReliabilityReviewer(),
+        'dependencies': DependencyLicenseReviewer(),
+        'changelog': ReleaseChangelogReviewer(),
+    }
+
+    doc_gen = DocGenAgent(agents_dir=output)
+
+    agents_to_process = []
+    if generate_all:
+        agents_to_process = list(all_agents.values())
+        console.print(f"[dim]Processing all {len(agents_to_process)} agents[/dim]")
+    elif agent:
+        if agent not in all_agents:
+            console.print(f"[red]Error: Unknown agent '{agent}'[/red]")
+            console.print(f"[dim]Available agents: {', '.join(sorted(all_agents.keys()))}[/dim]")
+            raise click.ClickException(f"Unknown agent: {agent}")
+        agents_to_process = [all_agents[agent]]
+        console.print(f"[dim]Processing agent: {agent}[/dim]")
+    else:
+        console.print("[red]Error: Specify --agent or --all[/red]")
+        raise click.ClickException("Must specify --agent or --all")
+
+    console.print()
+
+    results = []
+    for reviewer_agent in agents_to_process:
+        agent_name = getattr(reviewer_agent, 'get_agent_name', lambda: reviewer_agent.__class__.__name__.lower().replace('reviewer', ''))()
+        success, message = doc_gen.generate_for_agent(reviewer_agent, force=force)
+
+        if success:
+            console.print(f"[green]✓[/green] {agent_name}: {message}")
+            results.append((agent_name, True, message))
+        else:
+            console.print(f"[red]✗[/red] {agent_name}: {message}")
+            results.append((agent_name, False, message))
+
+    console.print()
+
+    successes = sum(1 for _, success, _ in results if success)
+    failures = len(results) - successes
+
+    if failures == 0:
+        console.print(f"[green]✓ All {len(results)} documentation(s) generated successfully[/green]")
+    else:
+        console.print(f"[yellow]⚠ {successes} succeeded, {failures} failed[/yellow]")
+        raise click.ClickException(f"{failures} documentation(s) failed to generate")

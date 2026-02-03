@@ -2,152 +2,52 @@
 agent: security
 agent_type: required
 version: 1.0.0
-generated_at: 2024-01-15T10:30:00Z
-prompt_hash: abc123def456
+generated_at: 2026-02-03T17:55:41Z
+prompt_hash: 119fe0f8529a4fd4478d10be
 patterns:
-  - type: ast
-    pattern: "FunctionDef with decorator '@require_auth'"
-    language: python
-    weight: 0.9
-  - type: ast
-    pattern: "FunctionDef with decorator '@login_required'"
-    language: python
-    weight: 0.9
-  - type: ast
-    pattern: "Call with function name 'eval'"
+  - type: content
+    pattern: "password\\s*[=:]|secret\\s*[=:]|token\\s*[=:]|api_key\\s*[=:]"
     language: python
     weight: 0.95
-  - type: ast
-    pattern: "Call with function name 'exec'"
+  - type: content
+    pattern: "PRIVATE_KEY"
     language: python
     weight: 0.95
-  - type: ast
-    pattern: "Call with function 'pickle.loads'"
+  - type: content
+    pattern: ".{120,}"
     language: python
-    weight: 0.9
-  - type: ast
-    pattern: "Call with function 'subprocess.run' and keyword argument 'shell=True'"
-    language: python
-    weight: 0.95
-  - type: ast
-    pattern: "Call with function 'subprocess.Popen' and keyword argument 'shell=True'"
-    language: python
-    weight: 0.95
-  - type: ast
-    pattern: "Call with function 'subprocess.call' and keyword argument 'shell=True'"
-    language: python
-    weight: 0.95
-  - type: ast
-    pattern: "Call with function 'os.system'"
-    language: python
-    weight: 0.95
-  - type: ast
-    pattern: "Call with function 'yaml.load' without Loader argument"
-    language: python
-    weight: 0.9
+    weight: 0.7
+  - type: file_path
+    pattern: "**/*.py"
+    weight: 0.7
+  - type: file_path
+    pattern: "**/*.yml"
+    weight: 0.7
+  - type: file_path
+    pattern: "**/*.yaml"
+    weight: 0.7
   - type: file_path
     pattern: "**/auth*/**"
-    weight: 0.8
+    weight: 0.7
   - type: file_path
     pattern: "**/security*/**"
-    weight: 0.8
-  - type: file_path
-    pattern: "**/iam/**"
-    weight: 0.8
-  - type: file_path
-    pattern: "**/permissions/**"
-    weight: 0.8
-  - type: file_path
-    pattern: "**/middleware/**"
-    weight: 0.8
-  - type: file_path
-    pattern: "**/requirements*.txt"
     weight: 0.7
-  - type: file_path
-    pattern: "**/pyproject.toml"
-    weight: 0.7
-  - type: file_path
-    pattern: "**/poetry.lock"
-    weight: 0.7
-  - type: file_path
-    pattern: "**/uv.lock"
-    weight: 0.7
-  - type: file_path
-    pattern: "**/.github/workflows/**"
-    weight: 0.75
-  - type: file_path
-    pattern: "**/.gitlab-ci.yml"
-    weight: 0.75
-  - type: file_path
-    pattern: "**/Dockerfile*"
-    weight: 0.7
-  - type: file_path
-    pattern: "**/*.tf"
-    weight: 0.7
-  - type: content
-    pattern: "password\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "api_key\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "secret\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "token\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "AWS_[A-Z_]+\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "PRIVATE_KEY\\s*=\\s*['\"][^'\"]+['\"]"
-    language: python
-    weight: 0.95
-  - type: content
-    pattern: "f\"\\{.*\\}\".*\\+.*execute\\(|execute\\(.*f\"\\{.*\\}\""
-    language: python
-    weight: 0.9
-  - type: content
-    pattern: "\\+.*\".*%s.*\"|\".*%s.*\".*\\+"
-    language: python
-    weight: 0.85
-  - type: content
-    pattern: "cursor\\.execute\\(.*%\\(|cursor\\.execute\\(.*\\.format\\("
-    language: python
-    weight: 0.9
-  - type: content
-    pattern: "import\\s+pickle|from\\s+pickle\\s+import"
-    language: python
-    weight: 0.8
-  - type: content
-    pattern: "import\\s+marshal|from\\s+marshal\\s+import"
-    language: python
-    weight: 0.8
-  - type: content
-    pattern: "import\\s+shelve|from\\s+shelve\\s+import"
-    language: python
-    weight: 0.8
 heuristics:
-  - "Look for functions that handle user input without validation"
-  - "Check for insecure imports (pickle, eval, exec, marshal, shelve)"
-  - "Verify encryption/hashing usage (avoid MD5, SHA1, weak ciphers)"
-  - "Check for hardcoded secrets, API keys, or passwords"
-  - "Look for SQL injection vulnerabilities in database queries"
-  - "Verify proper error handling that doesn't leak sensitive information"
-  - "Check for unsafe deserialization patterns"
-  - "Look for command injection risks in subprocess calls"
-  - "Verify proper authentication and authorization checks"
-  - "Check for SSRF (Server-Side Request Forgery) risks in network calls"
-  - "Look for insecure defaults in configuration"
-  - "Verify proper secret management (not in code, use env vars)"
-  - "Check for path traversal vulnerabilities in file operations"
-  - "Look for XSS (Cross-Site Scripting) risks in output encoding"
-  - "Verify CI/CD workflows don't expose secrets or have excessive permissions"
+  - "plaintext secrets committed or leaked into logs"
+  - "authz bypass risk or missing permission checks"
+  - "code execution risk (eval/exec) without strong sandboxing"
+  - "command injection risk via subprocess with untrusted input"
+  - "unsafe deserialization of untrusted input"
+  - "secrets handling (keys/tokens/passwords), logging of sensitive data"
+  - "authn/authz, permission checks, RBAC"
+  - "injection risks: SQL injection, command injection, template injection"
+  - "SSRF, unsafe network calls, insecure defaults"
+  - "dependency/supply chain risk signals (new deps, loosened pins)"
+  - "cryptography misuse"
+  - "file/path handling, deserialization, eval/exec usage"
+  - "CI/CD exposures (tokens, permissions, workflow changes)"
+  - "auth/**, security/**, iam/**, permissions/**, middleware/**"
+  - "network clients, webhook handlers, request parsers"
 ---
 
 # Security Reviewer Entry Points
@@ -156,75 +56,63 @@ This document defines entry points for the security reviewer agent to use when d
 
 ## Overview
 
-The security reviewer specializes in detecting:
-- Secrets handling (API keys, passwords, tokens)
-- Authentication/authorization issues
-- Injection risks (SQL, XSS, command)
-- CI/CD exposures
-- Unsafe code execution patterns
+The security reviewer specializes in:
 
-## Pattern Categories
-
-### AST Patterns (High Weight: 0.8-0.95)
-
-AST patterns match against the abstract syntax tree of Python code. These are high-signal patterns that directly match code structures.
-
-**High-weight patterns (0.95):**
-- Code execution: `eval()`, `exec()`, `os.system()`
-- Subprocess with shell: `subprocess.run(..., shell=True)`
-- Hardcoded secrets: `password=`, `api_key=`, `secret=`, `token=`
-
-**Medium-high patterns (0.9):**
-- Deserialization: `pickle.loads()`, `yaml.load()` without Loader
-- Authentication decorators: `@require_auth`, `@login_required`
+- - secrets handling (keys/tokens/passwords), logging of sensitive data
 
 ### File Path Patterns (Weight: 0.7-0.8)
 
 File path patterns match against changed file paths using glob patterns.
 
-**Security-sensitive directories (0.8):**
-- `auth*/**`, `security*/**`, `iam/**`, `permissions/**`, `middleware/**`
+- `**/*.py` (weight: 0.7)
+- `**/*.yml` (weight: 0.7)
+- `**/*.yaml` (weight: 0.7)
+- `**/auth*/**` (weight: 0.7)
+- `**/security*/**` (weight: 0.7)
 
-**Dependency files (0.7):**
-- `requirements*.txt`, `pyproject.toml`, `poetry.lock`, `uv.lock`
-
-**CI/CD files (0.75):**
-- `.github/workflows/**`, `.gitlab-ci.yml`
-
-**Infrastructure (0.7):**
-- `Dockerfile*`, `*.tf`
-
-### Content Patterns (Weight: 0.8-0.95)
+### Content Patterns (Weight: 0.7-0.95)
 
 Content patterns use regex to search for specific strings in file contents.
 
-**Secrets detection (0.95):**
-- Hardcoded credentials: `password=`, `api_key=`, `secret=`, `token=`
-- Cloud credentials: `AWS_*`, `PRIVATE_KEY`
+**High-weight patterns (0.9+):**
+- `password\\s*[=:]|secret\\s*[=:]|token\\s*[=:]|api_key\\s*[=:]`
+- `PRIVATE_KEY`
 
-**Injection risks (0.85-0.9):**
-- SQL injection: `cursor.execute(...)` with `%` or `.format()`
-- Format string vulnerabilities: `f"{...}"` + `execute()`
-
-**Unsafe imports (0.8):**
-- `pickle`, `marshal`, `shelve`
+**Medium patterns (0.7-0.9):**
+- `.{120,}`
 
 ## Usage During Review
 
-1. When a PR is received, the security reviewer loads this document
-2. For each pattern, the reviewer searches the changed files
+1. When a PR is received, security reviewer loads this document
+2. For each pattern, reviewer searches changed files
 3. Matches are collected and weighted by relevance
 4. Top matches are included in the LLM context for analysis
 5. Verification evidence is attached to `ReviewOutput.extra_data["verification"]`
 
 ## Heuristics for LLM
 
-The heuristics list provides guidance to the LLM when analyzing discovered entry points. These are high-level rules that help the reviewer focus on the most important security concerns.
+The heuristics list provides guidance to the LLM when analyzing discovered entry points.
+
+- plaintext secrets committed or leaked into logs
+- authz bypass risk or missing permission checks
+- code execution risk (eval/exec) without strong sandboxing
+- command injection risk via subprocess with untrusted input
+- unsafe deserialization of untrusted input
+- secrets handling (keys/tokens/passwords), logging of sensitive data
+- authn/authz, permission checks, RBAC
+- injection risks: SQL injection, command injection, template injection
+- SSRF, unsafe network calls, insecure defaults
+- dependency/supply chain risk signals (new deps, loosened pins)
+- cryptography misuse
+- file/path handling, deserialization, eval/exec usage
+- CI/CD exposures (tokens, permissions, workflow changes)
+- auth/**, security/**, iam/**, permissions/**, middleware/**
+- network clients, webhook handlers, request parsers
 
 ## Maintenance
 
-This document should be regenerated when the security reviewer's system prompt changes to keep the entry points in sync with the agent's focus.
+This document should be regenerated when security reviewer's system prompt changes to keep entry points in sync with the agent's focus.
 
 ```bash
-bun run generate-docs --agent security
+opencode review generate-docs --agent security
 ```
