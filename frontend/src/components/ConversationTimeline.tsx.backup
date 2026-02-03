@@ -1,0 +1,60 @@
+import { useEffect, useRef, useState } from 'react'
+import { VirtuosoList } from 'react-virtuoso'
+import { useStore } from '../store'
+import { MessageCard } from './MessageCard'
+import { Message } from '../types/api'
+
+interface ConversationTimelineProps {
+  sessionId: string
+  autoScroll?: boolean
+  disableSSE?: boolean
+}
+
+/**
+ * ConversationTimeline component with SSE streaming
+ *
+ * Connects to the SSE endpoint and streams real-time messages to the timeline.
+ * Uses react-virtuoso for virtualized rendering of long conversation lists.
+ */
+export function ConversationTimeline({
+  sessionId,
+  autoScroll = true,
+  disableSSE = false,
+}: ConversationTimelineProps) {
+  const messages = useStore((state) => state.messages[sessionId] || [])
+  const currentSession = useStore((state) => state.currentSession)
+  const addMessage = useStore((state) => state.addMessage)
+  const [isConnected, setIsConnected] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+
+
+  return (
+    <div
+      ref={containerRef}
+      className="timeline-container"
+      data-connected={isConnected}
+      data-loading={isLoading}
+    >
+      {isLoading && !isConnected && <div className="timeline-loading">Connecting to stream...</div>}
+
+      {messages.length === 0 && !isLoading && (
+        <div className="timeline-empty">No messages yet. Start a conversation!</div>
+      )}
+
+      {/* Using VirtuosoList for virtualized rendering */}
+      {messages.length > 0 && (
+        <VirtuosoList
+          data={messages}
+          overscan={100}
+          itemHeight={() => 80} // Estimated height per message
+          itemContent={(index, message) => renderItem(index, message)}
+          className="timeline-messages"
+          data-virtuoso-container
+        />
+      )}
+    </div>
+  )
+}

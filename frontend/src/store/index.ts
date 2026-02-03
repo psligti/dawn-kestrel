@@ -33,6 +33,23 @@ export interface DrawerState {
   tab: 'todos' | 'tools' | 'agents' | 'sessions' | 'navigator'
 }
 
+export interface ModelStatus {
+  name: string
+  connected: boolean
+}
+
+export interface TokenUsage {
+  input: number
+  output: number
+  total: number
+  limit?: number
+}
+
+export interface MemoryUsage {
+  used: number
+  total: number
+}
+
 export interface AppState {
   // Sessions
   sessions: Session[]
@@ -49,6 +66,15 @@ export interface AppState {
   drawerOpen: boolean
   drawerTab: 'todos' | 'tools' | 'agents' | 'sessions' | 'navigator'
 
+  // Model Status
+  modelStatus: ModelStatus
+
+  // Token Usage
+  tokenUsage: TokenUsage
+
+  // Memory Usage
+  memoryUsage: MemoryUsage
+
   // Actions
   setSessions: (sessions: Session[]) => void
   setCurrentSession: (session: Session | null) => void
@@ -60,6 +86,9 @@ export interface AppState {
   setDrawerTab: (tab: 'todos' | 'tools' | 'agents' | 'sessions' | 'navigator') => void
   setComposerDraft: (draft: string) => void
   setComposerSending: (isSending: boolean) => void
+  setModelStatus: (status: ModelStatus) => void
+  setTokenUsage: (usage: TokenUsage) => void
+  setMemoryUsage: (usage: MemoryUsage) => void
 }
 
 const defaultTheme = 'dark'
@@ -77,6 +106,19 @@ const useStoreBase = create<AppState>((set, get) => ({
   composer: {
     draft: defaultDraft,
     isSending: false,
+  },
+  modelStatus: {
+    name: 'Agent',
+    connected: true,
+  },
+  tokenUsage: {
+    input: 0,
+    output: 0,
+    total: 0,
+  },
+  memoryUsage: {
+    used: 0,
+    total: 8,
   },
 
   // Actions
@@ -104,6 +146,9 @@ const useStoreBase = create<AppState>((set, get) => ({
   setDrawerTab: (tab) => set({ drawerTab: tab }),
   setComposerDraft: (draft) => set((state) => ({ composer: { ...state.composer, draft } })),
   setComposerSending: (isSending) => set((state) => ({ composer: { ...state.composer, isSending } })),
+  setModelStatus: (status) => set({ modelStatus: status }),
+  setTokenUsage: (usage) => set({ tokenUsage: usage }),
+  setMemoryUsage: (usage) => set({ memoryUsage: usage }),
 }))
 
 export const useStore = devtools(useStoreBase)
@@ -115,3 +160,7 @@ export const useTheme = () => useStore((state) => state.theme)
 export const usePalette = () => useStore((state) => state.paletteOpen)
 export const useDrawer = () => useStore((state) => ({ open: state.drawerOpen, tab: state.drawerTab }))
 export const useComposer = () => useStore((state) => state.composer)
+export const useModelStatus = () => useStore((state) => state.modelStatus)
+export const useTokenUsage = () => useStore((state) => state.tokenUsage)
+export const useMemoryUsage = () => useStore((state) => state.memoryUsage)
+export const useSetComposerDraft = () => useStore((state) => state.setComposerDraft)
