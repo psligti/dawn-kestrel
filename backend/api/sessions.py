@@ -11,6 +11,8 @@ from fastapi import APIRouter, Body, HTTPException, status
 from opencode_python.sdk import OpenCodeAsyncClient
 from opencode_python.core.config import SDKConfig
 from opencode_python.core.services.session_service import DefaultSessionService
+from opencode_python.core.session import SessionManager
+from opencode_python.storage.store import SessionStorage
 from pydantic import BaseModel
 
 
@@ -19,6 +21,7 @@ class CreateSessionRequest(BaseModel):
 
     title: str
     version: str = "1.0.0"
+    theme_id: Optional[str] = None
 
 
 class ExecuteSessionRequest(BaseModel):
@@ -27,6 +30,12 @@ class ExecuteSessionRequest(BaseModel):
     agent_name: str
     user_message: str
     options: Optional[Dict[str, Any]] = None
+
+
+class UpdateSessionRequest(BaseModel):
+    """Request model for updating session metadata."""
+
+    theme_id: Optional[str] = None
 
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
@@ -94,6 +103,7 @@ async def list_sessions() -> Dict[str, Any]:
                     "id": session.id,
                     "title": session.title,
                     "version": session.version,
+                    "theme_id": session.theme_id,
                     "created_at": datetime.fromtimestamp(session.time_created).isoformat(),
                     "updated_at": datetime.fromtimestamp(session.time_updated).isoformat(),
                 }
@@ -137,6 +147,7 @@ async def get_session(session_id: str) -> Dict[str, Any]:
             "id": session.id,
             "title": session.title,
             "version": session.version,
+            "theme_id": session.theme_id,
             "created_at": datetime.fromtimestamp(session.time_created).isoformat(),
             "updated_at": datetime.fromtimestamp(session.time_updated).isoformat(),
         }
@@ -172,10 +183,19 @@ async def create_session(request: CreateSessionRequest = Body(...)) -> Dict[str,
         client = await get_sdk_client()
         session = await client.create_session(title=request.title, version=request.version)
 
+        if request.theme_id:
+            storage = SessionStorage(client.config.storage_path)
+            manager = SessionManager(storage=storage, project_dir=Path(client.config.project_dir))
+            session = await manager.update_session(
+                session_id=session.id,
+                theme_id=request.theme_id
+            )
+
         return {
             "id": session.id,
             "title": session.title,
             "version": request.version,
+            "theme_id": session.theme_id,
             "created_at": datetime.fromtimestamp(session.time_created).isoformat(),
             "updated_at": datetime.fromtimestamp(session.time_updated).isoformat(),
         }
@@ -221,6 +241,52 @@ async def delete_session(session_id: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {str(e)}",
+        )
+
+
+@router.put("/{session_id}", response_model=Dict[str, Any])
+async def update_session(session_id: str, request: UpdateSessionRequest = Body(...)) -> Dict[str, Any]:
+    """Update session metadata including theme_id."""
+    if request.theme_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="theme_id is required for this update endpoint",
+        )
+
+    try:
+        client = await get_sdk_client()
+        session = await client.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Session not found: {session_id}",
+            )
+
+        # Use SessionManager to update the session with new theme_id
+        storage = SessionStorage(client.config.storage_path)
+        manager = SessionManager(storage=storage, project_dir=Path(client.config.project_dir))
+
+        updated_session = await manager.update_session(
+            session_id=session_id,
+            theme_id=request.theme_id
+        )
+
+        from api.sessions_streaming import _notify_theme_change
+        await _notify_theme_change(session_id, request.theme_id)
+
+        return {
+            "id": updated_session.id,
+            "title": updated_session.title,
+            "theme_id": updated_session.theme_id,
+            "created_at": datetime.fromtimestamp(updated_session.time_created).isoformat(),
+            "updated_at": datetime.fromtimestamp(updated_session.time_updated).isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update session: {str(e)}",
         )
 
 
