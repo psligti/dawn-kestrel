@@ -1,9 +1,7 @@
-import './AgentsList.css'
-
 export function AgentsList() {
   return (
-    <div className="agents-list">
-      <div className="agents-list__empty">No active agents</div>
+    <div>
+      <div className="text-tertiary font-mono text-sm text-center p-3 opacity-70">No active agents</div>
     </div>
   )
 }
