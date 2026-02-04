@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { useCurrentSession, useComposer, useSetComposerDraft, useSetComposerSending, useAgentsState, useSelectedAgent, useSetSelectedAgent } from '../store'
 import { useMessages } from '../hooks/useMessages'
-import './ComposerBar.css'
 
 const MAX_LINES = 13
 export function ComposerBar() {
@@ -101,11 +100,11 @@ export function ComposerBar() {
   const isDisabled = localDraft.trim().length === 0 || isSending
 
   return (
-    <div className="composer-bar">
-      <div className="composer-bar__input-wrapper">
+    <div className="bg-surface-base rounded-0">
+      <div className="relative flex items-end">
         <textarea
           ref={textareaRef}
-          className="composer-bar__textarea"
+          className="w-full px-2 py-3 pr-14 text-sm leading-6 font-inherit text-primary bg-surface-panel border border-normal rounded-0 resize-none overflow-hidden outline-none transition-all duration-200 ease-in-out transition-[height_0.1s] min-h-12 placeholder:text-tertiary focus:border-focus focus:shadow-[0_0_2px_rgba(99,99,99,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
           value={localDraft}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -120,7 +119,7 @@ export function ComposerBar() {
         <button
           onClick={handleSend}
           disabled={isDisabled}
-          className="composer-bar__send"
+          className="absolute right-2 bottom-2 px-2 py-3 text-sm font-medium text-primary bg-accent-primary border border-accent-primary rounded-[999px] cursor-pointer transition-all duration-200 ease-in-out z-10 hover:bg-accent-secondary hover:border-accent-secondary active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-text-tertiary disabled:border-text-tertiary"
           aria-label="Send message"
         >
           <Send size={16} />

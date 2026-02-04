@@ -14,6 +14,9 @@ vi.mock('../store', () => ({
   })),
   useSetComposerDraft: vi.fn(() => vi.fn(() => {})),
   useSetComposerSending: vi.fn(() => vi.fn(() => {})),
+  useAgentsState: vi.fn(() => []),
+  useSelectedAgent: vi.fn(() => null),
+  useSetSelectedAgent: vi.fn(() => vi.fn(() => {})),
 }))
 
 vi.mock('../hooks/useMessages', () => ({
@@ -100,7 +103,7 @@ describe('ComposerBar', () => {
   it('should render container with proper styling classes', () => {
     const { container } = render(<ComposerBar />)
 
-    const containerElement = container.querySelector('.composer-bar')
+    const containerElement = container.querySelector('.bg-surface-base')
     expect(containerElement).toBeInTheDocument()
   })
 })
