@@ -11,7 +11,12 @@ import pendulum
 from rich.console import Console
 from rich.table import Table
 
-from opencode_python.core.settings import settings
+from opencode_python.core.settings import (
+    settings,
+    get_storage_dir,
+    get_config_dir,
+    get_cache_dir,
+)
 from opencode_python.core.session import SessionManager
 from opencode_python.session.export_import import ExportImportManager
 from opencode_python.storage.store import SessionStorage
