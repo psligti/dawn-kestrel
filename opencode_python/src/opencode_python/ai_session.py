@@ -10,17 +10,12 @@ from typing import AsyncIterator, Optional, Dict, Any, List
 from decimal import Decimal
 
 from .core.models import Session, Message, Part, TextPart, ToolPart, AgentPart, ToolState
-from .providers.base import ProviderID, ModelInfo
+from .providers.base import ProviderID
 from .core.event_bus import bus, Events
 from .core.settings import settings
 from .core.provider_config import ProviderConfig
 from .core.session_lifecycle import SessionLifecycle
-from .providers import (
-    get_provider,
-    ModelInfo,
-    TokenUsage,
-    StreamEvent
-)
+from .providers import get_provider, ModelInfo, TokenUsage, StreamEvent
 from .ai.tool_execution import ToolExecutionManager
 from .tools.framework import ToolRegistry
 from .tools import create_builtin_registry
@@ -48,7 +43,7 @@ class AISession:
         self.provider_config = provider_config
         self.session_lifecycle = session_lifecycle
 
-        api_key_value = api_key or settings.api_keys.get(provider_id)
+        api_key_value = api_key or settings.get_api_key_for_provider(provider_id)
 
         if provider_config and provider_config.api_key:
             api_key_value = provider_config.api_key
@@ -84,7 +79,9 @@ class AISession:
             self.model_info = await self._get_model_info(self.model)
         return self.model_info
 
-    async def process_stream(self, events: AsyncIterator[StreamEvent]) -> tuple[List[Part], TokenUsage]:
+    async def process_stream(
+        self, events: AsyncIterator[StreamEvent]
+    ) -> tuple[List[Part], TokenUsage]:
         """Process stream events and create message parts"""
         parts: List[Part] = []
         tool_input: Optional[Dict[str, Any]] = None
@@ -100,7 +97,7 @@ class AISession:
                         output=usage_data.get("completion_tokens", 0),
                         reasoning=usage_data.get("reasoning_tokens", 0),
                         cache_read=usage_data.get("cache_read_tokens", 0),
-                        cache_write=usage_data.get("cache_write_tokens", 0)
+                        cache_write=usage_data.get("cache_write_tokens", 0),
                     )
 
             if event.event_type == "text-delta":
@@ -111,22 +108,26 @@ class AISession:
                     parts[-1] = TextPart(
                         **existing,
                         text=parts[-1].text + event.data.get("delta", ""),
-                        time={"updated": event.timestamp}
+                        time={"updated": event.timestamp},
                     )
                 else:
-                    parts.append(TextPart(
-                        id=f"{self.session.id}_{len(parts)}",
-                        session_id=self.session.id,
-                        message_id=self.session.id,
-                        part_type="text",
-                        text=event.data.get("delta", ""),
-                        time={"created": event.timestamp}
-                    ))
+                    parts.append(
+                        TextPart(
+                            id=f"{self.session.id}_{len(parts)}",
+                            session_id=self.session.id,
+                            message_id=self.session.id,
+                            part_type="text",
+                            text=event.data.get("delta", ""),
+                            time={"created": event.timestamp},
+                        )
+                    )
 
             elif event.event_type == "tool-call":
                 tool_name = event.data.get("tool", "")
                 tool_input = event.data.get("input", {})
-                tool_call_id = event.data.get("call_id", f"{self.session.id}_{tool_name}_{len(parts)}")
+                tool_call_id = event.data.get(
+                    "call_id", f"{self.session.id}_{tool_name}_{len(parts)}"
+                )
 
                 result = await self.tool_manager.execute_tool_call(
                     tool_name=tool_name,
@@ -134,7 +135,7 @@ class AISession:
                     tool_call_id=tool_call_id,
                     message_id=self.session.id,
                     agent=str(self.provider_id),
-                    model=self.model
+                    model=self.model,
                 )
 
                 # Create ToolPart from result
@@ -145,8 +146,10 @@ class AISession:
                     part_type="tool",
                     tool=tool_name,
                     call_id=tool_call_id,
-                    state=ToolState(status="completed", input=tool_input or {}, output=result.output),
-                    source={"provider": self.model}
+                    state=ToolState(
+                        status="completed", input=tool_input or {}, output=result.output
+                    ),
+                    source={"provider": self.model},
                 )
                 parts.append(tool_part)
                 total_cost += result.metadata.get("cost", Decimal("0"))
@@ -163,18 +166,14 @@ class AISession:
                         message_id=self.session.id,
                         part_type="agent",
                         name=str(self.provider_id),
-                        source={"provider": self.model}
+                        source={"provider": self.model},
                     )
                     parts.append(agent_part)
 
         return parts, usage
 
     async def create_assistant_message(
-        self,
-        user_message_id: str,
-        parts: List[Part],
-        tokens: TokenUsage,
-        cost: Decimal
+        self, user_message_id: str, parts: List[Part], tokens: TokenUsage, cost: Decimal
     ) -> Message:
         await self._ensure_model_info()
         created_time = None
@@ -201,7 +200,7 @@ class AISession:
                 "path": {"root": str(self.session.directory), "cwd": str(self.session.directory)},
                 "cost": float(cost),
                 "tokens": {"input": tokens.input, "output": tokens.output},
-            }
+            },
         )
 
         if self.session_manager:
@@ -222,9 +221,7 @@ class AISession:
         return assistant_message
 
     async def process_message(
-        self,
-        user_message: str,
-        options: Optional[Dict[str, Any]] = None
+        self, user_message: str, options: Optional[Dict[str, Any]] = None
     ) -> Message:
         """Process a user message through AI provider
 
@@ -267,19 +264,13 @@ class AISession:
         # Call provider stream
         if self.provider:
             model_info = await self._ensure_model_info()
-            stream = self.provider.stream(
-                model_info,
-                llm_messages,
-                tools,
-                options or {}
-            )
+            stream = self.provider.stream(model_info, llm_messages, tools, options or {})
 
             # Process stream and create parts
             parts, tokens = await self.process_stream(stream)
         else:
             parts = []
 
-        
         # Calculate cost
         if self.provider:
             model_info = await self._ensure_model_info()
@@ -288,23 +279,21 @@ class AISession:
             cost = Decimal("0")
 
         # Create assistant message
-        assistant_message = await self.create_assistant_message(
-            user_msg_id,
-            parts,
-            tokens,
-            cost
-        )
+        assistant_message = await self.create_assistant_message(user_msg_id, parts, tokens, cost)
 
         # Increment session message counter
         self.session.message_counter += 1
 
-        logger.debug(f"[{self.session.slug}] Response from LLM ({len(assistant_message.text)} chars, {tokens.input}+{tokens.output} tokens)")
+        logger.debug(
+            f"[{self.session.slug}] Response from LLM ({len(assistant_message.text)} chars, {tokens.input}+{tokens.output} tokens)"
+        )
 
         return assistant_message
 
     def _now(self) -> int:
         """Get current timestamp in milliseconds"""
         import time
+
         return int(time.time() * 1000)
 
     def _build_llm_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
@@ -331,13 +320,15 @@ class AISession:
         tool_definitions = []
 
         for tool_id, tool in tools.items():
-            tool_definitions.append({
-                "type": "function",
-                "function": {
-                    "name": tool.id,
-                    "description": tool.description,
-                    "parameters": tool.parameters()
+            tool_definitions.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.id,
+                        "description": tool.description,
+                        "parameters": tool.parameters(),
+                    },
                 }
-            })
+            )
 
         return tool_definitions

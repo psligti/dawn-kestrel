@@ -25,8 +25,6 @@ class ProviderID(str, Enum):
     PERPLEXITY = "perplexity"
     GITLAB = "gitlab"
     GITHUB_COPILOT = "github-copilot"
-    Z_AI = "z.ai"
-
 
 @dataclass
 class ModelCapabilities:

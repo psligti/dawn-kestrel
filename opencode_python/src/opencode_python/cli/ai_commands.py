@@ -32,11 +32,13 @@ def list_models():
     import asyncio
     from ..providers import get_available_models, ProviderID
 
-    anthropic_key = settings.api_keys.get("anthropic", SecretStr(""))
-    openai_key = settings.api_keys.get("openai", SecretStr(""))
+    anthropic_key = settings.get_api_key_for_provider("anthropic") or SecretStr("")
+    openai_key = settings.get_api_key_for_provider("openai") or SecretStr("")
 
     if not anthropic_key and not openai_key:
-        console.print("[yellow]No API key configured. Set OPENCODE_PYTHON_ANTHROPIC_API_KEY or OPENCODE_PYTHON_OPENAI_API_KEY[/yellow]")
+        console.print(
+            "[yellow]No API key configured. Set OPENCODE_PYTHON_ANTHROPIC_API_KEY or OPENCODE_PYTHON_OPENAI_API_KEY[/yellow]"
+        )
         return
 
     console.print("\n[bold]Available Models:[/bold]")
@@ -53,7 +55,9 @@ def list_models():
     async def fetch_models():
         models = []
         if anthropic_key:
-            for model_info in await get_available_models(ProviderID.ANTHROPIC, anthropic_key.get_secret_value()):
+            for model_info in await get_available_models(
+                ProviderID.ANTHROPIC, anthropic_key.get_secret_value()
+            ):
                 context_str = f"{model_info.limit.context:,}"
                 table.add_row(
                     model_info.provider_id.value,
@@ -62,11 +66,13 @@ def list_models():
                     f"${model_info.cost.input:,}M",
                     f"${model_info.cost.output:,}M",
                     context_str,
-                    model_info.status
+                    model_info.status,
                 )
                 models.append(model_info)
         if openai_key:
-            for model_info in await get_available_models(ProviderID.OPENAI, openai_key.get_secret_value()):
+            for model_info in await get_available_models(
+                ProviderID.OPENAI, openai_key.get_secret_value()
+            ):
                 context_str = f"{model_info.limit.context:,}"
                 table.add_row(
                     model_info.provider_id.value,
@@ -75,7 +81,7 @@ def list_models():
                     f"${model_info.cost.input:,}M",
                     f"${model_info.cost.output:,}M",
                     context_str,
-                    model_info.status
+                    model_info.status,
                 )
                 models.append(model_info)
         return models
@@ -102,10 +108,14 @@ def run(message: str, model: Optional[str], provider: Optional[str], session: Op
     from opencode_python.storage.store import SessionStorage
 
     provider_id = provider or "anthropic"
-    api_key = settings.api_keys.get(provider_id, settings.api_keys.get("openai"))
+    api_key = settings.get_api_key_for_provider(provider_id) or settings.get_api_key_for_provider(
+        "openai"
+    )
 
     if not api_key or not api_key.get_secret_value():
-        console.print("[yellow]No API key configured. Set OPENCODE_PYTHON_ANTHROPIC_API_KEY or OPENCODE_PYTHON_OPENAI_API_KEY[/yellow]")
+        console.print(
+            "[yellow]No API key configured. Set OPENCODE_PYTHON_ANTHROPIC_API_KEY or OPENCODE_PYTHON_OPENAI_API_KEY[/yellow]"
+        )
         return
 
     if session:
@@ -141,7 +151,7 @@ def run(message: str, model: Optional[str], provider: Optional[str], session: Op
             provider_id=provider_id,
             model=model_name,
             api_key=api_key.get_secret_value(),
-            session_manager=session_mgr
+            session_manager=session_mgr,
         )
 
         # Process message
@@ -208,7 +218,7 @@ def list_sessions():
                 pendulum.from_timestamp(session_info.time_updated).diff_for_humans(),
                 str(session_info.message_count),
                 f"${session_info.total_cost:.2f}",
-                "idle"
+                "idle",
             )
 
         console.print(table)

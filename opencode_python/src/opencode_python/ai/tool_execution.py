@@ -53,7 +53,7 @@ class ToolExecutionManager:
                 metadata={"error": f"unknown_tool: {tool_name}"}
             )
         
-        logger.info(f"Executing tool: {tool_name} with input: {tool_input.keys()}")
+        logger.info(f"Executing tool: {tool_name} with input: {list(tool_input.keys()) if isinstance(tool_input, dict) else tool_input}")
 
         tool_context = ToolContext(
             session_id=self.session_id,
