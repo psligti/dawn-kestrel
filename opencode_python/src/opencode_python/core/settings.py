@@ -6,14 +6,12 @@ import os
 import pydantic_settings
 from pydantic import Field, SecretStr
 from pydantic_settings.main import SettingsConfigDict
-from dotenv import load_dotenv
-
-load_dotenv(str(Path(__file__).parent.parent.parent.parent / ".env"))
 
 
 __all__ = ["Settings", "settings"]
 
 from opencode_python.providers import ProviderID
+from opencode_python.core.provider_settings import AccountConfig
 
 
 class Settings(pydantic_settings.BaseSettings):
@@ -32,6 +30,9 @@ class Settings(pydantic_settings.BaseSettings):
         default="https://api.open-code.ai/v1",
         alias="API_ENDPOINT"
     )
+
+    # Multi-account provider settings
+    accounts: Dict[str, AccountConfig] = Field(default_factory=dict)
 
     # Provider settings
     provider_default: str = Field(default=os.getenv("OPENCODE_PYTHON_PROVIDER_DEFAULT", "z.ai"), alias="PROVIDER_DEFAULT")
@@ -74,9 +75,13 @@ class Settings(pydantic_settings.BaseSettings):
     permission_default_action: str = Field(default="ask", alias="PERMISSION_DEFAULT_ACTION")
 
     model_config = SettingsConfigDict(
-        env_file='.env',
+        env_file=(
+            Path(__file__).parent.parent.parent.parent / '.env',
+            Path.home() / '.config' / 'opencode-python' / '.env',
+        ),
         env_file_encoding="utf-8",
         env_prefix="OPENCODE_PYTHON_",
+        env_nested_delimiter='__',
         case_sensitive=False,
         extra="ignore",
     )
