@@ -86,5 +86,47 @@ class Settings(pydantic_settings.BaseSettings):
         extra="ignore",
     )
 
+    def get_account(self, account_name: str) -> Optional[AccountConfig]:
+        """
+        Retrieve an account configuration by name.
+
+        Args:
+            account_name: The name of the account to retrieve.
+
+        Returns:
+            The AccountConfig if found, None otherwise.
+        """
+        return self.accounts.get(account_name)
+
+    def get_accounts_by_provider(self, provider_id: ProviderID) -> Dict[str, AccountConfig]:
+        """
+        Retrieve all account configurations for a specific provider.
+
+        Args:
+            provider_id: The provider ID to filter accounts by.
+
+        Returns:
+            A dictionary mapping account names to AccountConfig objects
+            for the specified provider. Returns empty dict if no matches.
+        """
+        return {
+            name: account
+            for name, account in self.accounts.items()
+            if account.provider_id == provider_id
+        }
+
+    def get_default_account(self) -> Optional[AccountConfig]:
+        """
+        Retrieve the default account configuration.
+
+        Returns:
+            The AccountConfig with is_default=True, or None if no default
+            account is found.
+        """
+        for account in self.accounts.values():
+            if account.is_default:
+                return account
+        return None
+
 
 settings: Settings = Settings()
