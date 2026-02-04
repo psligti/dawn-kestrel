@@ -1,13 +1,12 @@
 import { useCurrentSession } from '../store'
-import './TopBar.css'
 
 export function TopBar() {
   const currentSession = useCurrentSession()
 
   return (
-    <div className="topbar">
-      <div className="topbar__left">
-        <div className="topbar__logo">
+    <div className="flex items-center justify-between bg-surface-panel border border-normal rounded-[14px] px-3 py-2 h-12">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <svg
             width="24"
             height="24"
@@ -23,10 +22,10 @@ export function TopBar() {
               strokeLinecap="round"
             />
           </svg>
-          <span className="topbar__logo-text">OpenCode</span>
+          <span className="font-semibold text-sm text-primary tracking-tight">OpenCode</span>
         </div>
         {currentSession && (
-          <span className="topbar__title" title={currentSession.title}>
+          <span className="font-medium text-xs text-primary whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px]" title={currentSession.title}>
             {currentSession.title}
           </span>
         )}
