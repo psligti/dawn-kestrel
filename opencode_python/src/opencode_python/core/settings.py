@@ -24,8 +24,6 @@ class Settings(pydantic_settings.BaseSettings):
 
     # API credentials (secrets)
     api_key: SecretStr = Field(default_factory=lambda: SecretStr(""))
-    api_keys: Dict[str, SecretStr] = Field(default_factory=dict)
-    api_keys_coding: Dict[str, SecretStr] = Field(default_factory=dict)
     api_endpoint: str = Field(
         default="https://api.open-code.ai/v1",
         alias="API_ENDPOINT"
