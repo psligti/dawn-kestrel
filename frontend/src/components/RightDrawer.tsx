@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
+import type {
+  AnchorHTMLAttributes,
+  BlockquoteHTMLAttributes,
+  HTMLAttributes,
+  LiHTMLAttributes,
+  OlHTMLAttributes,
+  ReactNode,
+} from 'react'
+import ReactMarkdown, { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   useAccountsState,
@@ -27,6 +35,121 @@ import ThemePicker from './ThemePicker'
 
 
 type DrawerTab = 'sessions' | 'agents' | 'models' | 'skills' | 'tools' | 'accounts' | 'settings' | 'info'
+
+type MarkdownParagraphProps = HTMLAttributes<HTMLParagraphElement> & { children?: ReactNode; node?: unknown }
+type MarkdownListProps = HTMLAttributes<HTMLUListElement> & { children?: ReactNode; node?: unknown }
+type MarkdownOrderedListProps = OlHTMLAttributes<HTMLOListElement> & { children?: ReactNode; node?: unknown }
+type MarkdownListItemProps = LiHTMLAttributes<HTMLLIElement> & { children?: ReactNode; node?: unknown }
+type MarkdownStrongProps = HTMLAttributes<HTMLElement> & { children?: ReactNode; node?: unknown }
+type MarkdownEmProps = HTMLAttributes<HTMLElement> & { children?: ReactNode; node?: unknown }
+type MarkdownLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & { children?: ReactNode; node?: unknown }
+type MarkdownCodeProps = HTMLAttributes<HTMLElement> & { children?: ReactNode; node?: unknown; className?: string }
+type MarkdownPreProps = HTMLAttributes<HTMLPreElement> & { children?: ReactNode; node?: unknown }
+type MarkdownBlockquoteProps = BlockquoteHTMLAttributes<HTMLQuoteElement> & { children?: ReactNode; node?: unknown }
+
+const drawerMarkdownComponents: Components = {
+  p: ({ children }: MarkdownParagraphProps) => (
+    <p className="text-xs text-secondary leading-relaxed mb-2 break-words overflow-wrap-break-word last:mb-0">
+      {children}
+    </p>
+  ),
+  h1: ({ children }: MarkdownParagraphProps) => (
+    <h3 className="text-xs font-semibold text-primary">
+      {children}
+    </h3>
+  ),
+  h2: ({ children }: MarkdownParagraphProps) => (
+    <h4 className="text-xs font-semibold text-primary">
+      {children}
+    </h4>
+  ),
+  h3: ({ children }: MarkdownParagraphProps) => (
+    <h5 className="text-xs font-semibold text-primary">
+      {children}
+    </h5>
+  ),
+  h4: ({ children }: MarkdownParagraphProps) => (
+    <h6 className="text-xs font-semibold text-primary">
+      {children}
+    </h6>
+  ),
+  h5: ({ children }: MarkdownParagraphProps) => (
+    <h6 className="text-xs font-semibold text-primary">
+      {children}
+    </h6>
+  ),
+  h6: ({ children }: MarkdownParagraphProps) => (
+    <h6 className="text-xs font-semibold text-primary">
+      {children}
+    </h6>
+  ),
+  ul: ({ children }: MarkdownListProps) => (
+    <ul className="list-disc pl-4 space-y-1 text-xs text-secondary">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }: MarkdownOrderedListProps) => (
+    <ol className="list-decimal pl-4 space-y-1 text-xs text-secondary">
+      {children}
+    </ol>
+  ),
+  li: ({ children }: MarkdownListItemProps) => (
+    <li className="text-xs text-secondary leading-5">
+      {children}
+    </li>
+  ),
+  strong: ({ children }: MarkdownStrongProps) => (
+    <strong className="font-semibold text-primary">
+      {children}
+    </strong>
+  ),
+  em: ({ children }: MarkdownEmProps) => (
+    <em className="italic text-secondary">
+      {children}
+    </em>
+  ),
+  a: ({ href, children, ...props }: MarkdownLinkProps) => (
+    <a
+      className="text-accent-primary underline decoration-accent-primary/40 underline-offset-2 hover:decoration-accent-primary"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+  code: ({ className, children, ...props }: MarkdownCodeProps) => {
+    if (!className) {
+      return (
+        <code
+          className="rounded bg-surface-panel border border-normal px-1 py-0.5 text-[11px] font-mono text-primary"
+          {...props}
+        >
+          {children}
+        </code>
+      )
+    }
+    return (
+      <code className="text-[11px] font-mono text-primary" {...props}>
+        {children}
+      </code>
+    )
+  },
+  pre: ({ children }: MarkdownPreProps) => (
+    <pre className="rounded-[10px] bg-surface-panel border border-normal p-2 text-[11px] leading-4 text-primary overflow-x-auto whitespace-pre-wrap break-words">
+      {children}
+    </pre>
+  ),
+  blockquote: ({ children }: MarkdownBlockquoteProps) => (
+    <blockquote className="border-l-2 border-border-normal pl-3 text-xs text-secondary">
+      {children}
+    </blockquote>
+  ),
+  hr: () => (
+    <hr className="border-border-normal/60" />
+  ),
+}
 
 interface SessionsTabProps {
   onClose: () => void
@@ -154,15 +277,15 @@ function AgentsTab({ onClose }: AgentsTabProps) {
         agents.map((agent, index) => (
           <button
             key={agent.name}
-            className={`w-full text-left px-3 bg-transparent border border-transparent rounded-[14px] text-primary font-mono text-[13px] cursor-pointer transition-all duration-150 ease-in-out hover:bg-[rgba(99,102,241,0.05)] hover:border-normal focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2 ${selectedAgent === agent.name ? 'border-accent-primary bg-[rgba(99,102,241,0.08)]' : ''}`}
+            className={`w-full text-left px-3 py-3 border rounded-[14px] text-primary cursor-pointer transition-all duration-150 ease-in-out focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2 ${selectedAgent === agent.name ? 'border-accent-primary bg-[rgba(99,102,241,0.08)]' : 'border-normal hover:bg-[rgba(99,102,241,0.05)]'}`}
             onClick={() => setSelectedAgent(agent.name)}
             role="option"
             aria-selected={selectedAgent === agent.name}
             data-agent-index={index}
           >
-            <div className="font-medium text-[13px]">{agent.name}</div>
-            <div className="text-xs text-secondary mt-0.5">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{agent.description}</ReactMarkdown>
+            <div className="font-semibold text-sm text-primary">{agent.name}</div>
+            <div className="text-xs text-secondary mt-2">
+              <ReactMarkdown components={drawerMarkdownComponents} remarkPlugins={[remarkGfm]}>{agent.description}</ReactMarkdown>
             </div>
           </button>
         ))
@@ -241,9 +364,9 @@ function SkillsTab({ onClose }: SkillsTabProps) {
               className="mt-0.5"
             />
             <div>
-              <div className="font-medium text-[13px]">{skill.name}</div>
-              <div className="text-xs text-secondary mt-0.5">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{skill.description}</ReactMarkdown>
+              <div className="font-semibold text-sm text-primary">{skill.name}</div>
+              <div className="text-xs text-secondary mt-2">
+                <ReactMarkdown components={drawerMarkdownComponents} remarkPlugins={[remarkGfm]}>{skill.description}</ReactMarkdown>
               </div>
             </div>
           </label>
@@ -270,10 +393,12 @@ function ToolsTab({ onClose }: ToolsTabProps) {
         <div className="text-xs text-primary bg-accent-primary border border-accent-primary rounded-[999px] cursor-pointer transition-all duration-200 ease-in-out z-10">No tools available</div>
       ) : (
         tools.map((tool) => (
-          <div key={tool.id} className="flex flex-col gap-[4px]">
-            <div className="font-medium text-[13px]">{tool.id}</div>
+          <div key={tool.id} className="flex flex-col gap-2 p-3 border border-normal rounded-[14px] bg-transparent">
+            <div className="font-semibold text-sm text-primary">{tool.id}</div>
             <div className="text-xs text-secondary mt-0.5">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{tool.description}</ReactMarkdown>
+              <ReactMarkdown components={drawerMarkdownComponents} remarkPlugins={[remarkGfm]}>
+                {tool.description}
+              </ReactMarkdown>
             </div>
           </div>
         ))
