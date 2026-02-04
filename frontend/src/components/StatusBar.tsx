@@ -1,5 +1,4 @@
 import { useMemoryUsage, useModelStatus, useTokenUsage } from '../store'
-import './StatusBar.css'
 
 interface StatusBarProps {
   className?: string
@@ -14,30 +13,30 @@ export function StatusBar({ className = '' }: StatusBarProps) {
   const formattedTokens = `${formatTokens(tokenUsage.total)} / ${tokenUsage.limit ? formatTokens(tokenUsage.limit) : '∞'}`
 
   return (
-    <div className={`statusbar ${className}`}>
-      <div className="statusbar__left">
-        <span className={`statusbar__indicator statusbar__indicator--${modelStatus.connected ? 'connected' : 'disconnected'}`}>
+    <div className={`flex items-center justify-between bg-surface-panel border border-normal rounded-[14px] px-3 py-2 h-9 text-xs flex-shrink-0 ${className}`}>
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex items-center ${modelStatus.connected ? 'text-success' : 'text-tertiary'}`}>
           {modelStatus.connected ? '●' : '○'}
         </span>
-        <span className="statusbar__model">{modelStatus.name}</span>
+        <span className="text-secondary font-medium">{modelStatus.name}</span>
       </div>
 
-      <div className="statusbar__center">
-        <span className="statusbar__info" title="Memory usage">
+      <div className="flex items-center gap-2">
+        <span className="text-secondary" title="Memory usage">
           {formattedMemory}
         </span>
-        <span className="statusbar__divider">|</span>
-        <span className="statusbar__info" title="Token usage">
+        <span className="text-border-normal opacity-50">|</span>
+        <span className="text-secondary" title="Token usage">
           {formattedTokens}
         </span>
       </div>
 
-      <div className="statusbar__right">
-        <span className="statusbar__hint">Ctrl+K</span>
-        <span className="statusbar__divider">|</span>
-        <span className="statusbar__hint">Ctrl+D</span>
-        <span className="statusbar__divider">|</span>
-        <span className="statusbar__hint">Esc</span>
+      <div className="flex items-center gap-2">
+        <span className="text-tertiary">Ctrl+K</span>
+        <span className="text-border-normal opacity-50">|</span>
+        <span className="text-tertiary">Ctrl+D</span>
+        <span className="text-border-normal opacity-50">|</span>
+        <span className="text-tertiary">Esc</span>
       </div>
     </div>
   )

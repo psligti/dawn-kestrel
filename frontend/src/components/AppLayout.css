@@ -106,11 +106,3 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border-normal) var(--surface-raised);
 }
-
-.composer-bar {
-  flex-shrink: 0;
-}
-
-.statusbar {
-  flex-shrink: 0;
-}
