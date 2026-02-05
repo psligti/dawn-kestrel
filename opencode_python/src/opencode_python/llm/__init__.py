@@ -1,8 +1,27 @@
 """OpenCode Python - LLM Module
 
-Simple client for calling LLM providers (z.ai, OpenAI, Anthropic, etc.).
+Provider-agnostic LLM client with retry, timeout, and logging decorators.
+Designed to work with the existing provider system.
 """
 
-from .client import LLMClient
+from .client import (
+    LLMClient,
+    LegacyLLMClient,
+    LLMProviderProtocol,
+    LLMRequestOptions,
+    LLMResponse,
+    with_retry,
+    with_timeout,
+    with_logging,
+)
 
-__all__ = ["LLMClient"]
+__all__ = [
+    "LLMClient",
+    "LegacyLLMClient",
+    "LLMProviderProtocol",
+    "LLMRequestOptions",
+    "LLMResponse",
+    "with_retry",
+    "with_timeout",
+    "with_logging",
+]
