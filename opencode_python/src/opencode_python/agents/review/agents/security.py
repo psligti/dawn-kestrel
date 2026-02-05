@@ -44,7 +44,7 @@ Use this shared behavior:
 You specialize in:
 - secrets handling (keys/tokens/passwords), logging of sensitive data
 - authn/authz, permission checks, RBAC
-- injection risks: SQL injection, command injection, template injection
+- injection risks: SQL injection, command injection, template injection, prompt injection
 - SSRF, unsafe network calls, insecure defaults
 - dependency/supply chain risk signals (new deps, loosened pins)
 - cryptography misuse
@@ -102,6 +102,20 @@ Your agent name is "security"."""
             "**/.gitlab-ci.yml",
         ]
 
+    def get_allowed_tools(self) -> List[str]:
+        """Get allowed tools for security review checks."""
+        return [
+            "git",
+            "grep",
+            "ast-grep",
+            "python",
+            "bandit",
+            "semgrep",
+            "pip-audit",
+            "uv",
+            "poetry",
+        ]
+
     async def review(self, context: ReviewContext) -> ReviewOutput:
         """Perform security review on given context using SimpleReviewAgentRunner.
 
@@ -125,112 +139,30 @@ Your agent name is "security"."""
         logger.info(f"[security]     pr_title: {context.pr_title}")
         logger.info(f"[security]     pr_description: {len(context.pr_description) if context.pr_description else 0} chars")
 
-        relevant_files = []
-        logger.info(f"[security] Checking relevance for {len(context.changed_files)} files against patterns:")
-        for file_path in context.changed_files:
-            matched = self.is_relevant_to_changes([file_path])
-            logger.debug(f"[security]   {file_path}: {'MATCH' if matched else 'NO MATCH'}")
-            if matched:
-                relevant_files.append(file_path)
+        output = await self._execute_review_with_runner(
+            context,
+            early_return_on_no_relevance=True,
+            no_relevance_summary="No security-relevant files changed. Security review not applicable.",
+        )
 
-        logger.info(f"[security] Pattern matching complete: {len(relevant_files)}/{len(context.changed_files)} files relevant")
+        logger.info(f"[security] Parsed ReviewOutput:")
+        logger.info(f"[security]   agent: {output.agent}")
+        logger.info(f"[security]   summary: {output.summary[:100]}{'...' if len(output.summary) > 100 else ''}")
+        logger.info(f"[security]   severity: {output.severity}")
+        logger.info(f"[security]   findings: {len(output.findings)}")
+        logger.info(f"[security]   checks: {len(output.checks)}")
+        logger.info(f"[security]   skips: {len(output.skips)}")
+        logger.info(f"[security]   merge_gate.decision: {output.merge_gate.decision}")
 
-        if not relevant_files:
-            logger.info(f"[security] No relevant files found, returning early with 'merge' severity")
-            return ReviewOutput(
-                agent="security",
-                summary="No security-relevant files changed. Security review not applicable.",
-                severity="merge",
-                scope=Scope(
-                    relevant_files=[],
-                    reasoning="No files matched security review patterns",
-                ),
-                findings=[],
-                merge_gate=MergeGate(
-                    decision="approve",
-                    must_fix=[],
-                    should_fix=[],
-                    notes_for_coding_agent=[
-                        "No security-relevant files were changed.",
-                    ],
-                ),
-            )
+        for i, finding in enumerate(output.findings, 1):
+            logger.info(f"[security]   Finding #{i}: {finding.title}")
+            logger.info(f"[security]     id: {finding.id}")
+            logger.info(f"[security]     severity: {finding.severity}")
+            logger.info(f"[security]     confidence: {finding.confidence}")
+            logger.info(f"[security]     owner: {finding.owner}")
+            logger.info(f"[security]     estimate: {finding.estimate}")
+            logger.debug(f"[security]     evidence: {finding.evidence[:150]}{'...' if len(finding.evidence) > 150 else ''}")
+            logger.debug(f"[security]     recommendation: {finding.recommendation[:150]}{'...' if len(finding.recommendation) > 150 else ''}")
 
-        system_prompt = self.get_system_prompt()
-        formatted_context = self.format_inputs_for_prompt(context)
-
-        user_message = f"""{system_prompt}
-
-{formatted_context}
-
-Please analyze the above changes for security vulnerabilities and provide your review in the specified JSON format."""
-
-        logger.info(f"[security] Prompt construction complete:")
-        logger.info(f"[security]   System prompt: {len(system_prompt)} chars")
-        logger.info(f"[security]   Formatted context: {len(formatted_context)} chars")
-        logger.info(f"[security]   Full user_message: {len(user_message)} chars")
-        logger.info(f"[security]   Relevant files: {len(relevant_files)}")
-        logger.info(f"[security]   Diff: {len(context.diff)} chars")
-
-        runner = SimpleReviewAgentRunner(agent_name="security")
-
-        try:
-            response_text = await runner.run_with_retry(system_prompt, formatted_context)
-
-            logger.info(f"[security] JSON parsing starting:")
-            logger.info(f"[security]   Original response: {len(response_text)} chars")
-            output = ReviewOutput.model_validate_json(response_text)
-            logger.info(f"[security] JSON validation successful!")
-            logger.info(f"[security] Parsed ReviewOutput:")
-            logger.info(f"[security]   agent: {output.agent}")
-            logger.info(f"[security]   summary: {output.summary[:100]}{'...' if len(output.summary) > 100 else ''}")
-            logger.info(f"[security]   severity: {output.severity}")
-            logger.info(f"[security]   findings: {len(output.findings)}")
-            logger.info(f"[security]   checks: {len(output.checks)}")
-            logger.info(f"[security]   skips: {len(output.skips)}")
-            logger.info(f"[security]   merge_gate.decision: {output.merge_gate.decision}")
-
-            for i, finding in enumerate(output.findings, 1):
-                logger.info(f"[security]   Finding #{i}: {finding.title}")
-                logger.info(f"[security]     id: {finding.id}")
-                logger.info(f"[security]     severity: {finding.severity}")
-                logger.info(f"[security]     confidence: {finding.confidence}")
-                logger.info(f"[security]     owner: {finding.owner}")
-                logger.info(f"[security]     estimate: {finding.estimate}")
-                logger.debug(f"[security]     evidence: {finding.evidence[:150]}{'...' if len(finding.evidence) > 150 else ''}")
-                logger.debug(f"[security]     recommendation: {finding.recommendation[:150]}{'...' if len(finding.recommendation) > 150 else ''}")
-
-            logger.info(f"[security] Parsing complete, returning ReviewOutput")
-            logger.info(f"[security] <<< review() returning")
-            return output
-        except pd.ValidationError as e:
-            logger.error(f"[security] JSON validation error:")
-            logger.error(f"[security]   Error: {str(e)}")
-            logger.error(f"[security]   Error count: {len(e.errors())}")
-            for error in e.errors()[:5]:
-                logger.error(f"[security]     - {error['loc']}: {error['msg']}")
-            logger.error(f"[security]   Original response (first 500 chars): {response_text[:500]}...")
-
-            return ReviewOutput(
-                agent=self.get_agent_name(),
-                summary=f"Error parsing LLM response: {str(e)}",
-                severity="critical",
-                scope=Scope(
-                    relevant_files=relevant_files,
-                    ignored_files=[],
-                    reasoning="Failed to parse LLM JSON response due to validation error."
-                ),
-                findings=[],
-                merge_gate=MergeGate(
-                    decision="needs_changes",
-                    must_fix=[],
-                    should_fix=[],
-                    notes_for_coding_agent=[
-                        "Review LLM response format and ensure it matches expected schema."
-                    ]
-                )
-            )
-        except (TimeoutError, ValueError):
-            raise
-        except Exception as e:
-            raise Exception(f"LLM API error: {str(e)}") from e
+        logger.info(f"[security] <<< review() returning")
+        return output

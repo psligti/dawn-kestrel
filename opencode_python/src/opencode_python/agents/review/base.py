@@ -81,13 +81,27 @@ class BaseReviewerAgent(ABC):
 
     @abstractmethod
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform review on the given context.
+        """Perform review on given context.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
             ReviewOutput with findings, severity, and merge gate decision
+        """
+        pass
+
+    @abstractmethod
+    def get_agent_name(self) -> str:
+        """Get agent identifier."""
+        pass
+
+    @abstractmethod
+    def get_system_prompt(self) -> str:
+        """Get system prompt for this reviewer agent.
+
+        Returns:
+            System prompt string for LLM
         """
         pass
 
@@ -106,6 +120,15 @@ class BaseReviewerAgent(ABC):
 
         Returns:
             List of glob patterns (e.g., ["*.py", "src/**/*.py"])
+        """
+        pass
+
+    @abstractmethod
+    def get_allowed_tools(self) -> List[str]:
+        """Get allowed tool/command prefixes for this reviewer.
+
+        Returns:
+            List of command/tool prefixes this reviewer may propose in checks
         """
         pass
 
@@ -382,6 +405,144 @@ class BaseReviewerAgent(ABC):
             "line_numbers": line_numbers,
             "file_path": first_match_file
         }
+
+    async def _execute_review_with_runner(
+        self,
+        context: ReviewContext,
+        *,
+        early_return_on_no_relevance: bool = False,
+        no_relevance_summary: str | None = None,
+    ) -> ReviewOutput:
+        """Shared execution flow for review agents using SimpleReviewAgentRunner.
+
+        This template method centralizes the common pattern used by all review agents:
+        1. Filter relevant files (optional early return)
+        2. Build system prompt and formatted context
+        3. Create SimpleReviewAgentRunner instance
+        4. Execute LLM call with retry
+        5. Parse JSON response with validation fallback
+        6. Handle errors appropriately
+
+        Args:
+            context: ReviewContext containing changed files, diff, and metadata
+            early_return_on_no_relevance: If True, return merge-severity ReviewOutput
+                when no relevant files are found. If False, proceed regardless.
+            no_relevance_summary: Custom summary message for no-relevance case.
+                If None, uses default message.
+
+        Returns:
+            ReviewOutput with findings, severity, and merge gate decision
+
+        Raises:
+            ValueError: If API key is missing or invalid
+            TimeoutError: If LLM request times out
+            Exception: For other API-related errors
+
+        Example:
+            >>> class MyReviewer(BaseReviewerAgent):
+            ...     async def review(self, context: ReviewContext) -> ReviewOutput:
+            ...         return await self._execute_review_with_runner(
+            ...             context,
+            ...             early_return_on_no_relevance=True,
+            ...             no_relevance_summary="No MyReviewer-relevant files changed"
+            ...         )
+        """
+        import logging
+        from opencode_python.core.harness import SimpleReviewAgentRunner
+        from opencode_python.agents.review.contracts import Scope, MergeGate
+
+        logger = logging.getLogger(__name__)
+        class_name = self.__class__.__name__
+
+        relevant_files = [
+            file_path
+            for file_path in context.changed_files
+            if self.is_relevant_to_changes([file_path])
+        ]
+
+        logger.info(f"[{class_name}] Filtering relevant files: {len(relevant_files)}/{len(context.changed_files)} matched")
+
+        if early_return_on_no_relevance and not relevant_files:
+            logger.info(f"[{class_name}] No relevant files found, returning early with 'merge' severity")
+            return ReviewOutput(
+                agent=self.get_agent_name(),
+                summary=no_relevance_summary or f"No {self.get_agent_name()}-relevant files changed. Review not applicable.",
+                severity="merge",
+                scope=Scope(
+                    relevant_files=[],
+                    reasoning="No files matched relevance patterns",
+                ),
+                findings=[],
+                merge_gate=MergeGate(
+                    decision="approve",
+                    must_fix=[],
+                    should_fix=[],
+                    notes_for_coding_agent=[no_relevance_summary or f"No {self.get_agent_name()}-relevant files were changed."],
+                ),
+            )
+
+        system_prompt = self.get_system_prompt()
+        formatted_context = self.format_inputs_for_prompt(context)
+
+        user_message = f"""{system_prompt}
+
+{formatted_context}
+
+Please analyze the above changes and provide your review in the specified JSON format."""
+
+        logger.info(f"[{class_name}] Prompt construction complete:")
+        logger.info(f"[{class_name}]   System prompt: {len(system_prompt)} chars")
+        logger.info(f"[{class_name}]   Formatted context: {len(formatted_context)} chars")
+        logger.info(f"[{class_name}]   Full user_message: {len(user_message)} chars")
+        logger.info(f"[{class_name}]   Relevant files: {len(relevant_files)}")
+
+        runner = SimpleReviewAgentRunner(
+            agent_name=self.get_agent_name(),
+            allowed_tools=self.get_allowed_tools(),
+        )
+
+        try:
+            response_text = await runner.run_with_retry(system_prompt, formatted_context)
+            logger.info(f"[{class_name}] Got response: {len(response_text)} chars")
+
+            output = ReviewOutput.model_validate_json(response_text)
+            logger.info(f"[{class_name}] JSON validation successful!")
+            logger.info(f"[{class_name}]   agent: {output.agent}")
+            logger.info(f"[{class_name}]   severity: {output.severity}")
+            logger.info(f"[{class_name}]   findings: {len(output.findings)}")
+
+            return output
+
+        except pd.ValidationError as e:
+            logger.error(f"[{class_name}] JSON validation error: {e}")
+            logger.error(f"[{class_name}]   Error count: {len(e.errors())}")
+            for error in e.errors()[:5]:
+                logger.error(f"[{class_name}]     - {error['loc']}: {error['msg']}")
+            logger.error(f"[{class_name}]   Original response (first 500 chars): {response_text[:500]}...")
+
+            return ReviewOutput(
+                agent=self.get_agent_name(),
+                summary=f"Error parsing LLM response: {str(e)}",
+                severity="critical",
+                scope=Scope(
+                    relevant_files=relevant_files,
+                    ignored_files=[],
+                    reasoning="Failed to parse LLM JSON response due to validation error."
+                ),
+                findings=[],
+                merge_gate=MergeGate(
+                    decision="needs_changes",
+                    must_fix=[],
+                    should_fix=[],
+                    notes_for_coding_agent=[
+                        "Review LLM response format and ensure it matches expected schema."
+                    ]
+                )
+            )
+        except (TimeoutError, ValueError):
+            raise
+        except Exception as e:
+            raise Exception(f"LLM API error: {str(e)}") from e
 
     def learn_entry_point_pattern(self, pattern: dict) -> bool:
         """Learn a new entry point pattern from PR review.
