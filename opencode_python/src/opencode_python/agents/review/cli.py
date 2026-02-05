@@ -298,6 +298,8 @@ def result_to_markdown(result) -> str:
         md_lines.append("## ⛔ Blocking Issues")
     elif result.merge_decision.decision == "needs_changes":
         md_lines.append("## ⚠️ Required Changes")
+    elif result.merge_decision.decision == "approve_with_warnings":
+        md_lines.append("## ⚠️ Review With Warnings")
 
     for finding in result.findings:
         emoji = "🔴" if finding.severity == "blocking" else "🟠" if finding.severity == "critical" else "🟡"
@@ -343,6 +345,8 @@ def print_terminal_summary(result) -> None:
     """
     if result.merge_decision.decision == "approve":
         console.print("[green]✅ Review: APPROVED for merge[/green]")
+    elif result.merge_decision.decision == "approve_with_warnings":
+        console.print("[yellow]⚠️  Review: APPROVED WITH WARNINGS[/yellow]")
     elif result.merge_decision.decision == "needs_changes":
         console.print("[yellow]⚠️  Review: NEEDS CHANGES[/yellow]")
     else:

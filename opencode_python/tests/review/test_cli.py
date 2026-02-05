@@ -89,6 +89,15 @@ def test_terminal_summary_needs_changes(monkeypatch):
     assert any("NEEDS CHANGES" in msg for msg in console.messages)
 
 
+def test_terminal_summary_approve_with_warnings(monkeypatch):
+    output = _make_output("approve_with_warnings")
+    console = DummyConsole()
+    monkeypatch.setattr(review_cli, "console", console)
+
+    review_cli.print_terminal_summary(output)
+    assert any("APPROVED WITH WARNINGS" in msg for msg in console.messages)
+
+
 def test_result_to_markdown_needs_changes_includes_required_section():
     output = _make_output("needs_changes")
     markdown = review_cli.result_to_markdown(output)
@@ -156,6 +165,29 @@ def test_cli_review_markdown_output(monkeypatch, tmp_path: Path):
 
     assert result.exit_code == 0
     assert any("PR Review Results" in msg for msg in console.messages)
+
+
+def test_cli_review_markdown_output_approve_with_warnings(monkeypatch, tmp_path: Path):
+    output = _make_output("approve_with_warnings")
+    async_mock = AsyncMock(return_value=output)
+
+    def fake_orchestrator(*args, **kwargs):
+        return type("O", (), {"run_review": async_mock})()
+
+    monkeypatch.setattr(review_cli, "PRReviewOrchestrator", fake_orchestrator)
+    monkeypatch.setattr(review_cli, "get_subagents", lambda include_optional=False: [])
+    console = DummyConsole()
+    monkeypatch.setattr(review_cli, "console", console)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        review_cli.review,
+        ["--repo-root", str(tmp_path), "--output", "markdown"],
+    )
+
+    assert result.exit_code == 0
+    assert any("PR Review Results" in msg for msg in console.messages)
+    assert any("Review With Warnings" in msg for msg in console.messages)
 
 
 def test_cli_review_terminal_output_streams_progress(monkeypatch, tmp_path: Path):
