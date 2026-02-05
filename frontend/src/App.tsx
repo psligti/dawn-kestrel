@@ -9,6 +9,7 @@ import { useModels } from './hooks/useModels'
 import { useAccounts } from './hooks/useAccounts'
 import { useMessages } from './hooks/useMessages'
 import { useSessionThemeStream } from './hooks/useSessionThemeStream'
+import { useSessionTelemetryStream } from './hooks/useSessionTelemetryStream'
 import { useSelectedAgent, useSelectedAccount, useSelectedModel, useSetSelectedAgent, useSetSelectedAccount, useSetSelectedModel } from './store'
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
   const [sessionsLoaded, setSessionsLoaded] = useState(false)
 
   useSessionThemeStream({ sessionId: currentSession?.id || '' })
+  useSessionTelemetryStream({ sessionId: currentSession?.id || '' })
 
   useEffect(() => {
     let isMounted = true
