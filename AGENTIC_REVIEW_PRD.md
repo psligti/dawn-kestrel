@@ -114,6 +114,60 @@ The orchestration process may provide any subset of:
 - Else if any returns `warning` → final `warning` / `approve_with_warnings`
 - Else → final `merge` / `approve`
 
+### Decision taxonomy
+
+Each merge decision type has specific meaning and implications:
+
+| Decision | Severity Threshold | What It Means | Must Fix List | Should Fix List | Merge Allowed? |
+|----------|-------------------|---------------|---------------|-----------------|----------------|
+| `approve` | All `merge` severity | No concerns from any subagent | Empty | Empty | ✅ Yes |
+| `approve_with_warnings` | Any `warning` severity (no critical/blocking) | Concerns exist but don't block merge | Empty | Contains warning items | ✅ Yes (with review) |
+| `needs_changes` | Any `critical` severity (or blocking) | Significant issues require fixing | Contains critical items | Contains critical + warning items | ❌ No (until fixed) |
+| `block` | Any `blocking` severity | Must not merge; clear defect/security break | Contains blocking items | Contains blocking + critical items | ❌ No (blocking) |
+
+#### What "warnings" mean for merge gating
+- **Warning severity findings** are non-blocking concerns identified by subagents
+- They represent:
+  - Minor code style or formatting issues
+  - Suggestions for improvements
+  - Low-risk technical debt
+  - Missing documentation or examples
+  - Items that should be reviewed but don't prevent merging
+- When `approve_with_warnings` is chosen:
+  - PR can be merged with review noted
+  - Warning items go into `should_fix` (not `must_fix`)
+  - Reviewer is encouraged to address warnings but merge is allowed
+
+#### Distinction: `approve_with_warnings` vs `needs_changes`
+
+**approve_with_warnings**:
+- Only contains `warning` severity findings
+- All findings are non-blocking
+- `must_fix` list is empty
+- `should_fix` list contains warning items
+
+**needs_changes**:
+- Contains at least one `critical` severity finding
+- May also contain `warning` items (go into `should_fix`)
+- `must_fix` list contains critical items
+- `should_fix` list contains critical + warning items
+- Merge blocked until critical items are addressed
+
+**Routing rule summary**:
+```
+IF blocking severity found:
+  → decision = block (highest priority)
+
+ELSE IF critical severity found:
+  → decision = needs_changes
+
+ELSE IF warning severity found:
+  → decision = approve_with_warnings
+
+ELSE (no concerns):
+  → decision = approve
+```
+
 ---
 
 ## 8) Agent Output Contract (Shared Contract)
@@ -162,12 +216,12 @@ The orchestration process may provide any subset of:
       "suggested_patch": "<optional: minimal patch instructions or pseudo-diff>"
     }
   ],
-  "merge_gate": {
-    "decision": "approve|needs_changes|block",
-    "must_fix": ["<finding id>", "..."],
-    "should_fix": ["<finding id>", "..."],
-    "notes_for_coding_agent": ["<bullet>", "..."]
-  }
+   "merge_gate": {
+     "decision": "approve|approve_with_warnings|needs_changes|block",
+     "must_fix": ["<finding id>", "..."],
+     "should_fix": ["<finding id>", "..."],
+     "notes_for_coding_agent": ["<bullet>", "..."]
+   }
 }
 ~~~
 
@@ -267,7 +321,7 @@ Output MUST be valid JSON only with this schema:
     "recommendation": "...",
     "suggested_patch": "..."
   }],
-  "merge_gate": { "decision": "approve|needs_changes|block", "must_fix": [], "should_fix": [], "notes_for_coding_agent": [] }
+   "merge_gate": { "decision": "approve|approve_with_warnings|needs_changes|block", "must_fix": [], "should_fix": [], "notes_for_coding_agent": [] }
 }
 
 Rules:
