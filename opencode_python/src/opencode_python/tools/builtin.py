@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from pydantic import BaseModel, Field
 
@@ -347,6 +347,93 @@ class GlobTool(Tool):
             logger.error(f"Glob tool failed: {e}")
             return ToolResult(
                 title=f"Error finding: {pattern}",
+                output=str(e),
+                metadata={"error": str(e)},
+            )
+
+
+class ASTGrepToolArgs(BaseModel):
+    """Arguments for AST Grep tool"""
+    pattern: str = Field(description="AST pattern to search")
+    language: str = Field(default="python", description="Language (python, javascript, typescript, etc.)")
+    paths: Optional[List[str]] = Field(default=None, description="Specific file paths to search")
+
+
+class ASTGrepTool(Tool):
+    """Search code using AST patterns via ast-grep"""
+
+    id = "ast_grep_search"
+    description = "Search code using AST patterns (ast-grep) for structural code matching"
+
+    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+        """Search for AST patterns in code
+
+        Args:
+            args: Raw tool arguments (will be validated)
+            ctx: Tool execution context
+
+        Returns:
+            ToolResult with search results in format: file_path:line_number:code
+        """
+        # Validate args using Pydantic model
+        validated = ASTGrepToolArgs(**args)
+        pattern = validated.pattern
+        language = validated.language
+        paths = validated.paths
+
+        if not pattern:
+            return ToolResult(
+                title="No pattern",
+                output="",
+                metadata={"error": "Pattern is required"},
+            )
+
+        logger.info(f"AST grep searching: {pattern} ({language})")
+
+        try:
+            cmd = ["ast-grep", "run", "--pattern", pattern, "--lang", language]
+            if paths:
+                cmd.extend(paths)
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+
+            if result.returncode != 0 and result.stderr:
+                # Non-zero exit could be "no matches", so check for actual errors
+                if "error" in result.stderr.lower() or "not found" in result.stderr.lower():
+                    logger.warning(f"AST grep tool issue: {result.stderr}")
+
+            output = result.stdout.strip()
+
+            return ToolResult(
+                title=f"AST Grep: {pattern}",
+                output=output,
+                metadata={"language": language, "matches": len(output.split("\n")) if output else 0},
+            )
+
+        except subprocess.TimeoutExpired:
+            logger.warning(f"AST grep search timed out: {pattern}")
+            return ToolResult(
+                title=f"AST Grep timeout: {pattern}",
+                output="",
+                metadata={"error": "timeout"},
+            )
+        except FileNotFoundError:
+            logger.warning("ast-grep tool not found")
+            return ToolResult(
+                title="AST Grep not available",
+                output="ast-grep tool not found in PATH",
+                metadata={"error": "tool_not_found"},
+            )
+        except Exception as e:
+            logger.error(f"AST grep tool failed: {e}")
+            return ToolResult(
+                title=f"Error in AST grep: {pattern}",
                 output=str(e),
                 metadata={"error": str(e)},
             )

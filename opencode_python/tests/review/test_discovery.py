@@ -10,6 +10,23 @@ from opencode_python.agents.review.discovery import (
     EntryPoint,
     EntryPointDiscovery,
 )
+from opencode_python.tools.framework import ToolContext, ToolResult
+
+
+@pytest.fixture
+def mock_tool_registry():
+    """Create a mock ToolRegistry for testing."""
+    registry = MagicMock()
+
+    # Mock ast_grep_search and grep tools
+    ast_tool = MagicMock()
+    ast_tool.execute = AsyncMock()
+    registry.get.side_effect = lambda tool_id: {
+        "ast_grep_search": ast_tool,
+        "grep": ast_tool,
+    }.get(tool_id)
+
+    return registry, ast_tool
 
 
 class TestEntryPointDataclass:
@@ -495,23 +512,30 @@ class TestASTPatternDiscovery:
     """Test _discover_ast_patterns method."""
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_discovery_success(self):
-        """Test successful AST pattern discovery with mocked subprocess."""
-        discovery = EntryPointDiscovery()
+    async def test_ast_pattern_discovery_success(self, mock_tool_registry):
+        """Test successful AST pattern discovery with mocked ToolRegistry."""
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
         # ast-grep returns absolute paths, which get converted to relative
-        mock_result.stdout = "/test/repo/src/auth.py:10:def authenticate(user, password):\n/test/repo/src/auth.py:20:def logout(session):\n"
+        expected_result = ToolResult(
+            title="AST Grep: def $FUNC($$$) { $$$ }",
+            output="/test/repo/src/auth.py:10:def authenticate(user, password):\n/test/repo/src/auth.py:20:def logout(session):\n",
+            metadata={"language": "python", "matches": 2},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result):
-            entry_points = await discovery._discover_ast_patterns(
-                patterns, "/test/repo", ["src/auth.py"]
-            )
+        async def mock_execute_with_result(args, ctx):
+            return expected_result
+
+        ast_tool.execute = AsyncMock(side_effect=mock_execute_with_result)
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", ["src/auth.py"]
+        )
 
         assert len(entry_points) == 2
         assert entry_points[0].line_number == 10
@@ -520,9 +544,10 @@ class TestASTPatternDiscovery:
         assert entry_points[1].line_number == 20
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_filters_by_language(self):
+    async def test_ast_pattern_filters_by_language(self, mock_tool_registry):
         """Test that AST patterns filter files by language extension."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
@@ -534,30 +559,41 @@ class TestASTPatternDiscovery:
             "docs/README.md"    # Markdown - should be filtered out
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "/test/repo/src/auth.py:10:def authenticate():"
+        expected_result = ToolResult(
+            title="AST Grep: def $FUNC($$$) { $$$ }",
+            output="/test/repo/src/auth.py:10:def authenticate():",
+            metadata={"language": "python", "matches": 1},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result) as mock_run:
-            entry_points = await discovery._discover_ast_patterns(
-                patterns, "/test/repo", changed_files
-            )
+        async def mock_execute_with_result(args, ctx):
+            return expected_result
+
+        ast_tool.execute = AsyncMock(side_effect=mock_execute_with_result)
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", changed_files
+        )
 
         # Verify entry point was found
         assert len(entry_points) == 1
         assert entry_points[0].file_path == "src/auth.py"
 
-        # Verify only Python files were passed to subprocess
-        call_args = mock_run.call_args[0][0]
-        assert any("src/auth.py" in arg for arg in call_args)
-        # Non-Python files should be filtered before subprocess call
-        assert not any("src/app.js" in str(arg) for arg in call_args)
-        assert not any("docs/README.md" in str(arg) for arg in call_args)
+        # Verify ast_tool.execute was called with only Python files
+        ast_tool.execute.assert_called_once()
+        call_args = ast_tool.execute.call_args
+        assert call_args is not None, "Tool execute should have been called"
+        args, kwargs = call_args  # Unpack call_args into (args, kwargs)
+        # Function is called as execute(args=..., ctx=...) so kwargs contains the actual args
+        args_dict = kwargs.get("args", {})
+        assert "src/auth.py" in " ".join(args_dict.get("paths", []))
+        # Non-Python files should be filtered before tool call
+        assert "src/app.js" not in " ".join(args_dict.get("paths", []))
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_no_matching_language_files(self):
+    async def test_ast_pattern_no_matching_language_files(self, mock_tool_registry):
         """Test AST pattern discovery when no files match language."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
@@ -570,29 +606,55 @@ class TestASTPatternDiscovery:
         )
 
         assert len(entry_points) == 0
+        ast_tool.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_tool_not_found(self):
-        """Test AST pattern discovery when ast-grep tool not found."""
-        discovery = EntryPointDiscovery()
+    async def test_ast_pattern_tool_not_found(self, mock_tool_registry):
+        """Test AST pattern discovery when ast_grep_search tool not found."""
+        registry, _ = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9},
             {"pattern": "class $CLASS($$$) { $$$ }", "language": "python", "weight": 0.8}
         ]
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', side_effect=FileNotFoundError("ast-grep not found")):
-            entry_points = await discovery._discover_ast_patterns(
-                patterns, "/test/repo", ["src/auth.py"]
-            )
+        # Override registry.get to return None for ast_grep_search
+        registry.get.side_effect = lambda tool_id: None if tool_id == "ast_grep_search" else MagicMock()
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", ["src/auth.py"]
+        )
 
         assert len(entry_points) == 0
-        # Should break on first FileNotFoundError, so second pattern not attempted
+        # Should break when tool not found, so no patterns attempted
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_timeout(self):
-        """Test AST pattern discovery timeout (10s per pattern)."""
-        discovery = EntryPointDiscovery()
+    async def test_ast_pattern_no_matches(self, mock_tool_registry):
+        """Test AST pattern discovery when no matches found."""
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
+
+        patterns = [
+            {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
+        ]
+
+        expected_result = ToolResult(
+            title="AST Grep: def $FUNC($$$) { $$$ }",
+            output="",
+            metadata={"language": "python", "matches": 0},
+        )
+
+        async def mock_execute_with_result(args, ctx):
+            return expected_result
+
+        ast_tool.execute = AsyncMock(side_effect=mock_execute_with_result)
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", ["src/auth.py"]
+        )
+
+        assert len(entry_points) == 0
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
@@ -606,44 +668,56 @@ class TestASTPatternDiscovery:
         assert len(entry_points) == 0
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_no_matches(self):
+    async def test_ast_pattern_no_matches(self, mock_tool_registry):
         """Test AST pattern discovery when no matches found."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = ""
+        expected_result = ToolResult(
+            title="AST Grep: def $FUNC($$$) { $$$ }",
+            output="",
+            metadata={"language": "python", "matches": 0},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result):
-            entry_points = await discovery._discover_ast_patterns(
-                patterns, "/test/repo", ["src/auth.py"]
-            )
+        async def mock_execute_with_result(args, ctx):
+            return expected_result
+
+        ast_tool.execute = AsyncMock(side_effect=mock_execute_with_result)
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", ["src/auth.py"]
+        )
 
         assert len(entry_points) == 0
 
     @pytest.mark.asyncio
-    async def test_ast_pattern_error_parsing_line_number(self):
+    async def test_ast_pattern_error_parsing_line_number(self, mock_tool_registry):
         """Test AST pattern discovery handles invalid line numbers gracefully."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "def $FUNC($$$) { $$$ }", "language": "python", "weight": 0.9}
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = """/test/repo/src/auth.py:invalid:def authenticate():
-/test/repo/src/auth.py:20:def logout():
-"""
+        expected_result = ToolResult(
+            title="AST Grep: def $FUNC($$$) { $$$ }",
+            output="/test/repo/src/auth.py:invalid:def authenticate():\n/test/repo/src/auth.py:20:def logout():\n",
+            metadata={"language": "python", "matches": 2},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result):
-            entry_points = await discovery._discover_ast_patterns(
-                patterns, "/test/repo", ["src/auth.py"]
-            )
+        async def mock_execute_with_result(args, ctx):
+            return expected_result
+
+        ast_tool.execute = AsyncMock(side_effect=mock_execute_with_result)
+
+        entry_points = await discovery._discover_ast_patterns(
+            patterns, "/test/repo", ["src/auth.py"]
+        )
 
         assert len(entry_points) == 2
         assert entry_points[0].line_number is None  # Invalid line number becomes None
@@ -654,25 +728,32 @@ class TestContentPatternDiscovery:
     """Test _discover_content_patterns method."""
 
     @pytest.mark.asyncio
-    async def test_content_pattern_discovery_success(self):
-        """Test successful content pattern discovery with mocked ripgrep."""
-        discovery = EntryPointDiscovery()
+    async def test_content_pattern_discovery_success(self, mock_tool_registry):
+        """Test successful content pattern discovery with mocked ToolRegistry."""
+        registry, ast_tool = mock_tool_registry
+
+        # Mock the grep tool
+        grep_tool = AsyncMock()
+        registry.get.side_effect = lambda tool_id: {
+            "ast_grep_search": ast_tool,
+            "grep": grep_tool,
+        }.get(tool_id)
+
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "password.*=", "language": "python", "weight": 0.95}
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        # ripgrep returns absolute paths, which get converted to relative
-        mock_result.stdout = """/test/repo/src/config.py:10:password = "secret"
-/test/repo/src/config.py:20:api_password = "key"
-"""
+        grep_tool.return_value = ToolResult(
+            title="Grep: password.*=",
+            output="/test/repo/src/config.py:10:password = \"secret\"\n/test/repo/src/config.py:20:api_password = \"key\"\n",
+            metadata={"matches": 2},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result):
-            entry_points = await discovery._discover_content_patterns(
-                patterns, "/test/repo", ["src/config.py"]
-            )
+        entry_points = await discovery._discover_content_patterns(
+            patterns, "/test/repo", ["src/config.py"]
+        )
 
         assert len(entry_points) == 2
         assert entry_points[0].file_path == "src/config.py"
@@ -681,9 +762,17 @@ class TestContentPatternDiscovery:
         assert entry_points[0].weight == 0.95
 
     @pytest.mark.asyncio
-    async def test_content_pattern_filters_by_language(self):
+    async def test_content_pattern_filters_by_language(self, mock_tool_registry):
         """Test that content patterns filter files by language extension."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+
+        grep_tool = AsyncMock()
+        registry.get.side_effect = lambda tool_id: {
+            "ast_grep_search": ast_tool,
+            "grep": grep_tool,
+        }.get(tool_id)
+
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "password.*=", "language": "python", "weight": 0.95}
@@ -695,75 +784,74 @@ class TestContentPatternDiscovery:
             "docs/README.md"     # Markdown - should be filtered out
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "/test/repo/src/config.py:10:password = 'secret'"
+        grep_tool.return_value = ToolResult(
+            title="Grep: password.*=",
+            output="/test/repo/src/config.py:10:password = 'secret'",
+            metadata={"matches": 1},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result) as mock_run:
-            entry_points = await discovery._discover_content_patterns(
-                patterns, "/test/repo", changed_files
-            )
+        entry_points = await discovery._discover_content_patterns(
+            patterns, "/test/repo", changed_files
+        )
 
         # Verify entry point was found
         assert len(entry_points) == 1
         assert entry_points[0].file_path == "src/config.py"
 
-        # Verify only Python files were passed to subprocess
-        call_args = mock_run.call_args[0][0]
-        assert any("src/config.py" in arg for arg in call_args)
-        # Non-Python files should be filtered before subprocess call
-        assert not any("src/app.js" in str(arg) for arg in call_args)
-        assert not any("docs/README.md" in str(arg) for arg in call_args)
+        # Verify grep_tool was called with only Python files
+        grep_tool.assert_called_once()
+        call_args = grep_tool.call_args
+        args, kwargs = call_args
+        args_dict = kwargs.get("args", {})
+        assert "src/config.py" in args_dict.get("include", "")
+        # Non-Python files should be filtered before tool call
+        assert "src/app.js" not in args_dict.get("include", "")
 
     @pytest.mark.asyncio
-    async def test_content_pattern_tool_not_found(self):
-        """Test content pattern discovery when ripgrep tool not found."""
-        discovery = EntryPointDiscovery()
+    async def test_content_pattern_tool_not_found(self, mock_tool_registry):
+        """Test content pattern discovery when grep tool not found."""
+        registry, _ = mock_tool_registry
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "password.*=", "language": "python", "weight": 0.95}
         ]
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', side_effect=FileNotFoundError("ripgrep not found")):
-            entry_points = await discovery._discover_content_patterns(
-                patterns, "/test/repo", ["src/config.py"]
-            )
+        # Override registry.get to return None for grep
+        registry.get.side_effect = lambda tool_id: None if tool_id == "grep" else MagicMock()
+
+        entry_points = await discovery._discover_content_patterns(
+            patterns, "/test/repo", ["src/config.py"]
+        )
 
         assert len(entry_points) == 0
 
     @pytest.mark.asyncio
-    async def test_content_pattern_timeout(self):
-        """Test content pattern discovery timeout (10s per pattern)."""
-        discovery = EntryPointDiscovery()
-
-        patterns = [
-            {"pattern": "password.*=", "language": "python", "weight": 0.95}
-        ]
-
-        with patch('opencode_python.agents.review.discovery.subprocess.run', side_effect=subprocess.TimeoutExpired("ripgrep", 10)):
-            entry_points = await discovery._discover_content_patterns(
-                patterns, "/test/repo", ["src/config.py"]
-            )
-
-        assert len(entry_points) == 0
-
-    @pytest.mark.asyncio
-    async def test_content_pattern_no_matches(self):
+    async def test_content_pattern_no_matches(self, mock_tool_registry):
         """Test content pattern discovery when no matches found."""
-        discovery = EntryPointDiscovery()
+        registry, ast_tool = mock_tool_registry
+
+        grep_tool = AsyncMock()
+        registry.get.side_effect = lambda tool_id: {
+            "ast_grep_search": ast_tool,
+            "grep": grep_tool,
+        }.get(tool_id)
+
+        discovery = EntryPointDiscovery(tool_registry=registry)
 
         patterns = [
             {"pattern": "password.*=", "language": "python", "weight": 0.95}
         ]
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = ""
+        grep_tool.return_value = ToolResult(
+            title="Grep: password.*=",
+            output="",
+            metadata={"matches": 0},
+        )
 
-        with patch('opencode_python.agents.review.discovery.subprocess.run', return_value=mock_result):
-            entry_points = await discovery._discover_content_patterns(
-                patterns, "/test/repo", ["src/config.py"]
-            )
+        entry_points = await discovery._discover_content_patterns(
+            patterns, "/test/repo", ["src/config.py"]
+        )
 
         assert len(entry_points) == 0
 

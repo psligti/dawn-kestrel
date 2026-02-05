@@ -13,11 +13,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import time
+
+from opencode_python.tools.framework import ToolRegistry, ToolContext, ToolResult
 
 
 logger = logging.getLogger(__name__)
@@ -79,13 +80,15 @@ class EntryPointDiscovery:
     DISCOVERY_TIMEOUT = 30
     MAX_ENTRY_POINTS = 50
 
-    def __init__(self, timeout_seconds: int = DISCOVERY_TIMEOUT):
+    def __init__(self, timeout_seconds: int = DISCOVERY_TIMEOUT, tool_registry: Optional[ToolRegistry] = None):
         """Initialize entry point discovery.
 
         Args:
             timeout_seconds: Timeout for discovery operations (default: 30s)
+            tool_registry: ToolRegistry for executing tools (optional, creates builtin if not provided)
         """
         self.timeout_seconds = timeout_seconds
+        self.tool_registry = tool_registry or ToolRegistry()
 
     async def discover_entry_points(
         self,
@@ -407,17 +410,33 @@ class EntryPointDiscovery:
 
                 full_paths = [str(Path(repo_root) / f) for f in lang_files]
 
-                result = subprocess.run(
-                    ["ast-grep", "run", "--pattern", pattern, "--lang", language] + full_paths,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=repo_root,
-                    timeout=10,
+                # Use ToolRegistry to execute ast_grep_search tool
+                tool = self.tool_registry.get("ast_grep_search")
+                if not tool:
+                    logger.warning("ast_grep_search tool not found in registry, skipping AST pattern discovery")
+                    break
+
+                # Create minimal ToolContext for tool execution
+                ctx = ToolContext(
+                    session_id="discovery",
+                    message_id="discovery",
+                    agent="discovery",
+                    abort=asyncio.Event(),
+                    messages=[],
                 )
 
-                if result.returncode == 0:
-                    for line in result.stdout.split("\n"):
+                result = await tool.execute(
+                    args={
+                        "pattern": pattern,
+                        "language": language,
+                        "paths": full_paths,
+                    },
+                    ctx=ctx,
+                )
+
+                # Parse tool output
+                if result.output:
+                    for line in result.output.split("\n"):
                         if not line.strip():
                             continue
 
@@ -447,11 +466,6 @@ class EntryPointDiscovery:
                             )
                             entry_points.append(entry_point)
 
-            except subprocess.TimeoutExpired:
-                logger.warning(f"AST pattern search timed out: {pattern}")
-            except FileNotFoundError:
-                logger.warning(f"ast-grep tool not found, skipping AST pattern discovery")
-                break
             except Exception as e:
                 logger.warning(f"AST pattern search failed: {pattern} - {e}")
 
@@ -508,17 +522,36 @@ class EntryPointDiscovery:
 
                 full_paths = [str(Path(repo_root) / f) for f in lang_files]
 
-                result = subprocess.run(
-                    ["rg", "-n", pattern] + full_paths,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    cwd=repo_root,
-                    timeout=10,
+                # Use ToolRegistry to execute grep tool
+                tool = self.tool_registry.get("grep")
+                if not tool:
+                    logger.warning("grep tool not found in registry, skipping content pattern discovery")
+                    break
+
+                # Create minimal ToolContext for tool execution
+                ctx = ToolContext(
+                    session_id="discovery",
+                    message_id="discovery",
+                    agent="discovery",
+                    abort=asyncio.Event(),
+                    messages=[],
                 )
 
-                if result.returncode == 0:
-                    for line in result.stdout.split("\n"):
+                # Build file pattern from full paths
+                file_pattern = " ".join(full_paths)
+
+                result = await tool.execute(
+                    args={
+                        "pattern": pattern,
+                        "include": file_pattern,
+                        "max_results": 1000,  # High limit to get all matches
+                    },
+                    ctx=ctx,
+                )
+
+                # Parse tool output
+                if result.output:
+                    for line in result.output.split("\n"):
                         if not line.strip():
                             continue
 
@@ -548,11 +581,6 @@ class EntryPointDiscovery:
                             )
                             entry_points.append(entry_point)
 
-            except subprocess.TimeoutExpired:
-                logger.warning(f"Content pattern search timed out: {pattern}")
-            except FileNotFoundError:
-                logger.warning(f"ripgrep tool not found, skipping content pattern discovery")
-                break
             except Exception as e:
                 logger.warning(f"Content pattern search failed: {pattern} - {e}")
 

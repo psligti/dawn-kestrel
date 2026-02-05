@@ -13,7 +13,8 @@ from .builtin import (
     ReadTool,
     WriteTool,
     GrepTool,
-    GlobTool
+    GlobTool,
+    ASTGrepTool
 )
 from .additional import (
     EditTool,
@@ -46,6 +47,7 @@ async def create_complete_registry() -> ToolRegistry:
         {"id": "write", "tool": WriteTool()},
         {"id": "grep", "tool": GrepTool()},
         {"id": "glob", "tool": GlobTool()},
+        {"id": "ast_grep_search", "tool": ASTGrepTool()},
         {"id": "edit", "tool": EditTool()},
         {"id": "list", "tool": ListTool()},
         {"id": "task", "tool": TaskTool()},
@@ -79,12 +81,12 @@ async def get_all_tools() -> Dict[str, "Tool"]:
 
 
 async def get_builtin_tools() -> Dict[str, "Tool"]:
-    """Get only built-in tools (bash, read, write, grep, glob)
+    """Get only built-in tools (bash, read, write, grep, glob, ast_grep_search)
 
     Returns:
         Dictionary of built-in tool instances keyed by tool ID
     """
-    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool
+    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
 
     builtin_tools = {
         "bash": BashTool(),
@@ -92,6 +94,7 @@ async def get_builtin_tools() -> Dict[str, "Tool"]:
         "write": WriteTool(),
         "grep": GrepTool(),
         "glob": GlobTool(),
+        "ast_grep_search": ASTGrepTool(),
     }
 
     return builtin_tools
@@ -101,9 +104,9 @@ def create_builtin_registry() -> ToolRegistry:
     """Create tool registry with only built-in tools (synchronous)
 
     Returns:
-        ToolRegistry populated with built-in tools (bash, read, write, grep, glob)
+        ToolRegistry populated with built-in tools (bash, read, write, grep, glob, ast_grep_search)
     """
-    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool
+    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
 
     registry = ToolRegistry()
     builtin_tools = [
@@ -112,6 +115,7 @@ def create_builtin_registry() -> ToolRegistry:
         ("write", WriteTool()),
         ("grep", GrepTool()),
         ("glob", GlobTool()),
+        ("ast_grep_search", ASTGrepTool()),
     ]
 
     for tool_id, tool in builtin_tools:
@@ -130,6 +134,7 @@ __all__ = [
     "WriteTool",
     "GrepTool",
     "GlobTool",
+    "ASTGrepTool",
     # Additional tools
     "EditTool",
     "ListTool",
