@@ -1,0 +1,24 @@
+{
+  "agent": "security",
+  "summary": "No security issues found in reviewed files",
+  "severity": "merge",
+  "scope": {
+    "relevant_files": [
+      "src/auth.py",
+      "src/api/routes.py"
+    ],
+    "ignored_files": [],
+    "reasoning": "Reviewed authentication and API route files for common security vulnerabilities"
+  },
+  "checks": [],
+  "skips": [],
+  "findings": [],
+  "merge_gate": {
+    "decision": "approve",
+    "must_fix": [],
+    "should_fix": [],
+    "notes_for_coding_agent": [
+      "Security review completed successfully"
+    ]
+  }
+}

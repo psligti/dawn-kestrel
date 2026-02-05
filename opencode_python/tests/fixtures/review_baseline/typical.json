@@ -1,0 +1,51 @@
+{
+  "agent": "security",
+  "summary": "Found potential credential exposure in config file",
+  "severity": "blocking",
+  "scope": {
+    "relevant_files": [
+      "config/secrets.yaml"
+    ],
+    "ignored_files": [],
+    "reasoning": "Detected what appears to be a hardcoded API key in the configuration file"
+  },
+  "checks": [
+    {
+      "name": "Check for hardcoded secrets",
+      "required": true,
+      "commands": [
+        "grep -r 'sk_live\\|sk_test\\|AKIA\\|secret_key' . --include='*.py' --include='*.yaml' --include='*.env'"
+      ],
+      "why": "Security check for common credential patterns",
+      "expected_signal": "No matches found"
+    }
+  ],
+  "skips": [],
+  "findings": [
+    {
+      "id": "SEC-001",
+      "title": "Hardcoded API key in config",
+      "severity": "blocking",
+      "confidence": "high",
+      "owner": "security",
+      "estimate": "S",
+      "evidence": "Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'",
+      "risk": "Secret exposed in version control and production",
+      "recommendation": "Remove the hardcoded key and load it from a secure environment variable or secret manager",
+      "suggested_patch": "Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')"
+    }
+  ],
+  "merge_gate": {
+    "decision": "block",
+    "must_fix": [
+      "Remove hardcoded AWS_ACCESS_KEY from config/secrets.yaml"
+    ],
+    "should_fix": [
+      "Add secrets validation during deployment"
+    ],
+    "notes_for_coding_agent": [
+      "CRITICAL: Remove hardcoded AWS credentials immediately",
+      "Rotate any existing keys that may have been exposed"
+    ]
+  }
+}

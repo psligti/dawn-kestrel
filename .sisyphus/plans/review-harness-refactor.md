@@ -153,9 +153,9 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - `opencode_python/pyproject.toml` - pytest config and testpaths
 
   **Acceptance Criteria**:
-  - [ ] `pytest tests/review/test_parity_baseline.py` → PASS
-  - [ ] Baseline JSON fixture saved under `tests/fixtures/review_baseline/*.json`
-  - [ ] Schema validation test ensures output matches `ReviewOutput`
+  - [x] `pytest tests/review/test_parity_baseline.py` → PASS
+  - [x] Baseline JSON fixture saved under `tests/fixtures/review_baseline/*.json`
+  - [x] Schema validation test ensures output matches `ReviewOutput`
 
   **Agent-Executed QA Scenarios**:
   - Scenario: Baseline output validation
@@ -188,8 +188,8 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - `opencode_python/src/opencode_python/agents/review/agents/security.py` - duplicated LLM flow
 
   **Acceptance Criteria**:
-  - [ ] Unit tests for LLM client pass
-  - [ ] No change to current review outputs (baseline parity holds)
+  - [x] Unit tests for LLM client pass
+  - [x] No change to current review outputs (baseline parity holds)
 
   **QA Scenario**:
   - Run `pytest tests/llm/test_client.py`
@@ -212,8 +212,8 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - `opencode_python/src/opencode_python/agents/review/base.py`
 
   **Acceptance Criteria**:
-  - [ ] New runner unit tests pass
-  - [ ] Runner produces identical output for baseline fixture
+  - [x] New runner unit tests pass
+  - [x] Runner produces identical output for baseline fixture
 
 ---
 
@@ -229,8 +229,8 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - `opencode_python/src/opencode_python/agents/review/contracts.py`
 
   **Acceptance Criteria**:
-  - [ ] All review agents use AgentRunner
-  - [ ] Baseline parity test still passes
+  - [x] All review agents use AgentRunner
+  - [x] Baseline parity test still passes
 
 ---
 
@@ -246,8 +246,8 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - README loop FSM section
 
   **Acceptance Criteria**:
-  - [ ] Budget enforcement tests pass
-  - [ ] Aggregator dedupe yields same output as previous orchestrator
+  - [x] Budget enforcement tests pass
+  - [x] Aggregator dedupe yields same output as previous orchestrator
 
 ---
 
@@ -262,20 +262,20 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
   - `opencode_python/src/opencode_python/tools/framework.py`
 
   **Acceptance Criteria**:
-  - [ ] Discovery tests pass with tool-based implementation
-  - [ ] Fallback behavior unchanged
+  - [x] Discovery tests pass with tool-based implementation
+  - [x] Fallback behavior unchanged
 
 ---
 
-- [ ] 7. Parity verification + CLI compatibility checks
+- [x] 7. Parity verification + CLI compatibility checks
 
   **What to do**:
   - Add tests to compare new outputs vs baseline fixtures
   - Verify CLI entrypoints still work
 
   **Acceptance Criteria**:
-  - [ ] `pytest tests/review/test_parity_baseline.py` → PASS
-  - [ ] `opencode-review --help` exit code 0
+  - [x] `pytest tests/review/test_parity_baseline.py` → PASS
+  - [x] `opencode-review --help` exit code 0
 
 ---
 
@@ -302,8 +302,8 @@ opencode-review --help
 ```
 
 ### Final Checklist
-- [ ] All baseline parity tests pass
-- [ ] Review outputs conform to schema
-- [ ] CLI entrypoints unchanged
-- [ ] FSM/budgets enforced when enabled
-- [ ] Frequent parent merges incorporated during execution
+- [x] All baseline parity tests pass
+- [x] Review outputs conform to schema
+- [x] CLI entrypoints unchanged
+- [x] FSM/budgets enforced when enabled
+- [x] Frequent parent merges incorporated during execution
