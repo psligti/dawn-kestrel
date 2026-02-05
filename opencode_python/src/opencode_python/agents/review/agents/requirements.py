@@ -5,10 +5,6 @@ import pydantic as pd
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import ReviewOutput, Scope, MergeGate
-from opencode_python.ai_session import AISession
-from opencode_python.core.models import Session
-from opencode_python.core.settings import settings
-import uuid
 
 
 REQUIREMENTS_SYSTEM_PROMPT = """You are the Requirements Review Subagent.
@@ -58,7 +54,7 @@ class RequirementsReviewer(BaseReviewerAgent):
         return ["**/*"]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform requirements review on the given context using LLM.
+        """Perform requirements review on given context using SimpleReviewAgentRunner.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
@@ -76,30 +72,6 @@ class RequirementsReviewer(BaseReviewerAgent):
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
 
-        default_account = settings.get_default_account()
-        if not default_account:
-            raise ValueError("No default account configured. Please configure an account with is_default=True.")
-
-        provider_id = default_account.provider_id
-        model = default_account.model
-        api_key_value = default_account.api_key.get_secret_value()
-
-        session = Session(
-            id=str(uuid.uuid4()),
-            slug="requirements-review",
-            project_id="review",
-            directory=context.repo_root or "/tmp",
-            title="Requirements Review",
-            version="1.0"
-        )
-
-        ai_session = AISession(
-            session=session,
-            provider_id=provider_id,
-            model=model,
-            api_key=api_key_value
-        )
-
         system_prompt = self.get_system_prompt()
         formatted_context = self.format_inputs_for_prompt(context)
 
@@ -107,47 +79,50 @@ class RequirementsReviewer(BaseReviewerAgent):
 
 {formatted_context}
 
-Please analyze the above changes for requirements compliance and provide your review in the specified JSON format."""
+Please analyze the above changes for requirement changes and provide your review in the specified JSON format."""
+
+        logger.info(f"[requirements] Prompt construction complete:")
+        logger.info(f"[requirements]   System prompt: {len(system_prompt)} chars")
+        logger.info(f"[requirements]   Formatted context: {len(formatted_context)} chars")
+        logger.info(f"[requirements]   Full user_message: {len(user_message)} chars")
+        logger.info(f"[requirements]   Relevant files: {len(relevant_files)}")
+
+        runner = SimpleReviewAgentRunner(agent_name="requirements")
 
         try:
-            response_message = await ai_session.process_message(
-                user_message,
-                options={
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "response_format": {"type": "json_object"}
-                }
-            )
+            response_text = await runner.run_with_retry(system_prompt, formatted_context)
+            logger.info(f"[requirements] Got response: {len(response_text)} chars")
 
-            if not response_message.text:
-                raise ValueError("Empty response from LLM")
-
-            try:
-                output = ReviewOutput.model_validate_json(response_message.text)
-            except pd.ValidationError as e:
-                return ReviewOutput(
-                    agent=self.get_agent_name(),
-                    summary=f"Error parsing LLM response: {str(e)}",
-                    severity="critical",
-                    scope=Scope(
-                        relevant_files=relevant_files,
-                        ignored_files=[],
-                        reasoning="Failed to parse LLM JSON response due to validation error."
-                    ),
-                    findings=[],
-                    merge_gate=MergeGate(
-                        decision="needs_changes",
-                        must_fix=[],
-                        should_fix=[],
-                        notes_for_coding_agent=[
-                            "Review LLM response format and ensure it matches expected schema."
-                        ]
-                    )
-                )
+            output = ReviewOutput.model_validate_json(response_text)
+            logger.info(f"[requirements] JSON validation successful!")
+            logger.info(f"[requirements]   agent: {output.agent}")
+            logger.info(f"[requirements]   severity: {output.severity}")
+            logger.info(f"[requirements]   findings: {len(output.findings)}")
 
             return output
-
-        except (TimeoutError, Exception) as e:
-            if isinstance(e, (TimeoutError, ValueError)):
-                raise
+        except pd.ValidationError as e:
+            logger.error(f"[requirements] JSON validation error: {e}")
+            return ReviewOutput(
+                agent=self.get_agent_name(),
+                summary=f"Error parsing LLM response: {str(e)}",
+                severity="critical",
+                scope=Scope(
+                    relevant_files=relevant_files,
+                    ignored_files=[],
+                    reasoning="Failed to parse LLM JSON response due to validation error."
+                ),
+                findings=[],
+                merge_gate=MergeGate(
+                    decision="needs_changes",
+                    must_fix=[],
+                    should_fix=[],
+                    notes_for_coding_agent=[
+                        "Review LLM response format and ensure it matches expected schema."
+                    ]
+                )
+            )
+        except (TimeoutError, ValueError):
+            raise
+        except Exception as e:
             raise Exception(f"LLM API error: {str(e)}") from e
+
