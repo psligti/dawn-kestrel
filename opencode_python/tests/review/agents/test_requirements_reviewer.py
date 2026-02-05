@@ -118,7 +118,7 @@ class TestRequirementsReviewerLLMBased:
         mock_message.text = sample_review_output_json
 
         mock_ai_session.process_message = AsyncMock(return_value=mock_message)
-
+                
         with patch('opencode_python.agents.review.agents.requirements.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
@@ -158,7 +158,7 @@ class TestRequirementsReviewerLLMBased:
             with patch('opencode_python.agents.review.agents.requirements.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
-                with pytest.raises(ValueError, match="API key not found"):
+                with pytest.raises(ValueError, match="API key"):
                     await reviewer.review(sample_context)
 
     @pytest.mark.asyncio

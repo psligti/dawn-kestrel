@@ -1,19 +1,6 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/agentic_coding/.sisyphus/plans/pr-review-entry-points.md",
-  "plan_name": "pr-review-entry-points",
-  "started_at": "2026-02-03T17:10:18.891Z",
-  "session_ids": [
-    "ses_3db843401ffeEkI0Q2izttCNdq",
-    "ses_3db068742ffem54LwBgAeWBrS1",
-    "ses_3daad4696ffe2Memx5UpptRdXs",
-    "ses_3daab521cffeCf6zkPNNg36n8N",
-    "ses_3daab521bffePJjeOMAhu23u9O",
-    "ses_3daab521affeF3MRxyjvhlT239",
-    "ses_3daab5218ffelXBZjOKSpqlkeE",
-    "ses_3daaad8a7ffeJfvxcQnhNmtYVv",
-    "ses_3da9bf036ffe43kvNlnb0ngfBC",
-    "ses_3da936dd6ffe3YFz0G1ktrMkWf",
-    "ses_3daaad8a7ffduNf7LtTQ10kKKx",
-    "ses_3daad4696ffe2Memx5UpptRdXs"
-  ]
+  "active_plan": ".sisyphus/plans/security-review-deterministic-discovery.md",
+  "plan_name": "security-review-deterministic-discovery",
+  "started_at": "2026-02-05T14:55:13.835Z",
+  "session_ids": ["ses_3d1cb7d0dffefFtQ2quVYmDUvZ"]
 }

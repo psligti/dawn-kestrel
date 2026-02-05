@@ -112,6 +112,8 @@ class OpenAIProvider:
                 "top_p": options.get("top_p", 1.0) if options else 1.0,
                 "reasoning_effort": options.get("reasoning_effort", "medium") if options else "medium",
             }
+            if options and options.get("response_format"):
+                payload["response_format"] = options["response_format"]
             if tools:
                 payload["tools"] = tools
 
@@ -146,7 +148,8 @@ class OpenAIProvider:
                                 if "tool_calls" in chunk:
                                     for tool_call in tool_calls:
                                         tool_name = tool_call.get("function", "")
-                                        tool_input = tool_call.get("arguments", {})
+                                        arguments = tool_call.get("arguments", "{}")
+                                        tool_input = json.loads(arguments) if isinstance(arguments, str) else arguments
                                         yield StreamEvent(
                                             event_type="tool-call",
                                             data={

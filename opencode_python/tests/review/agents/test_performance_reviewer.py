@@ -123,7 +123,7 @@ class TestPerformanceReliabilityReviewerLLMBased:
         mock_message.text = sample_review_output_json
 
         mock_ai_session.process_message = AsyncMock(return_value=mock_message)
-
+                
         with patch('opencode_python.agents.review.agents.performance.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
@@ -152,7 +152,7 @@ class TestPerformanceReliabilityReviewerLLMBased:
 
         with patch('opencode_python.agents.review.agents.performance.settings') as mock_settings:
             from opencode_python.core import settings
-            mock_settings.api_key = None
+            mock_settings.get_api_key_for_provider.return_value = None
 
             with patch('opencode_python.agents.review.agents.performance.AISession') as mock_ai_session_cls:
                 mock_ai_session_cls.return_value = mock_ai_session

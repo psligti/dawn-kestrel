@@ -124,7 +124,7 @@ class FileScanner:
         try:
             # Run ripgrep with --files flag
             result = subprocess.run(
-                ["ripgrep", "--files", "--glob", "!.git/*"],
+                ["rg", "--files", "--glob", "!.git/*"],
                 cwd=self.directory,
                 capture_output=True,
                 text=True,

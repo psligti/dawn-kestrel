@@ -27,6 +27,20 @@ from opencode_python.agents.review.agents.changelog import ReleaseChangelogRevie
 
 console = Console()
 
+AGENT_MAP = {
+    "security": SecurityReviewer,
+    "architecture": ArchitectureReviewer,
+    "documentation": DocumentationReviewer,
+    "telemetry": TelemetryMetricsReviewer,
+    "linting": LintingReviewer,
+    "unit_tests": UnitTestsReviewer,
+    "diff_scoper": DiffScoperReviewer,
+    "requirements": RequirementsReviewer,
+    "performance": PerformanceReliabilityReviewer,
+    "dependencies": DependencyLicenseReviewer,
+    "changelog": ReleaseChangelogReviewer,
+}
+
 
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for review CLI.
@@ -136,6 +150,12 @@ def format_terminal_error(agent_name: str, error_msg: str) -> None:
 
 @click.command()
 @click.option(
+    "--agent",
+    type=click.Choice(list(AGENT_MAP.keys())),
+    default=None,
+    help=f"Run only a specific agent (default: run all agents). Options: {', '.join(sorted(AGENT_MAP.keys()))}",
+)
+@click.option(
     "--repo-root",
     type=click.Path(exists=True, path_type=Path),
     default=Path.cwd(),
@@ -174,6 +194,7 @@ def format_terminal_error(agent_name: str, error_msg: str) -> None:
     help="Enable verbose logging to see detailed progress",
 )
 def review(
+    agent: str | None,
     repo_root: Path,
     base_ref: str,
     head_ref: str,
@@ -182,10 +203,12 @@ def review(
     timeout: int,
     verbose: bool,
 ) -> None:
-    """Run multi-agent PR review on a git repository.
+    """Run PR review on a git repository.
 
     Review analyzes code changes between base-ref and head-ref using
-    multiple specialized review agents running in parallel.
+    specialized review agents running in parallel.
+
+    Use --agent to run a single agent, or run all agents by default.
 
     Progress will be logged to stdout showing:
     - Which agents are starting
@@ -196,7 +219,13 @@ def review(
     async def run_review() -> None:
         setup_logging(verbose)
 
-        subagents = get_subagents(include_optional)
+        if agent:
+            subagents = [AGENT_MAP[agent]()]
+            console.print(f"[cyan]Running only '{agent}' agent...[/cyan]")
+        else:
+            subagents = get_subagents(include_optional)
+            console.print(f"[cyan]Running all {len(subagents)} agents...[/cyan]")
+
         orchestrator = PRReviewOrchestrator(subagents=subagents)
 
         inputs = ReviewInputs(

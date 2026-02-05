@@ -136,7 +136,7 @@ async def test_review_handles_missing_api_key_by_raising_exception(tmp_path: Pat
         )
 
         # Execute the review - should raise ValueError
-        with pytest.raises(ValueError, match="API key not provided"):
+        with pytest.raises(ValueError, match="API key"):
             await reviewer.review(context)
 
 

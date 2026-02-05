@@ -145,7 +145,7 @@ def run(message: str, model: Optional[str], provider: Optional[str], session: Op
             )
 
         # Create AISession
-        model_name = model or settings.model_default
+        model_name = model or settings.get_default_model(provider_id)
         ai_session = AISession(
             session=session_obj,
             provider_id=provider_id,

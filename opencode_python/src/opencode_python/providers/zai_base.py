@@ -66,6 +66,8 @@ class ZAIBaseProvider(ABC):
             "top_p": options.get("top_p", 1.0) if options else 1.0,
             "reasoning_effort": options.get("reasoning_effort", "medium") if options else "medium",
         }
+        if options and options.get("response_format"):
+            payload["response_format"] = options["response_format"]
         if tools:
             payload["tools"] = tools
 
@@ -124,7 +126,8 @@ class ZAIBaseProvider(ABC):
                             for tool_call in tool_calls:
                                 function = tool_call.get("function", {})
                                 tool_name = function.get("name", "")
-                                tool_input = function.get("arguments", {})
+                                arguments = function.get("arguments", "{}")
+                                tool_input = json.loads(arguments) if isinstance(arguments, str) else arguments
                                 yield StreamEvent(
                                     event_type="tool-call",
                                     data={

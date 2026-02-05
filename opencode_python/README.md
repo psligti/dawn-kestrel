@@ -22,6 +22,20 @@ For development with additional dependencies:
 pip install opencode-python[dev]
 ```
 
+## Standalone Review Tool
+
+The multi-agent PR review agent can be installed as a standalone `uv tool` for running reviews in any repository.
+
+```bash
+uv tool install opencode-python
+```
+
+This provides two commands:
+- `opencode-review` - Run multi-agent PR review
+- `opencode-review-generate-docs` - Generate documentation for review agents
+
+See [REVIEW_TOOL.md](REVIEW_TOOL.md) for detailed usage and examples.
+
 ## Getting Started
 
 For quick start guide and usage examples, see:

@@ -98,9 +98,13 @@ Your agent name is "telemetry"."""
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
 
-        provider_id = settings.provider_default
-        model = settings.model_default
-        api_key = settings.api_key.get_secret_value() if settings.api_key else None
+        default_account = settings.get_default_account()
+        if not default_account:
+            raise ValueError("No default account configured. Please configure an account with is_default=True.")
+
+        provider_id = default_account.provider_id
+        model = default_account.model
+        api_key_value = default_account.api_key.get_secret_value()
 
         session = Session(
             id=str(uuid.uuid4()),
@@ -115,7 +119,7 @@ Your agent name is "telemetry"."""
             session=session,
             provider_id=provider_id,
             model=model,
-            api_key=api_key
+            api_key=api_key_value
         )
 
         system_prompt = self.get_system_prompt()
@@ -132,7 +136,8 @@ Please analyze the above changes for telemetry and observability issues and prov
                 user_message,
                 options={
                     "temperature": 0.3,
-                    "top_p": 0.9
+                    "top_p": 0.9,
+                    "response_format": {"type": "json_object"}
                 }
             )
 
@@ -140,9 +145,7 @@ Please analyze the above changes for telemetry and observability issues and prov
                 raise ValueError("Empty response from LLM")
 
             try:
-                from opencode_python.utils.json_parser import strip_json_code_blocks
-                cleaned_text = strip_json_code_blocks(response_message.text)
-                output = ReviewOutput.model_validate_json(cleaned_text)
+                output = ReviewOutput.model_validate_json(response_message.text)
             except pd.ValidationError as e:
                 return ReviewOutput(
                     agent=self.get_agent_name(),

@@ -509,7 +509,7 @@ class EntryPointDiscovery:
                 full_paths = [str(Path(repo_root) / f) for f in lang_files]
 
                 result = subprocess.run(
-                    ["ripgrep", "-n", pattern] + full_paths,
+                    ["rg", "-n", pattern] + full_paths,
                     capture_output=True,
                     text=True,
                     check=False,

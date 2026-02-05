@@ -18,7 +18,7 @@ class BashToolArgs(BaseModel):
     """Arguments for Bash tool"""
     command: str = Field(description="Command to execute")
     description: Optional[str] = Field(default=None, description="Description for UI")
-    cwd: Optional[str] = Field(default=".", description="Working directory")
+    workdir: Optional[str] = Field(default=".", description="Working directory")
 
 
 class BashTool(Tool):
@@ -47,10 +47,7 @@ class BashTool(Tool):
         validated = BashToolArgs(**args)
         logger.info(f"Executing: {validated.command}")
 
-        # Handle cwd with proper type checking
-        work_dir = ctx.session_id if validated.cwd == "." else validated.cwd
-        if work_dir is None:
-            work_dir = "."
+        work_dir = validated.workdir if validated.workdir != "." else "."
 
         try:
             result = subprocess.run(
@@ -91,7 +88,7 @@ class BashTool(Tool):
 
 class ReadToolArgs(BaseModel):
     """Arguments for Read tool"""
-    file: str = Field(description="Path to file (relative to project)")
+    filePath: str = Field(description="Path to file (relative to project)")
     limit: Optional[int] = Field(default=2000, description="Max lines to read")
     offset: Optional[int] = Field(default=0, description="Line number to start from")
 
@@ -114,7 +111,7 @@ class ReadTool(Tool):
         """
         # Validate args using Pydantic model
         validated = ReadToolArgs(**args)
-        file_path = validated.file
+        file_path = validated.filePath
 
         if not file_path:
             return ToolResult(
@@ -128,9 +125,7 @@ class ReadTool(Tool):
         offset = validated.offset if isinstance(validated.offset, int) else 0
 
         try:
-            # Handle both absolute and relative paths safely
-            base_path = ctx.session_id if ctx.session_id.startswith("/") else "."
-            full_path = Path(base_path) / file_path
+            full_path = Path(file_path)
             if not full_path.exists():
                 return ToolResult(
                     title="File not found",
@@ -172,7 +167,7 @@ class ReadTool(Tool):
 
 class WriteToolArgs(BaseModel):
     """Arguments for Write tool"""
-    file: str = Field(description="Path to file (relative to project)")
+    filePath: str = Field(description="Path to file (relative to project)")
     content: str = Field(description="Content to write")
     create: bool = Field(default=False, description="Create parent directories if needed")
 
@@ -195,14 +190,12 @@ class WriteTool(Tool):
         """
         # Validate args using Pydantic model
         validated = WriteToolArgs(**args)
-        file_path = validated.file
+        file_path = validated.filePath
         content = validated.content
         create_dirs = validated.create
 
         try:
-            # Handle both absolute and relative paths safely
-            base_path = ctx.session_id if ctx.session_id.startswith("/") else "."
-            full_path = Path(base_path) / file_path
+            full_path = Path(file_path)
 
             # Create directories if needed
             if create_dirs:
@@ -229,8 +222,8 @@ class WriteTool(Tool):
 
 class GrepToolArgs(BaseModel):
     """Arguments for Grep tool"""
-    query: str = Field(description="Regex pattern to search")
-    file_pattern: Optional[str] = Field(default="*", description="Glob pattern for files")
+    pattern: str = Field(description="Regex pattern to search")
+    include: Optional[str] = Field(default="*", description="Glob pattern for files")
     max_results: int = Field(default=100, description="Max results to return")
 
 
@@ -252,8 +245,8 @@ class GrepTool(Tool):
         """
         # Validate args using Pydantic model
         validated = GrepToolArgs(**args)
-        query = validated.query
-        file_pattern = validated.file_pattern
+        query = validated.pattern
+        file_pattern = validated.include
         max_results = validated.max_results
 
         if not query:
@@ -266,23 +259,15 @@ class GrepTool(Tool):
         logger.info(f"Searching: {query}")
 
         try:
-            # Build ripgrep command - ensure file_pattern is not None
             file_pattern_str: str = file_pattern if file_pattern is not None else "*"
-            cmd = ["ripgrep", "-e", query, file_pattern_str]
+            cmd = ["rg", "-e", query, file_pattern_str]
 
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
             )
-
-            if result.returncode != 0:
-                return ToolResult(
-                    title="Search failed",
-                    output=result.stderr,
-                    metadata={"error": result.stderr},
-                )
 
             output = result.stdout.strip()
             lines = output.split("\n")[:max_results]
@@ -339,23 +324,15 @@ class GlobTool(Tool):
         logger.info(f"Finding: {pattern}")
 
         try:
-            # Use ripgrep --files with glob - ensure pattern is str
             pattern_str: str = pattern if isinstance(pattern, str) else "*"
-            cmd = ["ripgrep", "--glob", pattern_str]
+            cmd = ["rg", "--files", "--glob", pattern_str]
 
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
             )
-
-            if result.returncode != 0:
-                return ToolResult(
-                    title="Glob failed",
-                    output=result.stderr,
-                    metadata={"error": result.stderr},
-                )
 
             output = result.stdout.strip()
             lines = output.split("\n")[:max_results]

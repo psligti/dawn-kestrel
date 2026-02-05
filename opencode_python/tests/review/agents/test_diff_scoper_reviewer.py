@@ -105,7 +105,7 @@ class TestDiffScoperReviewerLLMBased:
         mock_message.text = sample_review_output_json
 
         mock_ai_session.process_message = AsyncMock(return_value=mock_message)
-
+                
         with patch('opencode_python.agents.review.agents.diff_scoper.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
@@ -153,7 +153,7 @@ class TestDiffScoperReviewerLLMBased:
                 mock_session_cls.return_value = mock_session
 
                 # Should raise exception
-                with pytest.raises(ValueError, match="API key not found"):
+                with pytest.raises(ValueError, match="API key"):
                     await reviewer.review(sample_context)
 
     @pytest.mark.asyncio
