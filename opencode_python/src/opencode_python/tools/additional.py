@@ -53,7 +53,7 @@ class EditTool(Tool):
             return ToolResult(
                 title="File path required",
                 output="Error: No file path specified",
-                metadata={"error": "no_file_path"}
+                metadata={"error": "no_file_path"},
             )
 
         old_string = args.get("oldString")
@@ -64,14 +64,14 @@ class EditTool(Tool):
             return ToolResult(
                 title="Invalid oldString",
                 output="Error: 'oldString' parameter must be a non-empty string",
-                metadata={"error": "invalid_old_string"}
+                metadata={"error": "invalid_old_string"},
             )
 
         if new_string is None or not isinstance(new_string, str):
             return ToolResult(
                 title="Invalid newString",
                 output="Error: 'newString' parameter must be a string",
-                metadata={"error": "invalid_new_string"}
+                metadata={"error": "invalid_new_string"},
             )
 
         path = Path(file_path)
@@ -80,7 +80,7 @@ class EditTool(Tool):
             return ToolResult(
                 title="File not found",
                 output=f"Error: File {file_path} does not exist",
-                metadata={"error": "file_not_found", "file_path": file_path}
+                metadata={"error": "file_not_found", "file_path": file_path},
             )
 
         try:
@@ -90,14 +90,14 @@ class EditTool(Tool):
             return ToolResult(
                 title="Failed to read file",
                 output=f"Error reading file: {e}",
-                metadata={"error": "read_error"}
+                metadata={"error": "read_error"},
             )
 
         if old_string not in content:
             return ToolResult(
                 title="String not found",
                 output=f"Error: Could not find '{old_string[:50]}...' in file",
-                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]}
+                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]},
             )
 
         if replace_all:
@@ -114,7 +114,7 @@ class EditTool(Tool):
             return ToolResult(
                 title="Failed to write file",
                 output=f"Error writing file: {e}",
-                metadata={"error": "write_error"}
+                metadata={"error": "write_error"},
             )
 
         changes = f"{occurrences} occurrence(s) replaced"
@@ -125,15 +125,15 @@ class EditTool(Tool):
             metadata={
                 "file_path": str(path),
                 "occurrences": occurrences,
-                "bytes_written": len(new_content)
-            }
+                "bytes_written": len(new_content),
+            },
         )
 
         if not path.exists():
             return ToolResult(
                 title="File not found",
                 output=f"Error: File {file_path} does not exist",
-                metadata={"error": "file_not_found", "file_path": file_path}
+                metadata={"error": "file_not_found", "file_path": file_path},
             )
 
         try:
@@ -143,14 +143,14 @@ class EditTool(Tool):
             return ToolResult(
                 title="Failed to read file",
                 output=f"Error reading file: {e}",
-                metadata={"error": "read_error"}
+                metadata={"error": "read_error"},
             )
 
         if old_string not in content:
             return ToolResult(
                 title="String not found",
                 output=f"Error: Could not find '{old_string[:50]}...' in file",
-                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]}
+                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]},
             )
 
         if replace_all:
@@ -167,7 +167,7 @@ class EditTool(Tool):
             return ToolResult(
                 title="Failed to write file",
                 output=f"Error writing file: {e}",
-                metadata={"error": "write_error"}
+                metadata={"error": "write_error"},
             )
 
         changes = f"{occurrences} occurrence(s) replaced"
@@ -178,8 +178,8 @@ class EditTool(Tool):
             metadata={
                 "file_path": str(path),
                 "occurrences": occurrences,
-                "bytes_written": len(new_content)
-            }
+                "bytes_written": len(new_content),
+            },
         )
 
 
@@ -195,7 +195,7 @@ class ListTool(Tool):
             return ToolResult(
                 title="Directory path required",
                 output="Error: No directory path specified",
-                metadata={"error": "no_dir_path"}
+                metadata={"error": "no_dir_path"},
             )
 
         path = Path(dir_path)
@@ -204,14 +204,14 @@ class ListTool(Tool):
             return ToolResult(
                 title="Directory not found",
                 output=f"Error: Directory {dir_path} does not exist",
-                metadata={"error": "dir_not_found", "dir_path": dir_path}
+                metadata={"error": "dir_not_found", "dir_path": dir_path},
             )
 
         if not path.is_dir():
             return ToolResult(
                 title="Not a directory",
                 output=f"Error: {dir_path} is not a directory",
-                metadata={"error": "not_directory", "dir_path": dir_path}
+                metadata={"error": "not_directory", "dir_path": dir_path},
             )
 
         result = self._list_directory(path, ignore_patterns)
@@ -222,8 +222,8 @@ class ListTool(Tool):
             metadata={
                 "dir_path": str(path),
                 "total_files": result["total_files"],
-                "tree_output": result.get("tree", "")
-            }
+                "tree_output": result.get("tree", ""),
+            },
         )
 
     def _list_directory(self, path: Path, ignore_patterns: List[str]) -> Dict[str, Any]:
@@ -260,7 +260,7 @@ class ListTool(Tool):
             "output": tree_output,
             "total_files": total_files,
             "file_count": file_count,
-            "tree": tree_output
+            "tree": tree_output,
         }
 
     def _should_ignore(self, name: str, ignore_patterns: List[str]) -> bool:
@@ -274,6 +274,7 @@ class ListTool(Tool):
         if prefix:
             prefix = f"{prefix}/"
         return f"{prefix}{rel_path}"
+
 
 """
 
@@ -296,14 +297,14 @@ class MultiEditToolOld(Tool):
             return ToolResult(
                 title="File path required",
                 output="Error: No file path specified",
-                metadata={"error": "no_file_path"}
+                metadata={"error": "no_file_path"},
             )
 
         if not isinstance(edits, list):
             return ToolResult(
                 title="Edits must be a list",
                 output="Error: 'edits' parameter must be a list of edit operations",
-                metadata={"error": "invalid_edits_type"}
+                metadata={"error": "invalid_edits_type"},
             )
 
         path = Path(file_path)
@@ -312,7 +313,7 @@ class MultiEditToolOld(Tool):
             return ToolResult(
                 title="File not found",
                 output=f"Error: File {file_path} does not exist",
-                metadata={"error": "file_not_found"}
+                metadata={"error": "file_not_found"},
             )
 
         try:
@@ -322,7 +323,7 @@ class MultiEditToolOld(Tool):
             return ToolResult(
                 title="Failed to read file",
                 output=f"Error reading file {file_path}: {e}",
-                metadata={"error": "read_error"}
+                metadata={"error": "read_error"},
             )
 
         applied_edits = []
@@ -339,21 +340,21 @@ class MultiEditToolOld(Tool):
                 return ToolResult(
                     title=f"Edit {idx + 1} invalid",
                     output=f"Error: oldString must be a non-empty string",
-                    metadata={"error": "invalid_old_string", "edit_index": idx}
+                    metadata={"error": "invalid_old_string", "edit_index": idx},
                 )
 
             if new_string is None or not isinstance(new_string, str):
                 return ToolResult(
                     title=f"Edit {idx + 1} invalid",
                     output=f"Error: newString must be a string",
-                    metadata={"error": "invalid_new_string", "edit_index": idx}
+                    metadata={"error": "invalid_new_string", "edit_index": idx},
                 )
 
             if old_string not in content:
                 return ToolResult(
                     title=f"String not found: {old_string[:50]}",
                     output=f"Error: Could not find '{old_string[:50]}...' in file",
-                    metadata={"error": "string_not_found", "old_string": old_string[:50]}
+                    metadata={"error": "string_not_found", "old_string": old_string[:50]},
                 )
 
             if replace_all:
@@ -370,15 +371,17 @@ class MultiEditToolOld(Tool):
                 return ToolResult(
                     title=f"Edit {idx + 1} failed",
                     output=f"Error writing to file: {e}",
-                    metadata={"error": "write_error", "edit_index": idx}
+                    metadata={"error": "write_error", "edit_index": idx},
                 )
 
-            applied_edits.append({
-                "old_string": old_string[:50],
-                "new_string": new_string[:50],
-                "replace_all": replace_all,
-                "occurrences": occurrences
-            })
+            applied_edits.append(
+                {
+                    "old_string": old_string[:50],
+                    "new_string": new_string[:50],
+                    "replace_all": replace_all,
+                    "occurrences": occurrences,
+                }
+            )
 
             total_additions += occurrences
             total_replacements += occurrences
@@ -399,8 +402,8 @@ class MultiEditToolOld(Tool):
                 "total_operations": len(applied_edits),
                 "additions": total_additions,
                 "deletions": total_deletions,
-                "replacements": total_replacements
-            }
+                "replacements": total_replacements,
+            },
         )
 
 
@@ -417,37 +420,33 @@ class CodeSearchTool(Tool):
             return ToolResult(
                 title="Query required",
                 output="Error: 'query' parameter is required",
-                metadata={"error": "no_query"}
+                metadata={"error": "no_query"},
             )
 
-        from opencode_python.core.settings import settings
-
-        api_key = settings.api_keys.get("exa") or settings.api_keys.get("exa_code")
+        api_key = settings.get_api_key_for_provider("exa")
 
         if not api_key:
             return ToolResult(
                 title="Exa Code API key required",
                 output="Error: OPENCODE_PYTHON_EXA_API_KEY or OPENCODE_PYTHON_EXA_API_KEY environment variable not set",
-                metadata={"error": "no_exa_key"}
+                metadata={"error": "no_exa_key"},
             )
 
         logger.info(f"Searching code for: {query[:50]}")
 
         try:
             import httpx
-            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""})
 
-            payload = {
-                "query": query,
-                "numResults": num_results,
-                "type": "auto",
-                "tokens": tokens
-            }
+            httpx_client = httpx.AsyncClient(
+                timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""}
+            )
+
+            payload = {"query": query, "numResults": num_results, "type": "auto", "tokens": tokens}
 
             response = await httpx_client.post(
                 "https://api.exa.ai/search/code",
                 json=payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
             if response.status_code != 200:
@@ -455,7 +454,7 @@ class CodeSearchTool(Tool):
                 return ToolResult(
                     title="Code search failed",
                     output=f"Error: Exa API returned {response.status_code}",
-                    metadata={"error": "exa_api_error", "status_code": response.status_code}
+                    metadata={"error": "exa_api_error", "status_code": response.status_code},
                 )
 
             results_data = response.json()
@@ -469,18 +468,21 @@ class CodeSearchTool(Tool):
                 score = result.get("score", 0)
                 repo = result.get("repo", "")
 
-                formatted_results.append({
-                    "title": title,
-                    "url": url,
-                    "snippet": snippet[:200],
-                    "score": score,
-                    "repo": repo
-                })
+                formatted_results.append(
+                    {
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet[:200],
+                        "score": score,
+                        "repo": repo,
+                    }
+                )
 
-            output = (
-                f"Found {len(formatted_results)} code results:\n"
-                + "\n".join([f"{idx + 1}. {r['title']}\n   {r['url']}\n   {r['snippet']}\n   Score: {r['score']}\n   Repo: {r['repo']}\n"
-                             for idx, r in enumerate(formatted_results)])
+            output = f"Found {len(formatted_results)} code results:\n" + "\n".join(
+                [
+                    f"{idx + 1}. {r['title']}\n   {r['url']}\n   {r['snippet']}\n   Score: {r['score']}\n   Repo: {r['repo']}\n"
+                    for idx, r in enumerate(formatted_results)
+                ]
             )
 
             logger.info(f"Code search completed with {len(formatted_results)} results")
@@ -491,8 +493,8 @@ class CodeSearchTool(Tool):
                 metadata={
                     "query": query,
                     "num_results": len(formatted_results),
-                    "results": formatted_results
-                }
+                    "results": formatted_results,
+                },
             )
 
         except Exception as e:
@@ -500,7 +502,7 @@ class CodeSearchTool(Tool):
             return ToolResult(
                 title="Code search failed",
                 output=f"Error: {str(e)}",
-                metadata={"error": "search_error"}
+                metadata={"error": "search_error"},
             )
 
 
@@ -519,17 +521,27 @@ class LspTool(Tool):
             return ToolResult(
                 title="Operation required",
                 output="Error: 'operation' parameter is required",
-                metadata={"error": "no_operation"}
+                metadata={"error": "no_operation"},
             )
 
-        valid_operations = ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol",
-                            "goToImplementation", "prepareCallHierarchy", "incomingCalls", "outgoingCalls", "typeHierarchy"]
+        valid_operations = [
+            "goToDefinition",
+            "findReferences",
+            "hover",
+            "documentSymbol",
+            "workspaceSymbol",
+            "goToImplementation",
+            "prepareCallHierarchy",
+            "incomingCalls",
+            "outgoingCalls",
+            "typeHierarchy",
+        ]
 
         if operation not in valid_operations:
             return ToolResult(
                 title="Invalid operation",
                 output=f"Error: Operation '{operation}' is not supported. Valid operations: {', '.join(valid_operations)}",
-                metadata={"error": "invalid_operation", "operation": operation}
+                metadata={"error": "invalid_operation", "operation": operation},
             )
 
         return ToolResult(
@@ -540,13 +552,14 @@ class LspTool(Tool):
                 "file_path": file_path,
                 "line": line,
                 "character": character,
-                "symbol": symbol
-            }
+                "symbol": symbol,
+            },
         )
 
 
 class SkillToolArgs(BaseModel):
     """Arguments for Skill tool"""
+
     name: str = Field(description="Name of the skill to load")
 
 
@@ -591,8 +604,8 @@ class SkillTool(Tool):
                     metadata={
                         "error": "skill_not_found",
                         "name": name,
-                        "available_skills": available_skills
-                    }
+                        "available_skills": available_skills,
+                    },
                 )
 
             return ToolResult(
@@ -602,7 +615,7 @@ class SkillTool(Tool):
                     "skill_name": skill.name,
                     "skill_description": skill.description,
                     "skill_location": str(skill.location),
-                }
+                },
             )
 
         except ValueError as e:
@@ -610,7 +623,7 @@ class SkillTool(Tool):
             return ToolResult(
                 title="Skill validation failed",
                 output=f"Error: {str(e)}",
-                metadata={"error": "validation_error", "name": name}
+                metadata={"error": "validation_error", "name": name},
             )
 
         except Exception as e:
@@ -618,7 +631,7 @@ class SkillTool(Tool):
             return ToolResult(
                 title="Skill execution failed",
                 output=f"Error: {str(e)}",
-                metadata={"error": str(e), "name": name}
+                metadata={"error": str(e), "name": name},
             )
 
 
@@ -634,7 +647,7 @@ class ExternalDirectoryTool(Tool):
             return ToolResult(
                 title="Directory required",
                 output="Error: No directory path specified",
-                metadata={"error": "no_directory_path"}
+                metadata={"error": "no_directory_path"},
             )
 
         from pathlib import Path
@@ -645,14 +658,14 @@ class ExternalDirectoryTool(Tool):
             return ToolResult(
                 title="Directory not found",
                 output=f"Error: Directory {directory} does not exist",
-                metadata={"error": "dir_not_found"}
+                metadata={"error": "dir_not_found"},
             )
 
         if not path.is_dir():
             return ToolResult(
                 title="Not a directory",
                 output=f"Error: {directory} is not a directory",
-                metadata={"error": "not_directory"}
+                metadata={"error": "not_directory"},
             )
 
         from opencode_python.core.session import SessionManager
@@ -669,16 +682,18 @@ class ExternalDirectoryTool(Tool):
                     file_count = 1
                 else:
                     file_count = 1
-                dir_files.append({
-                    "path": str(item_path),
-                    "is_dir": item.is_dir(),
-                    "size": item.stat().st_size if item.is_file() else 0
-                })
+                dir_files.append(
+                    {
+                        "path": str(item_path),
+                        "is_dir": item.is_dir(),
+                        "size": item.stat().st_size if item.is_file() else 0,
+                    }
+                )
         except PermissionError:
             return ToolResult(
                 title="Permission denied",
                 output=f"Error: Permission denied accessing {directory}",
-                metadata={"error": "permission_denied"}
+                metadata={"error": "permission_denied"},
             )
         except Exception as e:
             logger.error(f"Directory scan failed: {e}")
@@ -694,8 +709,8 @@ class ExternalDirectoryTool(Tool):
                 "directory": str(path),
                 "total_files": total_files,
                 "total_dirs": total_dirs,
-                "scan_results": dir_files[:20]
-            }
+                "scan_results": dir_files[:20],
+            },
         )
 
     def _should_ignore(self, name: str, allow_patterns: List[str]) -> bool:
@@ -741,7 +756,7 @@ class CompactionTool(Tool):
             return ToolResult(
                 title="No messages found",
                 output="No messages found in current session",
-                metadata={"token_limit": token_limit, "session_id": ctx.session_id}
+                metadata={"token_limit": token_limit, "session_id": ctx.session_id},
             )
 
         total_tokens = 0
@@ -753,7 +768,9 @@ class CompactionTool(Tool):
 
             parts_list: Any = msg_dict.get("parts", [])
             for part_any in parts_list:
-                part_dict: Dict[str, Any] = part_any.model_dump() if hasattr(part_any, "model_dump") else part_any
+                part_dict: Dict[str, Any] = (
+                    part_any.model_dump() if hasattr(part_any, "model_dump") else part_any
+                )
                 part_type = part_dict.get("part_type", "")
                 if part_type in ["text", "reasoning"]:
                     total_tokens += len(part_dict.get("text", ""))
@@ -777,14 +794,16 @@ class CompactionTool(Tool):
                 metadata={
                     "total_tokens": total_tokens,
                     "token_limit": token_limit,
-                    "session_id": ctx.session_id
-                }
+                    "session_id": ctx.session_id,
+                },
             )
 
         compactor = AgentCompaction()
 
         if summarize_only:
-            messages_dicts: List[Any] = [msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages]
+            messages_dicts: List[Any] = [
+                msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages
+            ]
             summary = await self._summarize_session(messages_dicts)
 
             return ToolResult(
@@ -793,18 +812,15 @@ class CompactionTool(Tool):
                 metadata={
                     "summary": summary,
                     "tokens_kept": total_tokens,
-                    "session_id": ctx.session_id
-                }
+                    "session_id": ctx.session_id,
+                },
             )
 
-        messages_dicts = [msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages]
+        messages_dicts = [
+            msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages
+        ]
         compaction_result = await self._compact_session(
-            session_mgr,
-            messages_dicts,
-            token_limit,
-            compact_all,
-            compactor,
-            ctx.session_id
+            session_mgr, messages_dicts, token_limit, compact_all, compactor, ctx.session_id
         )
 
         pruned_count = compaction_result.get("messages_pruned", 0)
@@ -818,7 +834,9 @@ class CompactionTool(Tool):
             f"  Messages removed: {pruned_count}\n"
         )
 
-        logger.info(f"Compaction complete: {tokens_kept}/{total_tokens} tokens kept, {pruned_count} messages pruned")
+        logger.info(
+            f"Compaction complete: {tokens_kept}/{total_tokens} tokens kept, {pruned_count} messages pruned"
+        )
 
         return ToolResult(
             title=f"Session compacted to {tokens_kept} tokens",
@@ -829,8 +847,8 @@ class CompactionTool(Tool):
                 "tokens_pruned": total_tokens - tokens_kept,
                 "messages_pruned": pruned_count,
                 "token_limit": token_limit,
-                "session_id": ctx.session_id
-            }
+                "session_id": ctx.session_id,
+            },
         )
 
     async def _summarize_session(self, messages: List[Dict[str, Any]]) -> str:
@@ -878,7 +896,9 @@ class CompactionTool(Tool):
         summary_lines = []
 
         if last_user_msg:
-            last_msg_dict = last_user_msg if isinstance(last_user_msg, dict) else last_user_msg.model_dump()
+            last_msg_dict = (
+                last_user_msg if isinstance(last_user_msg, dict) else last_user_msg.model_dump()
+            )
             summary_lines.append(f"Last user message: {last_msg_dict.get('text', '')[:200]}")
 
         if task_msgs:
@@ -905,13 +925,7 @@ class CompactionTool(Tool):
         return "\n".join(summary_lines)
 
     async def _compact_session(
-        self,
-        session_mgr,
-        messages,
-        token_limit,
-        compact_all,
-        compactor,
-        session_id
+        self, session_mgr, messages, token_limit, compact_all, compactor, session_id
     ) -> Dict[str, Any]:
         """Compact session by creating compaction message and pruning old messages"""
         messages_to_prune: List[Dict[str, Any]] = []
@@ -936,7 +950,7 @@ class CompactionTool(Tool):
             session_id=session_id,
             message_id=messages[0]["id"] if messages else "",
             part_type="compaction",
-            auto=compact_all
+            auto=compact_all,
         )
 
         await session_mgr.add_part(compaction_part)
@@ -947,7 +961,7 @@ class CompactionTool(Tool):
             "tokens_pruned": tokens_pruned,
             "messages_pruned": len(messages_to_prune),
             "messages_kept": len(messages_kept),
-            "compaction_part_id": compaction_part.id
+            "compaction_part_id": compaction_part.id,
         }
 
 
@@ -972,7 +986,6 @@ def _count_message_tokens(msg: Dict[str, Any]) -> int:
             total += 0
 
     return total
-
 
     async def register_compaction_tool(registry):
         compaction_tool = CompactionTool()
@@ -1008,6 +1021,7 @@ def define_tool(
     """
 
     _description = description
+
     class DynamicTool(Tool):
         id = tool_id
         description = _description
@@ -1045,7 +1059,7 @@ class QuestionTool(Tool):
             return ToolResult(
                 title="Questions must be a list",
                 output="Error: 'questions' parameter must be a list of question objects",
-                metadata={"error": "invalid_questions_type"}
+                metadata={"error": "invalid_questions_type"},
             )
 
         logger.info(f"Processing {len(questions_data)} questions")
@@ -1062,7 +1076,7 @@ class QuestionTool(Tool):
                 return ToolResult(
                     title=f"Question {idx} missing text",
                     output=f"Error: Question at index {idx} missing 'question' field",
-                    metadata={"error": "missing_question_text", "index": idx}
+                    metadata={"error": "missing_question_text", "index": idx},
                 )
 
             pattern = q.get("pattern", "*")
@@ -1074,14 +1088,12 @@ class QuestionTool(Tool):
                 return ToolResult(
                     title=f"Question {idx} invalid",
                     output=f"Error: 'multiple' for question {idx} must be a boolean",
-                    metadata={"error": "invalid_multiple_type", "index": idx}
+                    metadata={"error": "invalid_multiple_type", "index": idx},
                 )
 
             # Check if question was already asked using PermissionEvaluator via ToolContext.ask
             permission_granted = await ctx.ask(
-                permission="question",
-                pattern=pattern,
-                always=always
+                permission="question", pattern=pattern, always=always
             )
 
             if not permission_granted:
@@ -1102,7 +1114,10 @@ class QuestionTool(Tool):
 
                 # Check if this question was already answered
                 q_key = f"question_{idx}"
-                existing_q = next((uq for uq in user_questions if isinstance(uq, dict) and uq.get("id") == q_key), None)
+                existing_q = next(
+                    (uq for uq in user_questions if isinstance(uq, dict) and uq.get("id") == q_key),
+                    None,
+                )
 
                 if existing_q and existing_q.get("answered", False):
                     logger.info(f"Question already asked: {question_text[:30]}...")
@@ -1117,25 +1132,29 @@ class QuestionTool(Tool):
                 # For now, we'll use the first option as default
                 answer = options_data[0] if options_data else ""
 
-                collected_answers.append({
-                    "id": q_key,
-                    "question": question_text,
-                    "pattern": pattern,
-                    "multiple": multiple,
-                    "options": options_data,
-                    "answer": answer,
-                    "permission_granted": True,
-                    "timestamp": time.time()
-                })
+                collected_answers.append(
+                    {
+                        "id": q_key,
+                        "question": question_text,
+                        "pattern": pattern,
+                        "multiple": multiple,
+                        "options": options_data,
+                        "answer": answer,
+                        "permission_granted": True,
+                        "timestamp": time.time(),
+                    }
+                )
 
             except Exception as e:
                 logger.error(f"Error processing question {idx}: {e}")
-                collected_answers.append({
-                    "id": f"question_{idx}",
-                    "question": question_text,
-                    "error": str(e),
-                    "permission_granted": False
-                })
+                collected_answers.append(
+                    {
+                        "id": f"question_{idx}",
+                        "question": question_text,
+                        "error": str(e),
+                        "permission_granted": False,
+                    }
+                )
 
         logger.info(f"Collected {len(collected_answers)} question answers")
 
@@ -1147,8 +1166,8 @@ class QuestionTool(Tool):
             metadata={
                 "total_questions": len(questions_data),
                 "collected_answers": len(collected_answers),
-                "answers_list": collected_answers
-            }
+                "answers_list": collected_answers,
+            },
         )
 
         validated_questions = []
@@ -1162,7 +1181,7 @@ class QuestionTool(Tool):
                 return ToolResult(
                     title=f"Question {idx} missing text",
                     output=f"Error: Question at index {idx} missing 'question' field",
-                    metadata={"error": "missing_question_text", "index": idx}
+                    metadata={"error": "missing_question_text", "index": idx},
                 )
 
             options_data = q.get("options", [])
@@ -1170,7 +1189,7 @@ class QuestionTool(Tool):
                 return ToolResult(
                     title=f"Question {idx} options must be a list",
                     output=f"Error: 'options' for question {idx} must be a list",
-                    metadata={"error": "invalid_options_type", "index": idx}
+                    metadata={"error": "invalid_options_type", "index": idx},
                 )
 
             multi = q.get("multiple", False)
@@ -1178,14 +1197,12 @@ class QuestionTool(Tool):
                 return ToolResult(
                     title=f"Question {idx} multiple must be boolean",
                     output=f"Error: 'multiple' for question {idx} must be a boolean",
-                    metadata={"error": "invalid_multiple_type", "index": idx}
+                    metadata={"error": "invalid_multiple_type", "index": idx},
                 )
 
-            validated_questions.append({
-                "question": question_text,
-                "options": options_data,
-                "multiple": multi
-            })
+            validated_questions.append(
+                {"question": question_text, "options": options_data, "multiple": multi}
+            )
 
         from opencode_python.core.session import SessionManager
         from opencode_python.storage.store import SessionStorage
@@ -1197,7 +1214,10 @@ class QuestionTool(Tool):
         for q in validated_questions:
             q_key = f"question_{len(validated_questions)}"
             # Find if this question was already answered by searching user_questions list
-            existing_q = next((uq for uq in user_questions if isinstance(uq, dict) and uq.get("id") == q_key), None)
+            existing_q = next(
+                (uq for uq in user_questions if isinstance(uq, dict) and uq.get("id") == q_key),
+                None,
+            )
             if existing_q and existing_q.get("answered", False):
                 validated_questions.append(q)
 
@@ -1211,8 +1231,8 @@ class QuestionTool(Tool):
             metadata={
                 "total_questions": len(validated_questions),
                 "answered_questions": len(validated_questions),
-                "questions_list": validated_questions
-            }
+                "questions_list": validated_questions,
+            },
         )
 
 
@@ -1273,6 +1293,7 @@ class TaskTool(Tool):
 
             # Get tools registry
             from opencode_python.tools import create_builtin_registry
+
             tool_registry = create_builtin_registry()
 
             # Execute task via orchestrator
@@ -1297,7 +1318,7 @@ class TaskTool(Tool):
                     "description": description[:50],
                     "status": task_result.task.status.value,
                     "execution_time": result.duration if result else 0,
-                }
+                },
             )
 
         # Use AgentManager if available, otherwise fallback to SessionManager
@@ -1309,7 +1330,7 @@ class TaskTool(Tool):
                 return ToolResult(
                     title="Unknown subagent type",
                     output=f"Error: Subagent type {subagent_type} not available. Available: {', '.join(agent_names)}",
-                    metadata={"error": "unknown_agent_type", "available": agent_names}
+                    metadata={"error": "unknown_agent_type", "available": agent_names},
                 )
 
             from opencode_python.agents import AgentExecutor
@@ -1319,14 +1340,14 @@ class TaskTool(Tool):
             executor = AgentExecutor(
                 agent_manager=self.agent_manager,
                 tool_manager=tool_manager,
-                session_manager=self.agent_manager.session_storage
+                session_manager=self.agent_manager.session_storage,
             )
 
             result = await executor.execute_agent(
                 agent_name=subagent_type,
                 user_message=prompt,
                 session_id=ctx.session_id,
-                options={"subagent": subagent_type}
+                options={"subagent": subagent_type},
             )
 
             return ToolResult(
@@ -1337,8 +1358,8 @@ class TaskTool(Tool):
                     "description": description[:50],
                     "status": result.get("status", "completed"),
                     "session_id": result.get("metadata", {}).get("session_id", ""),
-                    "execution_time": result.get("metadata", {}).get("execution_time", 0)
-                }
+                    "execution_time": result.get("metadata", {}).get("execution_time", 0),
+                },
             )
         else:
             # Fallback to original SessionManager implementation
@@ -1349,53 +1370,56 @@ class TaskTool(Tool):
             session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
             if session_id_to_resume:
-                await self._resume_session(session_id_to_resume, description, prompt, subagent_type, session_mgr)
+                await self._resume_session(
+                    session_id_to_resume, description, prompt, subagent_type, session_mgr
+                )
             else:
                 await self._create_new_session(description, prompt, subagent_type, session_mgr)
 
             return ToolResult(
                 title="Subagent execution completed",
                 output=f"Subagent {subagent_type} launched via SessionManager fallback",
-                metadata={"subagent_type": subagent_type}
+                metadata={"subagent_type": subagent_type},
             )
 
-    async def _resume_session(self, session_id: str, description: str, prompt: str, subagent: str, session_mgr: SessionManager):
+    async def _resume_session(
+        self,
+        session_id: str,
+        description: str,
+        prompt: str,
+        subagent: str,
+        session_mgr: SessionManager,
+    ):
         session_data = await session_mgr.get_session(session_id)
         if not session_data:
             raise ValueError(f"Session not found: {session_id}")
         logger.info(f"Resuming session {session_id}")
 
         user_message = session_mgr.create_message(
-            session_id=session_id,
-            role="user",
-            text=f"Launch {subagent} agent for: {description}"
+            session_id=session_id, role="user", text=f"Launch {subagent} agent for: {description}"
         )
 
         assistant_message = session_mgr.create_message(
-            session_id=session_id,
-            role="assistant",
-            text=f"Agent {subagent} launched"
+            session_id=session_id, role="assistant", text=f"Agent {subagent} launched"
         )
 
         logger.info(f"Created task request and response in session {session_id}")
 
-    async def _create_new_session(self, description: str, prompt: str, subagent: str, session_mgr: SessionManager):
-        session_obj = await session_mgr.create(
-            title=f"{subagent} Task - {description[:50]}"
-        )
+    async def _create_new_session(
+        self, description: str, prompt: str, subagent: str, session_mgr: SessionManager
+    ):
+        session_obj = await session_mgr.create(title=f"{subagent} Task - {description[:50]}")
 
         logger.info(f"Created new session {session_obj.id} for subagent {subagent}")
 
         user_message = session_mgr.create_message(
             session_id=session_obj.id,
             role="user",
-            text=f"Launch {subagent} agent for: {description}"
+            text=f"Launch {subagent} agent for: {description}",
         )
 
         assistant_message = session_mgr.create_message(
-            session_id=session_obj.id,
-            role="assistant",
-            text=f"Agent {subagent} launched"
+            session_id=session_obj.id, role="assistant", text=f"Agent {subagent} launched"
         )
 
         logger.info(f"Created task request and response in session {session_obj.id}")
@@ -1439,7 +1463,7 @@ class TodoTool(Tool):
             return ToolResult(
                 title="No todos found",
                 output="No todos found in current session",
-                metadata={"total": 0, "session_id": ctx.session_id}
+                metadata={"total": 0, "session_id": ctx.session_id},
             )
 
         todos_list = []
@@ -1484,8 +1508,8 @@ class TodoTool(Tool):
                 "completed": completed_count,
                 "in_progress": in_progress_count,
                 "cancelled": cancelled_count,
-                "session_id": ctx.session_id
-            }
+                "session_id": ctx.session_id,
+            },
         )
 
 
@@ -1500,7 +1524,7 @@ class TodowriteTool(Tool):
             return ToolResult(
                 title="Todos must be a list",
                 output="Error: 'todos' parameter must be a list of todo items",
-                metadata={"error": "invalid_todos_type"}
+                metadata={"error": "invalid_todos_type"},
             )
 
         from opencode_python.core.session import SessionManager
@@ -1516,19 +1540,21 @@ class TodowriteTool(Tool):
                 return ToolResult(
                     title=f"Todo {idx} missing ID",
                     output=f"Error: Todo at index {idx} missing 'id' field",
-                    metadata={"error": "missing_todo_id", "index": idx}
+                    metadata={"error": "missing_todo_id", "index": idx},
                 )
 
             description = todo.get("description", "")
             state = todo.get("state", TodoState.PENDING)
             due_date = todo.get("due_date")
 
-            todos_list.append({
-                "description": description,
-                "state": state.value,
-                "due_date": due_date,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            })
+            todos_list.append(
+                {
+                    "description": description,
+                    "state": state.value,
+                    "due_date": due_date,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
         await session_mgr.update_todos(ctx.session_id, todos_list)
 
@@ -1546,7 +1572,7 @@ class TodowriteTool(Tool):
 
         for todo in todos[:10]:
             state_str = todo.get("state", TodoState.PENDING)
-            due_str = f", due: {todo.get('due_date')}..." if todo.get('due_date') else ""
+            due_str = f", due: {todo.get('due_date')}..." if todo.get("due_date") else ""
             result_output += f"  [{state_str}] {todo.get('description')}{due_str}\n"
 
         if len(todos) > 10:
@@ -1561,8 +1587,8 @@ class TodowriteTool(Tool):
                 "completed": completed_count,
                 "in_progress": in_progress_count,
                 "cancelled": cancelled_count,
-                "session_id": ctx.session_id
-            }
+                "session_id": ctx.session_id,
+            },
         )
 
 
@@ -1588,9 +1614,7 @@ class WebFetchTool(Tool):
 
         if not url:
             return ToolResult(
-                title="URL required",
-                output="Error: No URL provided",
-                metadata={"error": "no_url"}
+                title="URL required", output="Error: No URL provided", metadata={"error": "no_url"}
             )
 
         try:
@@ -1607,14 +1631,17 @@ class WebFetchTool(Tool):
                 return ToolResult(
                     title="Failed to fetch",
                     output=f"Error: HTTP {response.status_code} - {response.text}",
-                    metadata={"error": "http_error", "status_code": response.status_code}
+                    metadata={"error": "http_error", "status_code": response.status_code},
                 )
 
             content = response.text
 
             if len(content) > 10000:
                 truncated_length = len(content) - 10000
-                content = content[:10000] + f"\n\n[... Content truncated ({truncated_length} characters) ...]"
+                content = (
+                    content[:10000]
+                    + f"\n\n[... Content truncated ({truncated_length} characters) ...]"
+                )
 
             logger.info(f"Fetched {len(content)} characters from {url}")
 
@@ -1625,8 +1652,8 @@ class WebFetchTool(Tool):
                     "url": url,
                     "format": format_type,
                     "bytes_fetched": len(content),
-                    "truncated": len(content) > 10000
-                }
+                    "truncated": len(content) > 10000,
+                },
             )
 
         except Exception as e:
@@ -1634,7 +1661,7 @@ class WebFetchTool(Tool):
             return ToolResult(
                 title="Web fetch failed",
                 output=f"Error: {str(e)}",
-                metadata={"error": "fetch_error"}
+                metadata={"error": "fetch_error"},
             )
 
 
@@ -1653,40 +1680,37 @@ class WebSearchTool(Tool):
             return ToolResult(
                 title="Query required",
                 output="Error: 'query' parameter is required",
-                metadata={"error": "no_query"}
+                metadata={"error": "no_query"},
             )
 
-        from opencode_python.core.settings import settings
-
-        api_key = settings.api_keys.get("exa", settings.api_keys.get("exa"))
+        api_key = settings.get_api_key_for_provider("exa")
 
         if not api_key:
             return ToolResult(
                 title="Exa API key required",
                 output="Error: OPENCODE_PYTHON_EXA_API_KEY or OPENCODE_PYTHON_EXA_API_KEY environment variable not set",
-                metadata={"error": "no_exa_key"}
+                metadata={"error": "no_exa_key"},
             )
 
         logger.info(f"Searching web for: {query[:50]}")
 
         try:
-            httpx_client = httpx.AsyncClient(timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""})
+            httpx_client = httpx.AsyncClient(
+                timeout=30.0, headers={"x-api-key": str(api_key) if api_key else ""}
+            )
 
             payload = {
                 "query": query,
                 "numResults": num_results,
-                "contents": {
-                    "text": True,
-                    "livecrawl": live_crawl
-                },
+                "contents": {"text": True, "livecrawl": live_crawl},
                 "type": search_type,
-                "domain": domains
+                "domain": domains,
             }
 
             response = await httpx_client.post(
                 "https://api.exa.ai/search",
                 json=payload,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
 
             if response.status_code != 200:
@@ -1694,7 +1718,7 @@ class WebSearchTool(Tool):
                 return ToolResult(
                     title="Search failed",
                     output=f"Error: Exa API returned {response.status_code}",
-                    metadata={"error": "exa_api_error", "status_code": response.status_code}
+                    metadata={"error": "exa_api_error", "status_code": response.status_code},
                 )
 
             results_data = response.json()
@@ -1707,18 +1731,15 @@ class WebSearchTool(Tool):
                 snippet = result.get("text", "")
                 score = result.get("score", 0)
 
-                formatted_results.append({
-                    "title": title,
-                    "url": url,
-                    "snippet": snippet[:200],
-                    "score": score
-                })
+                formatted_results.append(
+                    {"title": title, "url": url, "snippet": snippet[:200], "score": score}
+                )
 
-            output = (
-                f"Found {len(formatted_results)} results:\n"
-                + "\n".join([f"{idx + 1}. {r['title']}\n   {r['url']}\n   Score: {r['score']}\n"
-                             for idx, r in enumerate(formatted_results)]
-                            )
+            output = f"Found {len(formatted_results)} results:\n" + "\n".join(
+                [
+                    f"{idx + 1}. {r['title']}\n   {r['url']}\n   Score: {r['score']}\n"
+                    for idx, r in enumerate(formatted_results)
+                ]
             )
 
             logger.info(f"Web search completed with {len(formatted_results)} results")
@@ -1729,8 +1750,8 @@ class WebSearchTool(Tool):
                 metadata={
                     "query": query,
                     "num_results": len(formatted_results),
-                    "results": formatted_results
-                }
+                    "results": formatted_results,
+                },
             )
 
         except Exception as e:
@@ -1738,7 +1759,7 @@ class WebSearchTool(Tool):
             return ToolResult(
                 title="Web search failed",
                 output=f"Error: {str(e)}",
-                metadata={"error": "search_error"}
+                metadata={"error": "search_error"},
             )
 
 
@@ -1746,9 +1767,13 @@ async def register_web_tools(registry):
     await registry.register(WebFetchTool)
     await registry.register(WebSearchTool)
 
+
 class LsToolArgs(BaseModel):
     """Arguments for Ls tool"""
-    path: Optional[str] = Field(default=None, description="Path to list (omit for current directory)")
+
+    path: Optional[str] = Field(
+        default=None, description="Path to list (omit for current directory)"
+    )
     ignore: Optional[List[str]] = Field(default_factory=list, description="Glob patterns to ignore")
 
 
@@ -1764,7 +1789,12 @@ class LsTool(Tool):
         path = path_arg or ctx.session_id
 
         try:
-            full_path = Path(path) if path and not path.startswith("/") else Path(ctx.session_id if not ctx.session_id.startswith("/") else "") / (path or ".")
+            full_path = (
+                Path(path)
+                if path and not path.startswith("/")
+                else Path(ctx.session_id if not ctx.session_id.startswith("/") else "")
+                / (path or ".")
+            )
 
             if not full_path.exists():
                 return ToolResult(
@@ -1780,7 +1810,9 @@ class LsTool(Tool):
                 """Recursively build file tree"""
                 if current_path.is_file():
                     tree_lines.append(f"{prefix}{current_path.name}")
-                elif ignore_patterns and any(pattern in str(current_path.resolve()) for pattern in ignore_patterns):
+                elif ignore_patterns and any(
+                    pattern in str(current_path.resolve()) for pattern in ignore_patterns
+                ):
                     # Skip this directory
                     pass
                 else:
@@ -1804,9 +1836,9 @@ class LsTool(Tool):
             # Start building tree
             last_prefix = ""
             build_tree(full_path, "", last_prefix)
-            
+
             output = "\n".join(tree_lines)
-            
+
             return ToolResult(
                 title=f"List: {path or 'current directory'}",
                 output=output,
@@ -1824,6 +1856,7 @@ class LsTool(Tool):
 
 class BatchToolArgs(BaseModel):
     """Arguments for Batch tool"""
+
     tools: List[Dict[str, Any]] = Field(description="Array of tool calls to execute")
 
 
@@ -1880,11 +1913,7 @@ class BatchTool(Tool):
             if not tool:
                 error_msg = f"Unknown tool: {tool_id}"
                 logger.error(error_msg)
-                errors.append({
-                    "tool": tool_id,
-                    "status": "error",
-                    "output": error_msg
-                })
+                errors.append({"tool": tool_id, "status": "error", "output": error_msg})
                 return
 
             try:
@@ -1901,44 +1930,49 @@ class BatchTool(Tool):
                 # Note: execute() expects Pydantic model, so we need to convert dict to proper model
                 if tool_id == "bash":
                     from opencode_python.tools import builtin
+
                     tool_args_obj = builtin.BashToolArgs(**tool_args)
                 elif tool_id == "read":
                     from opencode_python.tools import builtin
+
                     tool_args_obj = builtin.ReadToolArgs(**tool_args)
                 elif tool_id == "write":
                     from opencode_python.tools import builtin
+
                     tool_args_obj = builtin.WriteToolArgs(**tool_args)
                 elif tool_id == "grep":
                     from opencode_python.tools import builtin
+
                     tool_args_obj = builtin.GrepToolArgs(**tool_args)
                 elif tool_id == "glob":
                     from opencode_python.tools import builtin
+
                     tool_args_obj = builtin.GlobToolArgs(**tool_args)
                 else:
-                    results.append({
-                        "tool": tool_id,
-                        "status": "error",
-                        "output": f"Tool not supported in batch: {tool_id}",
-                    })
+                    results.append(
+                        {
+                            "tool": tool_id,
+                            "status": "error",
+                            "output": f"Tool not supported in batch: {tool_id}",
+                        }
+                    )
                     return
 
                 result = await tool.execute(tool_args_obj.model_dump(), tool_ctx)
 
-                results.append({
-                    "tool": tool_id,
-                    "status": "completed" if result.metadata.get("error") else "error",
-                    "output": result.output,
-                    "metadata": result.metadata,
-                })
+                results.append(
+                    {
+                        "tool": tool_id,
+                        "status": "completed" if result.metadata.get("error") else "error",
+                        "output": result.output,
+                        "metadata": result.metadata,
+                    }
+                )
 
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"Tool execution failed ({tool_id}): {error_msg}")
-                errors.append({
-                    "tool": tool_id,
-                    "status": "error",
-                    "output": error_msg
-                })
+                errors.append({"tool": tool_id, "status": "error", "output": error_msg})
 
         # Import builtin tools dynamically
         from opencode_python.tools import builtin
@@ -1966,22 +2000,20 @@ class BatchTool(Tool):
             if isinstance(task_result, Exception):
                 error_msg = f"Tool execution failed: {str(task_result)}"
                 logger.error(error_msg)
-                errors.append({
-                    "tool": tool_id,
-                    "status": "error",
-                    "output": error_msg
-                })
+                errors.append({"tool": tool_id, "status": "error", "output": error_msg})
             else:
                 success_count += 1
 
                 result = task_result
 
-                results.append({
-                    "tool": tool_id,
-                    "status": "completed" if result.metadata.get("error") else "error",
-                    "output": result.output,
-                    "metadata": result.metadata,
-                })
+                results.append(
+                    {
+                        "tool": tool_id,
+                        "status": "completed" if result.metadata.get("error") else "error",
+                        "output": result.output,
+                        "metadata": result.metadata,
+                    }
+                )
 
         return ToolResult(
             title=f"Batch execution: {success_count} succeeded, {error_count} failed",
@@ -2012,11 +2044,11 @@ class PlanEnterTool(Tool):
             ToolResult with action confirmation
         """
         logger.info("Entering plan mode")
-        
+
         # In a real implementation, this would:
         # 1. Set agent mode to "plan"
         # 2. Return confirmation
-        
+
         # For now, just return success
         return ToolResult(
             title="Entered plan mode",
@@ -2042,11 +2074,11 @@ class PlanExitTool(Tool):
             ToolResult with action confirmation
         """
         logger.info("Exiting plan mode to build mode")
-        
+
         # In a real implementation, this would:
         # 1. Set agent mode to "build"
         # 2. Return confirmation
-        
+
         # For now, just return success
         return ToolResult(
             title="Exited plan mode",
@@ -2058,6 +2090,7 @@ class PlanExitTool(Tool):
 # Ensure MultiEditTool is also updated with prompt
 class MultiEditToolArgs(BaseModel):
     """Arguments for MultiEdit tool"""
+
     filePath: str = Field(description="Path to file")
     edits: List[Dict[str, Any]] = Field(description="Array of edit operations")
 
@@ -2096,28 +2129,28 @@ class MultiEditTool(Tool):
             )
 
         path = Path(file_path)
-        
+
         try:
             with open(path, "r") as f:
                 content = f.read()
-            
+
             applied = []
             failed = []
-            
+
             for i, edit in enumerate(edits):
                 old_string = edit.get("oldString", "")
                 new_string = edit.get("newString", "")
-                
+
                 if old_string not in content:
-                    failed.append(f"Edit {i+1}: oldString not found")
+                    failed.append(f"Edit {i + 1}: oldString not found")
                     continue
-                
+
                 new_content = content.replace(old_string, new_string, 1)
-                applied.append(f"Edit {i+1}: Success")
-                
+                applied.append(f"Edit {i + 1}: Success")
+
                 # Update content for next edit
                 content = new_content
-            
+
             if failed:
                 error_msg = "\n".join(failed)
                 return ToolResult(
@@ -2125,24 +2158,24 @@ class MultiEditTool(Tool):
                     output=f"Errors:\n{error_msg}",
                     metadata={"errors": len(failed), "applied": len(applied)},
                 )
-            
+
             # Write updated content
             with open(path, "w") as f:
                 f.write(content)
-            
+
             output_lines = [
                 f"Applied {len(applied)} of {len(edits)} edits successfully",
                 "",
             ]
-            
+
             if failed:
                 output_lines.append("Failed edits:")
                 for fail in failed:
                     output_lines.append(f"  - {fail}")
                 output_lines.append("")
-            
+
             output = "\n".join(output_lines)
-            
+
             return ToolResult(
                 title=f"MultiEdit: {file_path}",
                 output=output,
@@ -2167,4 +2200,3 @@ class MultiEditTool(Tool):
 from opencode_python.tools.prompts import get_prompt
 from pydantic import BaseModel, Field
 from pathlib import Path
-

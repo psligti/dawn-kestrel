@@ -2,7 +2,7 @@
 Provider registry for managing AI provider configurations.
 
 Provides persistent storage and retrieval of provider configurations
-with support for default provider selection and SDK client integration.
+with support for default provider selection and lifecycle event emission.
 """
 from __future__ import annotations
 

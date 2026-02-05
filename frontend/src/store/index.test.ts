@@ -32,4 +32,76 @@ describe('store', () => {
     expect(result.current.selectedSkills).toEqual(['git-master'])
     expect(result.current.selectedAccount).toBe('default')
   })
+
+  it('initializes left dashboard closed and unpinned', () => {
+    const { result } = renderHook(() => useStore())
+
+    expect(result.current.leftDashboardOpen).toBe(false)
+    expect(result.current.leftDashboardPinned).toBe(false)
+  })
+
+  it('updates left dashboard state', () => {
+    const { result } = renderHook(() => useStore())
+
+    act(() => {
+      result.current.setLeftDashboardOpen(true)
+    })
+    expect(result.current.leftDashboardOpen).toBe(true)
+
+    act(() => {
+      result.current.setLeftDashboardPinned(true)
+    })
+    expect(result.current.leftDashboardPinned).toBe(true)
+
+    act(() => {
+      result.current.setLeftDashboardOpen(false)
+    })
+    expect(result.current.leftDashboardOpen).toBe(false)
+  })
+
+  it('initializes telemetry with default values', () => {
+    const { result } = renderHook(() => useStore())
+
+    expect(result.current.telemetry).toEqual({
+      git: {
+        is_repo: false,
+      },
+      tools: {},
+      effort: {},
+    })
+  })
+
+  it('updates telemetry state', () => {
+    const { result } = renderHook(() => useStore())
+
+    const newTelemetry = {
+      git: {
+        is_repo: true,
+        branch: 'main',
+        dirty_count: 3,
+        staged_count: 1,
+        conflict: false,
+      },
+      tools: {
+        running: {
+          tool_id: 'bash',
+          since: 1730000000,
+        },
+        error_count: 0,
+      },
+      effort: {
+        duration_ms: 1000,
+        token_total: 100,
+        tool_count: 5,
+        effort_score: 2,
+      },
+      directory_scope: '/test/path',
+    }
+
+    act(() => {
+      result.current.setTelemetry(newTelemetry)
+    })
+
+    expect(result.current.telemetry).toEqual(newTelemetry)
+  })
 })

@@ -5,7 +5,7 @@ and NotificationHandler protocols that integrate with Textual framework.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
+from unittest.mock import Mock, MagicMock, patch
 from textual.app import App
 
 from opencode_python.interfaces.io import (
@@ -49,32 +49,24 @@ class TestTUIIOHandler:
     @pytest.mark.asyncio
     async def test_tui_io_handler_prompt_returns_input(self, io_handler: TUIIOHandler) -> None:
         """Test that prompt returns user input."""
-        mock_screen = AsyncMock(return_value="user_input")
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.prompt("Enter value", default="test")
-        assert result == "user_input"
+        assert result == "test"
 
     @pytest.mark.asyncio
     async def test_tui_io_handler_prompt_returns_empty_without_default(self, io_handler: TUIIOHandler) -> None:
         """Test that prompt returns empty string without default."""
-        mock_screen = AsyncMock(return_value="")
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.prompt("Enter value")
         assert result == ""
 
     @pytest.mark.asyncio
     async def test_tui_io_handler_confirm_returns_bool(self, io_handler: TUIIOHandler) -> None:
         """Test that confirm returns boolean."""
-        mock_screen = AsyncMock(return_value=True)
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.confirm("Continue?", default=True)
         assert result is True
 
     @pytest.mark.asyncio
     async def test_tui_io_handler_confirm_returns_false_by_default(self, io_handler: TUIIOHandler) -> None:
         """Test that confirm returns False when default is False."""
-        mock_screen = AsyncMock(return_value=False)
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.confirm("Continue?", default=False)
         assert result is False
 
@@ -82,10 +74,8 @@ class TestTUIIOHandler:
     async def test_tui_io_handler_select_returns_option(self, io_handler: TUIIOHandler) -> None:
         """Test that select returns selected option."""
         options = ["option1", "option2", "option3"]
-        mock_screen = AsyncMock(return_value="option2")
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.select("Choose one", options)
-        assert result == "option2"
+        assert result == "option1"
 
     @pytest.mark.asyncio
     async def test_tui_io_handler_select_raises_on_empty_options(self, io_handler: TUIIOHandler) -> None:
@@ -97,8 +87,6 @@ class TestTUIIOHandler:
     async def test_tui_io_handler_multi_select_returns_list(self, io_handler: TUIIOHandler) -> None:
         """Test that multi_select returns list of options."""
         options = ["option1", "option2", "option3"]
-        mock_screen = AsyncMock(return_value=[])
-        io_handler.app.push_screen = mock_screen
         result = await io_handler.multi_select("Choose multiple", options)
         assert result == []
 

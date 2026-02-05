@@ -1,0 +1,72 @@
+"""Dark Theme for Textual TUI
+
+A deep, dark theme suitable for dark background terminals.
+*/
+
+/* Primary Colors */
+$primary: #56b6c2;              /* Cyan - Main accent */
+$secondary: #5c9cf5;            /* Blue - Secondary accent */
+$accent: #9d7cd8;               /* Purple - Emphasis/accent */
+
+/* Status Colors */
+$error: #e06c75;                /* Red - Errors */
+$warning: #f5a742;              /* Orange - Warnings */
+$success: #7fd88f;              /* Green - Success */
+$info: #56b6c2;                 /* Cyan - Info */
+
+/* Text Colors */
+$text: #f5f5f5;                 /* White - Main text */
+$text-muted: #a0a0a0;           /* Gray - Muted text */
+$text-selection: #2968c3;       /* Dark blue - Selection background */
+
+/* Background Colors */
+$background: #0a0a0a;           /* Black - Main background */
+$background-panel: #141414;     /* Dark gray - Panels */
+$background-element: #1e1e1e;   /* Darker gray - Elements */
+$background-menu: #1e1e1e;      /* Darker gray - Menus */
+
+/* Border Colors */
+$border: #484848;               /* Gray - Borders */
+$border-active: #606060;        /* Lighter gray - Active borders */
+$border-subtle: #3c3c3c;        /* Muted gray - Subtle borders */
+
+/* Diff Colors */
+$diff-added: #4fd6be;           /* Cyan - Added lines */
+$diff-removed: #c53b53;         /* Red - Removed lines */
+$diff-context: #828bb8;         /* Blue - Context lines */
+$diff-hunk-header: #828bb8;     /* Blue - Diff headers */
+$diff-highlight-added: #b8db87; /* Light green - Highlight */
+$diff-highlight-removed: #e26a75; /* Light red - Highlight */
+$diff-added-bg: #20303b;        /* Dark blue - Added bg */
+$diff-removed-bg: #37222c;      /* Dark red - Removed bg */
+$diff-context-bg: #141414;      /* Dark gray - Context bg */
+$diff-line-number: #1e1e1e;     /* Darker gray - Line numbers */
+$diff-added-line-number-bg: #1b2b34; /* Dark blue - Added line num bg */
+$diff-removed-line-number-bg: #2d1f26; /* Dark red - Removed line num bg */
+
+/* Markdown Colors */
+$markdown-text: #f5f5f5;        /* White - Main text */
+$markdown-heading: #9d7cd8;     /* Purple - Headings */
+$markdown-link: #56b6c2;        /* Cyan - Links */
+$markdown-link-text: #56b6c2;   /* Cyan - Link text */
+$markdown-code: #7fd88f;         /* Green - Inline code */
+$markdown-blockquote: #e5c07b;  /* Yellow - Blockquotes */
+$markdown-emph: #e5c07b;        /* Yellow - Emphasis */
+$markdown-strong: #f5f5f5;      /* White - Strong */
+$markdown-horizontal-rule: #484848; /* Gray - HR */
+$markdown-list-item: #9d7cd8;   /* Purple - List items */
+$markdown-list-enumeration: #56b6c2; /* Cyan - List numbers */
+$markdown-image: #56b6c2;        /* Cyan - Images */
+$markdown-image-text: #56b6c2;   /* Cyan - Image text */
+$markdown-code-block: #f5f5f5;   /* White - Code blocks */
+
+/* Syntax Colors */
+$syntax-comment: #a0a0a0;       /* Gray - Comments */
+$syntax-keyword: #5c9cf5;       /* Blue - Keywords */
+$syntax-function: #4fd6be;      /* Cyan - Functions */
+$syntax-variable: #e06c75;      /* Red - Variables */
+$syntax-string: #7fd88f;        /* Green - Strings */
+$syntax-number: #9d7cd8;        /* Purple - Numbers */
+$syntax-type: #f5a742;          /* Orange - Types */
+$syntax-operator: #56b6c2;      /* Cyan - Operators */
+$syntax-punctuation: #f5f5f5;   /* White - Punctuation */

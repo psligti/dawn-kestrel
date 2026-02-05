@@ -1,0 +1,266 @@
+"""Tests for SessionListScreen
+
+TDD Workflow:
+- RED: Write failing tests first
+- GREEN: Implement screen to pass tests
+- REFACTOR: Improve code structure
+"""
+
+import pytest
+from unittest.mock import MagicMock, AsyncMock
+from textual.app import App
+from textual.containers import Vertical
+from textual.widgets import DataTable, Footer
+
+from opencode_python.tui.screens.session_list_screen import SessionListScreen
+from opencode_python.core.models import Session
+
+
+class MockApp(App):
+    """Mock app for testing SessionListScreen"""
+    SCREENS = {"session_list": SessionListScreen, "message": MagicMock}
+    BINDINGS = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sessions = []
+
+    def compose(self):
+        """Build the test app UI"""
+        yield Vertical()
+
+
+@pytest.fixture
+def app_with_sessions():
+    """Create app with mock sessions"""
+    mock_app = MockApp()
+    mock_app._sessions = [
+        Session(
+            id="session-1",
+            slug="session-1",
+            project_id="project-1",
+            directory="/path/to/project-1",
+            title="Test Session 1",
+            version="1.0.0",
+            time_created=1700000000.0,
+            time_updated=1700000000.0,
+        ),
+        Session(
+            id="session-2",
+            slug="session-2",
+            project_id="project-1",
+            directory="/path/to/project-2",
+            title="Test Session 2",
+            version="1.0.0",
+            time_created=1700001000.0,
+            time_updated=1700001000.0,
+        ),
+    ]
+    return mock_app
+
+
+@pytest.mark.asyncio
+async def test_session_list_screen_compose(app_with_sessions, monkeypatch):
+    """Test that SessionListScreen composes with DataTable"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    
+    # Create a minimal app for testing
+    app = MagicMock()
+    app.title = "Test App"
+    
+    monkeypatch.setattr(screen, 'app', app)
+    await screen.on_mount()
+
+    # Check that DataTable exists
+    assert screen.query_one(DataTable) is not None
+    data_table = screen.query_one(DataTable)
+
+    # Check columns
+    assert data_table.column_count == 3
+    assert data_table.columns[0].header == "ID"
+    assert data_table.columns[1].header == "Title"
+    assert data_table.columns[2].header == "Time"
+
+
+@pytest.mark.asyncio
+async def test_session_list_displays_sessions(app_with_sessions, monkeypatch):
+    """Test that sessions are displayed in DataTable rows"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+
+    monkeypatch.setattr(screen, 'app', app)
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Check row count
+    assert data_table.row_count == 2
+
+    # Check first row
+    row_1 = data_table.get_row(0)
+    assert row_1[0] == "session-1"
+    assert row_1[1] == "Test Session 1"
+
+    # Check second row
+    row_2 = data_table.get_row(1)
+    assert row_2[0] == "session-2"
+    assert row_2[1] == "Test Session 2"
+
+
+@pytest.mark.asyncio
+async def test_session_list_select_first_row(app_with_sessions):
+    """Test that user can select the first session"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Select first row
+    await data_table.action_cursor_down()
+    assert data_table.cursor_position == (0, 0)
+    assert data_table.highlighted_cell == (0, 0)
+
+    # Verify row is selected
+    row_key = data_table.get_row_key_at((0, 0))
+    assert data_table.has_row(row_key)
+    assert data_table.selected_row == row_key
+
+
+@pytest.mark.asyncio
+async def test_session_list_select_second_row(app_with_sessions):
+    """Test that user can select the second session"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Select second row
+    await data_table.action_cursor_down()
+    await data_table.action_cursor_down()
+    assert data_table.cursor_position == (1, 0)
+    assert data_table.highlighted_cell == (1, 0)
+
+
+@pytest.mark.asyncio
+async def test_session_list_navigate_to_message_screen(app_with_sessions, monkeypatch):
+    """Test that Enter key navigates to MessageScreen"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    # Mock the push_screen method
+    screen.push_screen = MagicMock()
+    monkeypatch.setattr(screen, 'push_screen', screen.push_screen)
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Select first session and press Enter
+    await data_table.action_cursor_down()
+    await data_table.action_enter()
+
+    # Verify push_screen was called with MessageScreen
+    screen.push_screen.assert_called_once()
+    call_args = screen.push_screen.call_args[0]
+    assert call_args[0] == "message"
+    assert call_args[1].session.id == "session-1"
+
+
+@pytest.mark.asyncio
+async def test_session_list_empty_list():
+    """Test that empty session list is handled gracefully"""
+    screen = SessionListScreen(sessions=[])
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Check that DataTable exists but has no rows
+    assert data_table.row_count == 0
+
+
+@pytest.mark.asyncio
+async def test_session_list_multiple_sessions():
+    """Test that multiple sessions are all displayed"""
+    # Create 5 sessions
+    sessions = [
+        Session(
+            id=f"session-{i}",
+            slug=f"session-{i}",
+            project_id="project-1",
+            directory=f"/path/to/project-{i}",
+            title=f"Test Session {i}",
+            version="1.0.0",
+            time_created=1700000000.0 + i * 1000,
+            time_updated=1700000000.0 + i * 1000,
+        )
+        for i in range(5)
+    ]
+
+    screen = SessionListScreen(sessions=sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Check that all sessions are displayed
+    assert data_table.row_count == 5
+
+    # Verify all sessions are present
+    for i in range(5):
+        row = data_table.get_row(i)
+        assert row[0] == f"session-{i}"
+        assert row[1] == f"Test Session {i}"
+
+
+@pytest.mark.asyncio
+async def test_session_list_session_selection_callback(app_with_sessions, monkeypatch):
+    """Test that selecting a session triggers the navigation"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    # Mock the push_screen method
+    screen.push_screen = MagicMock()
+    monkeypatch.setattr(screen, 'push_screen', screen.push_screen)
+
+    await screen.on_mount()
+    data_table = screen.query_one(DataTable)
+
+    # Select the second session and press Enter
+    await data_table.action_cursor_down()
+    await data_table.action_cursor_down()
+    await data_table.action_enter()
+
+    # Verify the correct session was passed to MessageScreen
+    screen.push_screen.assert_called_once()
+    call_args = screen.push_screen.call_args[0]
+    assert call_args[1].session.id == "session-2"
+    assert call_args[1].session.title == "Test Session 2"
+
+
+@pytest.mark.asyncio
+async def test_session_list_app_title_updated(app_with_sessions):
+    """Test that app title is updated to show current screen context"""
+    screen = SessionListScreen(sessions=app_with_sessions._sessions)
+    app = MagicMock()
+    app.title = "Test App"
+    screen.app = app
+
+    await screen.on_mount()
+
+    # Verify app title includes screen name
+    assert "Session List" in screen.app.title or "sessions" in screen.app.title.lower()

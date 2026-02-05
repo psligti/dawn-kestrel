@@ -40,9 +40,10 @@ class TestSettingsDefaults:
         assert settings.log_level == "INFO"
 
     def test_default_api_key(self) -> None:
-        """Test default API key is empty."""
+        """Test default API key is a SecretStr (may have value from env)."""
         settings = Settings()
-        assert settings.api_key.get_secret_value() == ""
+        from pydantic import SecretStr
+        assert isinstance(settings.api_key, SecretStr)
 
     def test_default_api_endpoint(self) -> None:
         """Test default API endpoint."""
@@ -52,12 +53,12 @@ class TestSettingsDefaults:
     def test_default_provider_default(self) -> None:
         """Test default provider."""
         settings = Settings()
-        assert settings.provider_default == "anthropic"
+        assert settings.provider_default == "z.ai"
 
     def test_default_model_default(self) -> None:
         """Test default model."""
         settings = Settings()
-        assert settings.model_default == "claude-3-5-sonnet-20241022"
+        assert settings.model_default == "glm-4.7"
 
     def test_default_storage_dir(self) -> None:
         """Test default storage directory."""

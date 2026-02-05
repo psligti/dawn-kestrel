@@ -122,7 +122,7 @@ class OpenCodeAsyncClient:
             SessionError: If session creation fails.
         """
         try:
-            session = await self._service.create_session(title, version=version)
+            session = await self._service.create_session(title)
             return session
         except Exception as e:
             if isinstance(e, OpenCodeError):
@@ -571,7 +571,7 @@ class OpenCodeSyncClient:
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
-        return asyncio.run(self._async_client.create_session(title, version=version))
+        return asyncio.run(self._async_client.create_session(title, version))
 
     def get_session(self, session_id: str) -> Optional[Session]:
         """Get a session by ID (sync).

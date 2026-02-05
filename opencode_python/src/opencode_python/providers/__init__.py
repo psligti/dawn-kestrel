@@ -1,4 +1,7 @@
 from .base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID, StreamEvent, TokenUsage
+from .zai_base import ZAIBaseProvider
+from .zai import ZAIProvider
+from .zai_coding_plan import ZAICodingPlanProvider
 from typing import AsyncIterator, Optional, List, Dict, Any, Union
 from decimal import Decimal
 import httpx
@@ -18,9 +21,13 @@ __all__ = [
     "ProviderID",
     "StreamEvent",
     "TokenUsage",
+    # Base provider
+    "ZAIBaseProvider",
     # Provider classes
     "AnthropicProvider",
     "OpenAIProvider",
+    "ZAIProvider",
+    "ZAICodingPlanProvider",
     # Provider functions
     "get_provider",
     "get_available_models",
@@ -272,13 +279,14 @@ class OpenAIProvider:
         return cost
 
 
-def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, None]:
+def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
     providers = {
         ProviderID.ANTHROPIC: AnthropicProvider(api_key),
-        ProviderID.OPENAI: OpenAIProvider(api_key)
+        ProviderID.OPENAI: OpenAIProvider(api_key),
+        ProviderID.Z_AI: ZAIProvider(api_key),
+        ProviderID.Z_AI_CODING_PLAN: ZAICodingPlanProvider(api_key)
     }
     return providers.get(provider_id)
-
 
 async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
     provider = get_provider(provider_id, api_key)

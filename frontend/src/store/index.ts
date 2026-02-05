@@ -52,6 +52,47 @@ export interface MemoryUsage {
   total: number
 }
 
+export interface GitTelemetry {
+  is_repo: boolean
+  branch?: string
+  dirty_count?: number
+  staged_count?: number
+  ahead?: number
+  behind?: number
+  conflict?: boolean
+}
+
+export interface ToolTelemetry {
+  running?: {
+    tool_id: string
+    since: number
+  }
+  last?: {
+    tool_id: string
+    status: 'running' | 'completed' | 'failed' | 'cancelled'
+    duration_ms?: number
+  }
+  error_count?: number
+  recent?: Array<{
+    tool_id: string
+    status: 'running' | 'completed' | 'failed' | 'cancelled'
+  }>
+}
+
+export interface EffortTelemetry {
+  duration_ms?: number
+  token_total?: number
+  tool_count?: number
+  effort_score?: number
+}
+
+export interface TelemetryData {
+  git: GitTelemetry
+  tools: ToolTelemetry
+  effort: EffortTelemetry
+  directory_scope?: string
+}
+
 export interface AppState {
   // Sessions
   sessions: Session[]
@@ -99,6 +140,13 @@ export interface AppState {
   // Memory Usage
   memoryUsage: MemoryUsage
 
+  // Left Dashboard
+  leftDashboardOpen: boolean
+  leftDashboardPinned: boolean
+
+  // Telemetry
+  telemetry: TelemetryData
+
   // Actions
   setSessions: (sessions: Session[]) => void
   setCurrentSession: (session: Session | null) => void
@@ -123,6 +171,13 @@ export interface AppState {
   setSelectedSkills: (skills: string[]) => void
   setAccounts: (accounts: AccountSummary[]) => void
   setSelectedAccount: (accountName: string | null) => void
+
+  // Left Dashboard Actions
+  setLeftDashboardOpen: (open: boolean) => void
+  setLeftDashboardPinned: (pinned: boolean) => void
+
+  // Telemetry Actions
+  setTelemetry: (telemetry: TelemetryData) => void
 }
 
 const defaultTheme = 'dark'
@@ -162,6 +217,15 @@ const store = createStore<AppState>((set) => ({
   memoryUsage: {
     used: 0,
     total: 8,
+  },
+  leftDashboardOpen: false,
+  leftDashboardPinned: false,
+  telemetry: {
+    git: {
+      is_repo: false,
+    },
+    tools: {},
+    effort: {},
   },
 
   // Actions
@@ -208,6 +272,9 @@ const store = createStore<AppState>((set) => ({
   setSelectedSkills: (selectedSkills) => set({ selectedSkills }),
   setAccounts: (accounts) => set({ accounts }),
   setSelectedAccount: (selectedAccount) => set({ selectedAccount }),
+  setLeftDashboardOpen: (open) => set({ leftDashboardOpen: open }),
+  setLeftDashboardPinned: (pinned) => set({ leftDashboardPinned: pinned }),
+  setTelemetry: (telemetry) => set({ telemetry }),
 }))
 
 export { store }
@@ -256,3 +323,8 @@ export const useAccountsState = () => useStore((state) => state.accounts)
 export const useSetAccounts = () => useStore((state) => state.setAccounts)
 export const useSelectedAccount = () => useStore((state) => state.selectedAccount)
 export const useSetSelectedAccount = () => useStore((state) => state.setSelectedAccount)
+export const useLeftDashboard = () => useStore((state) => ({ open: state.leftDashboardOpen, pinned: state.leftDashboardPinned }))
+export const useSetLeftDashboardOpen = () => useStore((state) => state.setLeftDashboardOpen)
+export const useSetLeftDashboardPinned = () => useStore((state) => state.setLeftDashboardPinned)
+export const useTelemetry = () => useStore((state) => state.telemetry)
+export const useSetTelemetry = () => useStore((state) => state.setTelemetry)

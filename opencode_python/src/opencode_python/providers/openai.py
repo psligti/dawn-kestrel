@@ -87,7 +87,7 @@ class OpenAIProvider:
             )
         ]
 
-    async def stream(self, model: ModelInfo, messages: list, tools: dict, options: Optional[Dict[str, Any]] = None) -> AsyncIterator[StreamEvent]:
+    async def stream(self, model: ModelInfo, messages: list, tools: list, options: Optional[Dict[str, Any]] = None) -> AsyncIterator[StreamEvent]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -107,12 +107,13 @@ class OpenAIProvider:
             payload = {
                 "model": model.api_id,
                 "messages": messages,
-                "tools": tools,
                 "stream": True,
                 "temperature": options.get("temperature", 1.0) if options else 1.0,
                 "top_p": options.get("top_p", 1.0) if options else 1.0,
                 "reasoning_effort": options.get("reasoning_effort", "medium") if options else "medium",
             }
+            if tools:
+                payload["tools"] = tools
 
             yield StreamEvent(
                 event_type="start",

@@ -24,6 +24,9 @@ from textual.widgets import (
     Tabs,
 )
 
+from opencode_python.tui.widgets.header import SessionHeader
+from opencode_python.tui.widgets.footer import SessionFooter
+
 from opencode_python.tui.message_view import MessageView
 from opencode_python.core.models import Message, TextPart
 from opencode_python.tui.screens.message_screen import MessageScreen
@@ -86,10 +89,10 @@ class OpenCodeTUI(App[None]):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("ctrl+c", "quit", "Quit"),
+        Binding("/", "open_command", "Open Command Palette"),
     ]
 
     session_table: DataTable[str]
-    header_widget: Static
     messages_container: ScrollableContainer
 
     show_sidebar = reactive(True)
@@ -99,7 +102,12 @@ class OpenCodeTUI(App[None]):
 
     def compose(self) -> ComposeResult:
         """Build TUI UI"""
-        yield Header()
+        # Custom footer with keyboard hints and status
+        yield SessionFooter(
+            status="Ready",
+            tokens="0 tokens",
+            model="gpt-4"
+        )
 
         with Container(id="main-container"):
             # Sidebar with session list and context
@@ -115,11 +123,10 @@ class OpenCodeTUI(App[None]):
             # Main content area
             with Vertical(id="content"):
                 # Session header with context info
-                self.header_widget = Static(
-                    f"[bold]{self._get_session_title()}[/bold]\n"
-                    f"[dim]Context: {self._get_context_info()}[/dim]"
+                yield SessionHeader(
+                    session_title=self._get_session_title(),
+                    model="gpt-4"
                 )
-                yield self.header_widget
 
                 # Tabs for different views
                 yield Tabs(
@@ -142,8 +149,6 @@ class OpenCodeTUI(App[None]):
                 with TabPane("Actions", id="actions-pane"):
                     yield Button("Open Chat", variant="primary", id="chat-btn")
                     yield Button("List Sessions", id="list-btn")
-
-        yield Footer()
 
     def on_mount(self) -> None:
         """Called when TUI starts"""
@@ -267,3 +272,9 @@ class OpenCodeTUI(App[None]):
         """Quit application"""
         self.app.exit()
         logger.info("TUI exited")
+
+    def action_open_command(self) -> None:
+        """Open command palette dialog"""
+        from opencode_python.tui.dialogs import CommandPaletteDialog
+
+        self.push_screen(CommandPaletteDialog())

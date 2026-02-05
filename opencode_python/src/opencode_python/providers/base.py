@@ -7,6 +7,8 @@ from decimal import Decimal
 class ProviderID(str, Enum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
+    Z_AI = "z.ai"
+    Z_AI_CODING_PLAN = "zai-coding-plan"
     GOOGLE = "google"
     GOOGLE_VERTEX = "google-vertex"
     AMAZON_BEDROCK = "amazon-bedrock"
@@ -23,7 +25,6 @@ class ProviderID(str, Enum):
     PERPLEXITY = "perplexity"
     GITLAB = "gitlab"
     GITHUB_COPILOT = "github-copilot"
-
 
 @dataclass
 class ModelCapabilities:

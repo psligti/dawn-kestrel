@@ -10,17 +10,12 @@ from typing import AsyncIterator, Optional, Dict, Any, List
 from decimal import Decimal
 
 from .core.models import Session, Message, Part, TextPart, ToolPart, AgentPart, ToolState
-from .providers.base import ProviderID, ModelInfo
+from .providers.base import ProviderID
 from .core.event_bus import bus, Events
 from .core.settings import settings
 from .core.provider_config import ProviderConfig
 from .core.session_lifecycle import SessionLifecycle
-from .providers import (
-    get_provider,
-    ModelInfo,
-    TokenUsage,
-    StreamEvent
-)
+from .providers import get_provider, ModelInfo, TokenUsage, StreamEvent
 from .ai.tool_execution import ToolExecutionManager
 from .tools.framework import ToolRegistry
 from .tools import create_builtin_registry
@@ -48,7 +43,7 @@ class AISession:
         self.provider_config = provider_config
         self.session_lifecycle = session_lifecycle
 
-        api_key_value = api_key or settings.api_keys.get(provider_id)
+        api_key_value = api_key or settings.get_api_key_for_provider(provider_id)
 
         if provider_config and provider_config.api_key:
             api_key_value = provider_config.api_key
@@ -57,9 +52,13 @@ class AISession:
             model = provider_config.model
 
         self.model = model
-
         provider_enum = ProviderID(provider_id) if isinstance(provider_id, str) else provider_id
-        self.provider = get_provider(provider_enum, str(api_key_value) if api_key_value else "")
+        get_secret_method = getattr(api_key_value, "get_secret_value", None)
+        if api_key_value and get_secret_method:
+            api_key_str = get_secret_method()
+        else:
+            api_key_str = str(api_key_value) if api_key_value else ""
+        self.provider = get_provider(provider_enum, api_key_str)
         self.model_info: Optional[ModelInfo] = None
         final_registry = tool_registry if tool_registry is not None else create_builtin_registry()
         self.tool_manager = ToolExecutionManager(session.id, final_registry, session_lifecycle)
@@ -80,7 +79,9 @@ class AISession:
             self.model_info = await self._get_model_info(self.model)
         return self.model_info
 
-    async def process_stream(self, events: AsyncIterator[StreamEvent]) -> tuple[List[Part], TokenUsage]:
+    async def process_stream(
+        self, events: AsyncIterator[StreamEvent]
+    ) -> tuple[List[Part], TokenUsage]:
         """Process stream events and create message parts"""
         parts: List[Part] = []
         tool_input: Optional[Dict[str, Any]] = None
@@ -96,30 +97,37 @@ class AISession:
                         output=usage_data.get("completion_tokens", 0),
                         reasoning=usage_data.get("reasoning_tokens", 0),
                         cache_read=usage_data.get("cache_read_tokens", 0),
-                        cache_write=usage_data.get("cache_write_tokens", 0)
+                        cache_write=usage_data.get("cache_write_tokens", 0),
                     )
 
             if event.event_type == "text-delta":
                 if parts and isinstance(parts[-1], TextPart):
+                    existing = parts[-1].model_dump()
+                    existing.pop("text", None)
+                    existing.pop("time", None)
                     parts[-1] = TextPart(
-                        **parts[-1].model_dump(),
+                        **existing,
                         text=parts[-1].text + event.data.get("delta", ""),
-                        time={"updated": event.timestamp}
+                        time={"updated": event.timestamp},
                     )
                 else:
-                    parts.append(TextPart(
-                        id=f"{self.session.id}_{len(parts)}",
-                        session_id=self.session.id,
-                        message_id=self.session.id,
-                        part_type="text",
-                        text=event.data.get("delta", ""),
-                        time={"created": event.timestamp}
-                    ))
+                    parts.append(
+                        TextPart(
+                            id=f"{self.session.id}_{len(parts)}",
+                            session_id=self.session.id,
+                            message_id=self.session.id,
+                            part_type="text",
+                            text=event.data.get("delta", ""),
+                            time={"created": event.timestamp},
+                        )
+                    )
 
             elif event.event_type == "tool-call":
                 tool_name = event.data.get("tool", "")
                 tool_input = event.data.get("input", {})
-                tool_call_id = event.data.get("call_id", f"{self.session.id}_{tool_name}_{len(parts)}")
+                tool_call_id = event.data.get(
+                    "call_id", f"{self.session.id}_{tool_name}_{len(parts)}"
+                )
 
                 result = await self.tool_manager.execute_tool_call(
                     tool_name=tool_name,
@@ -127,7 +135,7 @@ class AISession:
                     tool_call_id=tool_call_id,
                     message_id=self.session.id,
                     agent=str(self.provider_id),
-                    model=self.model
+                    model=self.model,
                 )
 
                 # Create ToolPart from result
@@ -138,8 +146,10 @@ class AISession:
                     part_type="tool",
                     tool=tool_name,
                     call_id=tool_call_id,
-                    state=ToolState(status="completed", input=tool_input or {}, output=result.output),
-                    source={"provider": self.model}
+                    state=ToolState(
+                        status="completed", input=tool_input or {}, output=result.output
+                    ),
+                    source={"provider": self.model},
                 )
                 parts.append(tool_part)
                 total_cost += result.metadata.get("cost", Decimal("0"))
@@ -156,27 +166,32 @@ class AISession:
                         message_id=self.session.id,
                         part_type="agent",
                         name=str(self.provider_id),
-                        source={"provider": self.model}
+                        source={"provider": self.model},
                     )
                     parts.append(agent_part)
 
         return parts, usage
 
     async def create_assistant_message(
-        self,
-        user_message_id: str,
-        parts: List[Part],
-        tokens: TokenUsage,
-        cost: Decimal
+        self, user_message_id: str, parts: List[Part], tokens: TokenUsage, cost: Decimal
     ) -> Message:
         await self._ensure_model_info()
+        created_time = None
+        if parts and isinstance(parts[0], TextPart):
+            created_time = parts[0].time.get("created")
+
+        assistant_text = ""
+        for part in parts:
+            if isinstance(part, TextPart) and part.text:
+                assistant_text += part.text
+
         assistant_message = Message(
             id=f"{self.session.id}_{self.session.message_counter}",
             session_id=self.session.id,
             role="assistant",
-            text="",
+            text=assistant_text,
             parts=parts,
-            time={"created": parts[0].time.get("created") if isinstance(parts[0], TextPart) and parts else None},
+            time={"created": created_time},
             metadata={
                 "parent_id": user_message_id,
                 "model_id": self.model_info.id if self.model_info else "",
@@ -185,7 +200,7 @@ class AISession:
                 "path": {"root": str(self.session.directory), "cwd": str(self.session.directory)},
                 "cost": float(cost),
                 "tokens": {"input": tokens.input, "output": tokens.output},
-            }
+            },
         )
 
         if self.session_manager:
@@ -206,9 +221,7 @@ class AISession:
         return assistant_message
 
     async def process_message(
-        self,
-        user_message: str,
-        options: Optional[Dict[str, Any]] = None
+        self, user_message: str, options: Optional[Dict[str, Any]] = None
     ) -> Message:
         """Process a user message through AI provider
 
@@ -219,6 +232,10 @@ class AISession:
         Returns:
             The assistant's response message
         """
+        logger.debug(f"[{self.session.slug}] Prompt to LLM ({len(user_message)} chars)")
+        if options:
+            logger.debug(f"[{self.session.slug}] LLM Options: {options}")
+
         # Create user message
         user_msg = Message(
             id=f"{self.session.id}_{self.session.message_counter}",
@@ -230,16 +247,14 @@ class AISession:
 
         if self.session_manager:
             user_msg_id = await self.session_manager.add_message(user_msg)
+            messages = await self.session_manager.list_messages(self.session.id)
         else:
             user_msg_id = user_msg.id
+            messages = [user_msg]
         self.session.message_counter += 1
 
         if self.session_lifecycle:
             await self.session_lifecycle.emit_message_added(user_msg.model_dump())
-
-        # Build message history for context
-        messages = await self.session_manager.list_messages(self.session.id) if self.session_manager else []
-
         # Build LLM messages (convert to provider format)
         llm_messages = self._build_llm_messages(messages)
 
@@ -249,19 +264,13 @@ class AISession:
         # Call provider stream
         if self.provider:
             model_info = await self._ensure_model_info()
-            stream = self.provider.stream(
-                model_info,
-                llm_messages,
-                tools,
-                options or {}
-            )
+            stream = self.provider.stream(model_info, llm_messages, tools, options or {})
 
             # Process stream and create parts
             parts, tokens = await self.process_stream(stream)
         else:
             parts = []
 
-        
         # Calculate cost
         if self.provider:
             model_info = await self._ensure_model_info()
@@ -270,21 +279,21 @@ class AISession:
             cost = Decimal("0")
 
         # Create assistant message
-        assistant_message = await self.create_assistant_message(
-            user_msg_id,
-            parts,
-            tokens,
-            cost
-        )
+        assistant_message = await self.create_assistant_message(user_msg_id, parts, tokens, cost)
 
         # Increment session message counter
         self.session.message_counter += 1
+
+        logger.debug(
+            f"[{self.session.slug}] Response from LLM ({len(assistant_message.text)} chars, {tokens.input}+{tokens.output} tokens)"
+        )
 
         return assistant_message
 
     def _now(self) -> int:
         """Get current timestamp in milliseconds"""
         import time
+
         return int(time.time() * 1000)
 
     def _build_llm_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
@@ -305,19 +314,21 @@ class AISession:
 
         return llm_messages
 
-    def _get_tool_definitions(self) -> Dict[str, Any]:
+    def _get_tool_definitions(self) -> List[Dict[str, Any]]:
         """Get tool definitions for LLM"""
         tools = self.tool_manager.tool_registry.tools
-        tool_definitions = {}
+        tool_definitions = []
 
         for tool_id, tool in tools.items():
-            tool_definitions[tool_id] = {
-                "type": "function",
-                "function": {
-                    "name": tool.id,
-                    "description": tool.description,
-                    "parameters": tool.parameters()
+            tool_definitions.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.id,
+                        "description": tool.description,
+                        "parameters": tool.parameters(),
+                    },
                 }
-            }
+            )
 
         return tool_definitions

@@ -11,7 +11,12 @@ import pendulum
 from rich.console import Console
 from rich.table import Table
 
-from opencode_python.core.settings import get_settings, get_storage_dir
+from opencode_python.core.settings import (
+    settings,
+    get_storage_dir,
+    get_config_dir,
+    get_cache_dir,
+)
 from opencode_python.core.session import SessionManager
 from opencode_python.session.export_import import ExportImportManager
 from opencode_python.storage.store import SessionStorage
@@ -83,7 +88,6 @@ def list_sessions(directory: str | None) -> None:
 @click.option("--model", "-m", help="Model to use")
 def run(message: tuple[str, ...], agent: str, model: str | None) -> None:
     """Run OpenCode with a message (non-interactive mode)"""
-    settings = get_settings()
 
     if settings.debug:
         console.print("[dim]Running in debug mode[/dim]")
@@ -206,3 +210,7 @@ cli.add_command(run)
 cli.add_command(export_session)
 cli.add_command(import_session)
 cli.add_command(tui)
+
+from opencode_python.agents.review.cli import review, generate_docs
+cli.add_command(review)
+cli.add_command(generate_docs)

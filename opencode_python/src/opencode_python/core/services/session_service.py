@@ -39,12 +39,11 @@ class SessionService(Protocol):
     use injected handlers for I/O, progress, and notifications.
     """
 
-    async def create_session(self, title: str, version: str = "1.0.0") -> Session:
+    async def create_session(self, title: str) -> Session:
         """Create a new session.
 
         Args:
             title: The session title.
-            version: The session version (default: "1.0.0").
 
         Returns:
             The created Session object.
@@ -53,18 +52,6 @@ class SessionService(Protocol):
             SessionError: If session creation fails.
         """
         ...
-
-    async def get_session(self, session_id: str) -> Session | None:
-        """Get a session by ID.
-
-        Args:
-            session_id: The session ID.
-
-        Returns:
-            Session object or None if not found.
-        """
-        session = await self._manager.get_session(session_id)
-        return session
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete a session by ID.
@@ -185,12 +172,11 @@ class DefaultSessionService:
 
         self._manager = SessionManager(storage, self.project_dir)
 
-    async def create_session(self, title: str, version: str = "1.0.0") -> Session:
+    async def create_session(self, title: str) -> Session:
         """Create a new session using injected handlers.
 
         Args:
             title: The session title.
-            version: The session version (default: "1.0.0").
 
         Returns:
             The created Session object.
@@ -212,7 +198,7 @@ class DefaultSessionService:
                 self._progress_handler.update(50, "Initializing...")
 
             parent_id = None if not use_parent else ""
-            session = await self._manager.create(title, parent_id=parent_id, version=version)
+            session = await self._manager.create(title, parent_id=parent_id)
 
             if self._progress_handler:
                 self._progress_handler.update(100, "Session created")

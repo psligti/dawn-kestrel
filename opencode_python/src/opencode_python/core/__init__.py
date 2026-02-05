@@ -22,7 +22,6 @@ from .models import (
 )
 from .event_bus import EventBus, Events, Event, EventSubscription
 from .session import SessionManager
-from .settings import get_settings
 
 __all__ = [
     # Models
@@ -52,6 +51,4 @@ __all__ = [
     "bus",
     # Session
     "SessionManager",
-    # Settings
-    "get_settings",
 ]

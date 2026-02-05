@@ -69,7 +69,7 @@ class Storage:
         keys = []
         for path in prefix_path.rglob("*.json"):
             relative = path.relative_to(self.storage_dir)
-            keys.append(list(relative.parts))
+            keys.append(list(relative.parts)[0:len(prefix)] + [relative.stem])
             keys.sort()
         return keys
 
@@ -77,9 +77,9 @@ class Storage:
 class SessionStorage(Storage):
     """Session-specific storage operations"""
 
-    async def get_session(self, session_id: str, project_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Optional[Session]:
         """Get session by ID"""
-        keys = await self.list(["session", project_id])
+        keys = await self.list(["session"])
         for key in keys:
             data = await self.read(key)
             if data and data.get("id") == session_id:
@@ -100,13 +100,13 @@ class SessionStorage(Storage):
 
     async def create_session(self, session: Session) -> Session:
         """Create a new session"""
-        await self.write(["session", session.project_id, session.id + ".json"], session.model_dump(mode="json"))
+        await self.write(["session", session.project_id, session.id], session.model_dump(mode="json"))
         return session
 
     async def update_session(self, session: Session) -> Session:
         """Update session data"""
         session.time_updated = datetime.now().timestamp()
-        await self.write(["session", session.project_id, session.id + ".json"], session.model_dump(mode="json"))
+        await self.write(["session", session.project_id, session.id], session.model_dump(mode="json"))
         return session
 
     async def delete_session(self, session_id: str, project_id: str) -> bool:

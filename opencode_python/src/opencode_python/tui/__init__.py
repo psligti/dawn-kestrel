@@ -1,4 +1,4 @@
 """OpenCode Python - TUI module exports"""
-from .screens import __all__ as screens_all
+from .app import OpenCodeTUI
 
 __all__ = ["OpenCodeTUI"]
