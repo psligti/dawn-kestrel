@@ -878,6 +878,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cli = [
+    { name = "click" },
+    { name = "rich" },
+]
 dev = [
     { name = "faker" },
     { name = "mypy" },
@@ -885,6 +889,14 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+full = [
+    { name = "click" },
+    { name = "rich" },
+    { name = "textual" },
+]
+tui = [
+    { name = "textual" },
 ]
 
 [package.dev-dependencies]
@@ -904,10 +916,12 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.10" },
     { name = "asyncio-extras", specifier = ">=0.22.0" },
     { name = "click", specifier = ">=8.0" },
+    { name = "click", marker = "extra == 'cli'", specifier = ">=8.0" },
     { name = "faker", marker = "extra == 'dev'", specifier = ">=28.0" },
     { name = "gitpython", specifier = ">=3.1" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
+    { name = "opencode-python", extras = ["cli", "tui"], marker = "extra == 'full'" },
     { name = "pendulum", specifier = ">=3.0" },
     { name = "pydantic", specifier = ">=2.12" },
     { name = "pydantic-settings", specifier = ">=2.0" },
@@ -916,12 +930,14 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "python-frontmatter", specifier = ">=1.0" },
     { name = "rich", specifier = ">=13.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0" },
     { name = "ripgrep", specifier = ">=14.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "textual", specifier = ">=7.5.0" },
+    { name = "textual", marker = "extra == 'tui'", specifier = ">=0.79.0" },
     { name = "tiktoken", specifier = ">=0.8.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["cli", "tui", "full", "dev"]
 
 [package.metadata.requires-dev]
 dev = [

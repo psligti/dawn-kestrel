@@ -56,6 +56,8 @@ dev = [
 
 [project.scripts]
 parkcode = "opencode_python.cli:cli"
+opencode-review = "opencode_python.agents.review.cli:review"
+opencode-review-generate-docs = "opencode_python.agents.review.cli:generate_docs"
 
 [dependency-groups]
 dev = [

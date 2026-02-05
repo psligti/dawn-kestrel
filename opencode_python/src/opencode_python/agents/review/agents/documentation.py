@@ -10,6 +10,7 @@ Reviews code changes for documentation coverage including:
 from __future__ import annotations
 from typing import List
 import pydantic as pd
+import logging
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import (
@@ -23,6 +24,7 @@ from opencode_python.core.models import Session
 from opencode_python.core.settings import settings
 import uuid
 
+logger = logging.getLogger(__name__)
 
 class DocumentationReviewer(BaseReviewerAgent):
     """Documentation reviewer agent that checks for documentation coverage.
@@ -111,9 +113,13 @@ Your agent name is "documentation"."""
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
 
-        provider_id = settings.provider_default
-        model = settings.model_default
-        api_key = settings.api_key.get_secret_value() if settings.api_key else None
+        default_account = settings.get_default_account()
+        if not default_account:
+            raise ValueError("No default account configured. Please configure an account with is_default=True.")
+
+        provider_id = default_account.provider_id
+        model = default_account.model
+        api_key_value = default_account.api_key.get_secret_value()
 
         session = Session(
             id=str(uuid.uuid4()),
@@ -128,7 +134,7 @@ Your agent name is "documentation"."""
             session=session,
             provider_id=provider_id,
             model=model,
-            api_key=api_key
+            api_key=api_key_value
         )
 
         system_prompt = self.get_system_prompt()
@@ -140,46 +146,61 @@ Your agent name is "documentation"."""
 
 Please analyze the above changes for documentation coverage and provide your review in the specified JSON format."""
 
-        try:
-            response_message = await ai_session.process_message(
-                user_message,
-                options={
-                    "temperature": 0.3,
-                    "top_p": 0.9
-                }
-            )
+        max_retries = 2
+        response_message = None
 
-            if not response_message.text:
-                raise ValueError("Empty response from LLM")
-
+        for attempt in range(max_retries):
             try:
-                from opencode_python.utils.json_parser import strip_json_code_blocks
-                cleaned_text = strip_json_code_blocks(response_message.text)
-                output = ReviewOutput.model_validate_json(cleaned_text)
-            except pd.ValidationError as e:
-                return ReviewOutput(
-                    agent=self.get_agent_name(),
-                    summary=f"Error parsing LLM response: {str(e)}",
-                    severity="critical",
-                    scope=Scope(
-                        relevant_files=relevant_files,
-                        ignored_files=[],
-                        reasoning="Failed to parse LLM JSON response due to validation error."
-                    ),
-                    findings=[],
-                    merge_gate=MergeGate(
-                        decision="needs_changes",
-                        must_fix=[],
-                        should_fix=[],
-                        notes_for_coding_agent=[
-                            "Review LLM response format and ensure it matches expected schema."
-                        ]
-                    )
+                logger.info(f"[documentation] Calling LLM (attempt {attempt + 1}/{max_retries})...")
+                response_message = await ai_session.process_message(
+                    user_message,
+                    options={
+                        "temperature": 0.3,
+                        "top_p": 0.9,
+                        "response_format": {"type": "json_object"}
+                    }
                 )
 
-            return output
+                if not response_message.text or not response_message.text.strip():
+                    if attempt < max_retries - 1:
+                        logger.warning(f"[documentation] Empty response from LLM, retrying ({attempt + 1}/{max_retries})...")
+                        continue
+                    else:
+                        raise ValueError("Empty response from LLM after retries")
 
-        except (TimeoutError, Exception) as e:
-            if isinstance(e, (TimeoutError, ValueError)):
+                logger.info(f"[documentation] Got response: {len(response_message.text)} chars")
+                break
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"[documentation] LLM request failed, retrying ({attempt + 1}/{max_retries}): {e}")
+                    continue
                 raise
-            raise Exception(f"LLM API error: {str(e)}") from e
+
+        if not response_message or not response_message.text:
+            raise ValueError("Empty response from LLM")
+
+        try:
+            output = ReviewOutput.model_validate_json(response_message.text)
+        except pd.ValidationError as e:
+            return ReviewOutput(
+                agent=self.get_agent_name(),
+                summary=f"Error parsing LLM response: {str(e)}",
+                severity="critical",
+                scope=Scope(
+                    relevant_files=relevant_files,
+                    ignored_files=[],
+                    reasoning="Failed to parse LLM JSON response due to validation error."
+                ),
+                findings=[],
+                merge_gate=MergeGate(
+                    decision="needs_changes",
+                    must_fix=[],
+                    should_fix=[],
+                    notes_for_coding_agent=[
+                        "Review LLM response format and ensure it matches expected schema."
+                    ]
+                )
+            )
+
+        return output

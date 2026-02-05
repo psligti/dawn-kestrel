@@ -134,13 +134,21 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
         return self._result
 
     def _persist_to_settings(self, model: ModelInfo) -> None:
-        """Persist selected model to settings.
+        """Persist selected model to settings via the accounts system.
+
+        Updates the default account's model and provider.
 
         Args:
             model: ModelInfo to persist.
         """
-        settings.model_default = model.id
-        settings.provider_default = model.provider_id.value
+        default_account = settings.get_default_account()
+        if default_account:
+            default_account.model = model.id
+            default_account.provider_id = model.provider_id
+        else:
+            # Fallback to legacy settings for backward compatibility
+            settings.model_default = model.id
+            settings.provider_default = model.provider_id.value
 
     def action_enter(self) -> None:
         """Handle Enter key - select current model and close."""

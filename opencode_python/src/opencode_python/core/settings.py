@@ -4,10 +4,11 @@ from __future__ import annotations
 from typing import Optional, Dict
 from pathlib import Path
 import os
+import json
+import warnings
 import pydantic_settings
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings.main import SettingsConfigDict
-
 
 __all__ = [
     "Settings",
@@ -30,10 +31,6 @@ class Settings(pydantic_settings.BaseSettings):
     app_name: str = Field(default="opencode-python", alias="APP_NAME")
     debug: bool = Field(default=False, alias="DEBUG")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
-
-    # API credentials (secrets)
-    api_key: SecretStr = Field(default_factory=lambda: SecretStr(""))
-    api_endpoint: str = Field(default="https://api.open-code.ai/v1", alias="API_ENDPOINT")
 
     # Multi-account provider settings
     accounts: Dict[str, AccountConfig] = Field(default_factory=dict)
@@ -80,7 +77,7 @@ class Settings(pydantic_settings.BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=(
-            Path(__file__).parent.parent.parent.parent / ".env",
+            ".env",
             Path.home() / ".config" / "opencode-python" / ".env",
         ),
         env_file_encoding="utf-8",
@@ -132,9 +129,57 @@ class Settings(pydantic_settings.BaseSettings):
                 return account
         return None
 
+    def get_default_provider(self) -> ProviderID:
+        """
+        Retrieve the default provider from accounts.
+
+        Falls back to provider_default setting if no accounts are configured.
+
+        Returns:
+            The ProviderID for the default provider.
+        """
+        default_account = self.get_default_account()
+        if default_account:
+            return default_account.provider_id
+
+        return ProviderID(self.provider_default)
+
+    def get_default_model(self, provider_id: Optional[ProviderID | str] = None) -> str:
+        """
+        Retrieve the default model for a provider from accounts.
+
+        Falls back to model_default setting if no accounts are configured.
+
+        Args:
+            provider_id: Optional provider ID to get model for. If None, uses default provider.
+
+        Returns:
+            The model ID string for the default model.
+        """
+        if provider_id is None:
+            provider_id = self.get_default_provider()
+        elif isinstance(provider_id, str):
+            provider_id = ProviderID(provider_id)
+
+        default_account = self.get_default_account()
+        if default_account and default_account.provider_id == provider_id:
+            return default_account.model
+
+        accounts_by_provider = self.get_accounts_by_provider(provider_id)
+        if accounts_by_provider:
+            return list(accounts_by_provider.values())[0].model
+
+        return self.model_default
+
     def get_api_key_for_provider(self, provider_id: ProviderID | str) -> Optional[SecretStr]:
         """
         Retrieve API key for a specific provider from accounts.
+
+        Falls back to environment variables if accounts are not configured.
+
+        Environment variables are loaded from:
+        - Project root .env file
+        - ~/.config/opencode-python/.env
 
         Args:
             provider_id: The provider ID to get API key for (ProviderID enum or string).
@@ -142,19 +187,26 @@ class Settings(pydantic_settings.BaseSettings):
         Returns:
             The API key SecretStr if found, None otherwise.
         """
-        # Convert string to ProviderID enum if needed
         provider_enum = ProviderID(provider_id) if isinstance(provider_id, str) else provider_id
 
-        # Try to get from default account first
         default_account = self.get_default_account()
         if default_account and default_account.provider_id == provider_enum:
             return default_account.api_key
 
-        # Try to get any account for this provider
         accounts_by_provider = self.get_accounts_by_provider(provider_enum)
         if accounts_by_provider:
-            # Return API key from first account for this provider
             return list(accounts_by_provider.values())[0].api_key
+
+        provider_name = provider_enum.value.replace('.', '').replace('-', '_').upper()
+        env_var_with_prefix = f"OPENCODE_PYTHON_{provider_name}_API_KEY"
+        env_key = os.getenv(env_var_with_prefix)
+        if env_key:
+            return SecretStr(env_key)
+
+        env_var_without_prefix = f"{provider_name}_API_KEY"
+        env_key = os.getenv(env_var_without_prefix)
+        if env_key:
+            return SecretStr(env_key)
 
         return None
 

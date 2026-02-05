@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pydantic import SecretStr
 
 from opencode_python.core.settings import (
     Settings,
@@ -19,6 +20,7 @@ from opencode_python.core.settings import (
     get_cache_dir,
 )
 from opencode_python.core.config import SDKConfig
+from opencode_python.providers import ProviderID
 
 
 class TestSettingsDefaults:
@@ -38,17 +40,6 @@ class TestSettingsDefaults:
         """Test default log level."""
         settings = Settings()
         assert settings.log_level == "INFO"
-
-    def test_default_api_key(self) -> None:
-        """Test default API key is a SecretStr (may have value from env)."""
-        settings = Settings()
-        from pydantic import SecretStr
-        assert isinstance(settings.api_key, SecretStr)
-
-    def test_default_api_endpoint(self) -> None:
-        """Test default API endpoint."""
-        settings = Settings()
-        assert settings.api_endpoint == "https://api.open-code.ai/v1"
 
     def test_default_provider_default(self) -> None:
         """Test default provider."""
@@ -124,6 +115,72 @@ class TestSettingsDefaults:
         """Test default permission action."""
         settings = Settings()
         assert settings.permission_default_action == "ask"
+
+    def test_get_default_provider_without_accounts(self) -> None:
+        """Test get_default_provider returns legacy setting when no accounts configured."""
+        settings = Settings()
+        provider = settings.get_default_provider()
+        assert provider.value == settings.provider_default
+
+    def test_get_default_provider_with_default_account(self) -> None:
+        """Test get_default_provider returns provider from default account."""
+        from opencode_python.core.provider_settings import AccountConfig
+        settings = Settings()
+        settings.accounts = {
+            "test-account": AccountConfig(
+                account_name="test-account",
+                provider_id=ProviderID.ANTHROPIC,
+                api_key=SecretStr("test-key"),
+                model="claude-3-5-sonnet-20241022",
+                is_default=True
+            )
+        }
+        provider = settings.get_default_provider()
+        assert provider == ProviderID.ANTHROPIC
+
+    def test_get_default_model_without_accounts(self) -> None:
+        """Test get_default_model returns legacy setting when no accounts configured."""
+        settings = Settings()
+        model = settings.get_default_model()
+        assert model == settings.model_default
+
+    def test_get_default_model_with_default_account(self) -> None:
+        """Test get_default_model returns model from default account."""
+        from opencode_python.core.provider_settings import AccountConfig
+        settings = Settings()
+        test_account = AccountConfig(
+            account_name="test-account",
+            provider_id=ProviderID.ANTHROPIC,
+            api_key=SecretStr("test-key"),
+            model="custom-model-name",
+            is_default=True
+        )
+        settings.accounts = {"test-account": test_account}
+        model = settings.get_default_model()
+        assert model == "custom-model-name"
+
+    def test_get_default_model_with_provider_param(self) -> None:
+        """Test get_default_model with explicit provider parameter."""
+        from opencode_python.core.provider_settings import AccountConfig
+        settings = Settings()
+        settings.accounts = {
+            "anthropic-account": AccountConfig(
+                account_name="anthropic-account",
+                provider_id=ProviderID.ANTHROPIC,
+                api_key=SecretStr("test-key-1"),
+                model="claude-model",
+                is_default=False
+            ),
+            "openai-account": AccountConfig(
+                account_name="openai-account",
+                provider_id=ProviderID.OPENAI,
+                api_key=SecretStr("test-key-2"),
+                model="gpt-model",
+                is_default=True
+            )
+        }
+        model = settings.get_default_model(ProviderID.ANTHROPIC)
+        assert model == "claude-model"
 
 
 class TestSettingsPydanticValidation:
