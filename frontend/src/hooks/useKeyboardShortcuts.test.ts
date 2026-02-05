@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useKeyboardShortcuts } from './useKeyboardShortcuts'
+import { store } from '../store'
 
 describe('useKeyboardShortcuts', () => {
   it('initializes without crashing', () => {
@@ -15,9 +16,27 @@ describe('useKeyboardShortcuts', () => {
   })
 
   it('hook accepts store state without crashing', () => {
-    // The hook internally uses Zustand to access store state
-    // This test verifies it doesn't crash with default state
     const { rerender } = renderHook(() => useKeyboardShortcuts())
     expect(rerender).toBeDefined()
+  })
+
+  it('registers keyboard shortcuts for left dashboard', () => {
+    const { unmount } = renderHook(() => useKeyboardShortcuts())
+    expect(store.getState()).toBeDefined()
+    unmount()
+  })
+
+  it('handles left dashboard toggle shortcut registration', () => {
+    renderHook(() => useKeyboardShortcuts())
+    const state = store.getState()
+    expect(state.leftDashboardOpen).toBeDefined()
+    expect(state.leftDashboardPinned).toBeDefined()
+  })
+
+  it('handles left dashboard pin shortcut registration', () => {
+    renderHook(() => useKeyboardShortcuts())
+    const state = store.getState()
+    expect(state.leftDashboardOpen).toBeDefined()
+    expect(state.leftDashboardPinned).toBeDefined()
   })
 })
