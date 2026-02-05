@@ -8,8 +8,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, status
 
 from opencode_python.agents.tool_execution_tracker import ToolExecutionTracker
-from opencode_python.core.config import SDKConfig
 from opencode_python.sdk import OpenCodeAsyncClient
+
+from api.sessions import get_sdk_client
 
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["telemetry"])
@@ -53,30 +54,6 @@ async def get_tool_tracker() -> ToolExecutionTracker:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to initialize tool tracker: {str(e)}",
-        )
-
-
-async def get_sdk_client() -> OpenCodeAsyncClient:
-    """Get SDK client instance.
-
-    Returns:
-        OpenCodeAsyncClient: Initialized SDK client.
-
-    Raises:
-        HTTPException: If client initialization fails.
-    """
-    try:
-        project_dir = Path(os.environ.get("WEBAPP_PROJECT_DIR", Path.cwd()))
-        config = SDKConfig(
-            storage_path=project_dir / "storage",
-            project_dir=project_dir,
-        )
-        client = OpenCodeAsyncClient(config=config)
-        return client
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initialize SDK client: {str(e)}",
         )
 
 
