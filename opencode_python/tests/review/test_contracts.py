@@ -222,6 +222,17 @@ class TestMergeGate:
                 notes_for_coding_agent=[]
             )
 
+    def test_merge_gate_approve_with_warnings(self):
+        """Test MergeGate with approve_with_warnings decision."""
+        gate = MergeGate(
+            decision="approve_with_warnings",
+            must_fix=[],
+            should_fix=["STYLE-001"],
+            notes_for_coding_agent=["Style issues found, but not blocking"]
+        )
+        assert gate.decision == "approve_with_warnings"
+        assert gate.should_fix == ["STYLE-001"]
+
     def test_merge_gate_extra_fields_forbidden(self):
         """Test MergeGate rejects extra fields."""
         with pytest.raises(ValidationError, match="extra"):

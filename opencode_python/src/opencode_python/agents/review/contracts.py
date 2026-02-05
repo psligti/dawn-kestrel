@@ -46,7 +46,7 @@ class Finding(pd.BaseModel):
 
 
 class MergeGate(pd.BaseModel):
-    decision: Literal["approve", "needs_changes", "block"]
+    decision: Literal["approve", "needs_changes", "block", "approve_with_warnings"]
     must_fix: List[str] = pd.Field(default_factory=list)
     should_fix: List[str] = pd.Field(default_factory=list)
     notes_for_coding_agent: List[str] = pd.Field(default_factory=list)
@@ -177,5 +177,38 @@ EXAMPLE WITH FINDING:
     "must_fix": ["Hardcoded API key in config.py"],
     "should_fix": [],
     "notes_for_coding_agent": ["Rotate API key immediately"]
+  }}
+}}
+
+EXAMPLE WITH WARNINGS:
+{{
+  "agent": "style",
+  "summary": "Minor style issues found",
+  "severity": "warning",
+  "scope": {{
+    "relevant_files": ["src/utils.py"],
+    "ignored_files": [],
+    "reasoning": "Code style review only"
+  }},
+  "checks": [],
+  "skips": [],
+  "findings": [
+    {{
+      "id": "STYLE-001",
+      "title": "Line too long",
+      "severity": "warning",
+      "confidence": "medium",
+      "owner": "style",
+      "estimate": "S",
+      "evidence": "Line 45 exceeds 100 characters",
+      "risk": "Code readability may suffer",
+      "recommendation": "Split line across multiple lines"
+    }}
+  ],
+  "merge_gate": {{
+    "decision": "approve_with_warnings",
+    "must_fix": [],
+    "should_fix": ["STYLE-001"],
+    "notes_for_coding_agent": ["Style review complete"]
   }}
 }}'''
