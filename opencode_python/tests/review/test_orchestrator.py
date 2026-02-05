@@ -376,7 +376,7 @@ async def test_compute_merge_decision_needs_changes():
 
     decision = orchestrator.compute_merge_decision(results)
 
-    assert decision.decision == "needs_changes"
+    assert decision.decision == "approve_with_warnings"
     assert len(decision.must_fix) == 0
     assert len(decision.should_fix) == 2
 
@@ -529,7 +529,7 @@ async def test_run_review_full_workflow(sample_review_outputs):
         output = await orchestrator.run_review(inputs)
 
     assert isinstance(output, OrchestratorOutput)
-    assert output.merge_decision.decision == "needs_changes"
+    assert output.merge_decision.decision == "approve_with_warnings"
     assert output.total_findings == 1
     assert len(output.subagent_results) == 2
     assert "2 subagents" in output.summary

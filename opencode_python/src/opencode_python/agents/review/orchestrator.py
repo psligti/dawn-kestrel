@@ -198,7 +198,7 @@ class PRReviewOrchestrator:
         """
         must_fix = []
         should_fix = []
-        decision: Literal["approve", "needs_changes", "block"] = "approve"
+        decision: Literal["approve", "needs_changes", "block", "approve_with_warnings"] = "approve"
 
         for result in results:
             must_fix.extend(result.merge_gate.must_fix)
@@ -218,7 +218,7 @@ class PRReviewOrchestrator:
             )
             decision = "block" if has_blocking else "needs_changes"
         elif should_fix:
-            decision = "needs_changes"
+            decision = "approve_with_warnings"
         else:
             decision = "approve"
 
