@@ -10,10 +10,8 @@ from opencode_python.agents.review.contracts import (
     MergeGate,
     get_review_output_schema,
 )
-from opencode_python.ai_session import AISession
-from opencode_python.core.models import Session
-from opencode_python.core.settings import settings
-import uuid
+from opencode_python.core.harness import SimpleReviewAgentRunner
+
 
 
 class DiffScoperReviewer(BaseReviewerAgent):
@@ -64,15 +62,13 @@ These are notes for the orchestrator, not blocking issues."""
         return ["**/*"]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform review on the given context using LLM.
-
-        Analyzes the git diff to classify risk and route attention to appropriate subagents.
+        """Perform diff_scoper review on given context using SimpleReviewAgentRunner.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
 
         Returns:
-            ReviewOutput with risk classification, routing findings, and merge gate decision
+            ReviewOutput with findings, severity, and merge gate decision
 
         Raises:
             ValueError: If API key is missing or invalid
@@ -84,30 +80,6 @@ These are notes for the orchestrator, not blocking issues."""
             if self.is_relevant_to_changes([file_path]):
                 relevant_files.append(file_path)
 
-        default_account = settings.get_default_account()
-        if not default_account:
-            raise ValueError("No default account configured. Please configure an account with is_default=True.")
-
-        provider_id = default_account.provider_id
-        model = default_account.model
-        api_key_value = default_account.api_key.get_secret_value()
-
-        session = Session(
-            id=str(uuid.uuid4()),
-            slug="diff-scoper-review",
-            project_id="review",
-            directory=context.repo_root or "/tmp",
-            title="Diff Scoper Review",
-            version="1.0"
-        )
-
-        ai_session = AISession(
-            session=session,
-            provider_id=provider_id,
-            model=model,
-            api_key=api_key_value
-        )
-
         system_prompt = self.get_system_prompt()
         formatted_context = self.format_inputs_for_prompt(context)
 
@@ -115,47 +87,50 @@ These are notes for the orchestrator, not blocking issues."""
 
 {formatted_context}
 
-Please analyze the above changes for diff scoping and provide your review in the specified JSON format."""
+Please analyze the above changes for diff scoping issues and provide your review in the specified JSON format."""
+
+        logger.info(f"[diff_scoper] Prompt construction complete:")
+        logger.info(f"[diff_scoper]   System prompt: {len(system_prompt)} chars")
+        logger.info(f"[diff_scoper]   Formatted context: {len(formatted_context)} chars")
+        logger.info(f"[diff_scoper]   Full user_message: {len(user_message)} chars")
+        logger.info(f"[diff_scoper]   Relevant files: {len(relevant_files)}")
+
+        runner = SimpleReviewAgentRunner(agent_name="diff_scoper")
 
         try:
-            response_message = await ai_session.process_message(
-                user_message,
-                options={
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "response_format": {"type": "json_object"}
-                }
-            )
+            response_text = await runner.run_with_retry(system_prompt, formatted_context)
+            logger.info(f"[diff_scoper] Got response: {len(response_text)} chars")
 
-            if not response_message.text:
-                raise ValueError("Empty response from LLM")
-
-            try:
-                output = ReviewOutput.model_validate_json(response_message.text)
-            except pd.ValidationError as e:
-                return ReviewOutput(
-                    agent=self.get_agent_name(),
-                    summary=f"Error parsing LLM response: {str(e)}",
-                    severity="critical",
-                    scope=Scope(
-                        relevant_files=relevant_files,
-                        ignored_files=[],
-                        reasoning="Failed to parse LLM JSON response due to validation error."
-                    ),
-                    findings=[],
-                    merge_gate=MergeGate(
-                        decision="needs_changes",
-                        must_fix=[],
-                        should_fix=[],
-                        notes_for_coding_agent=[
-                            "Review LLM response format and ensure it matches expected schema."
-                        ]
-                    )
-                )
+            output = ReviewOutput.model_validate_json(response_text)
+            logger.info(f"[diff_scoper] JSON validation successful!")
+            logger.info(f"[diff_scoper]   agent: {output.agent}")
+            logger.info(f"[diff_scoper]   severity: {output.severity}")
+            logger.info(f"[diff_scoper]   findings: {len(output.findings)}")
 
             return output
-
-        except (TimeoutError, Exception) as e:
-            if isinstance(e, (TimeoutError, ValueError)):
-                raise
+        except pd.ValidationError as e:
+            logger.error(f"[diff_scoper] JSON validation error: {e}")
+            return ReviewOutput(
+                agent=self.get_agent_name(),
+                summary=f"Error parsing LLM response: {str(e)}",
+                severity="critical",
+                scope=Scope(
+                    relevant_files=relevant_files,
+                    ignored_files=[],
+                    reasoning="Failed to parse LLM JSON response due to validation error."
+                ),
+                findings=[],
+                merge_gate=MergeGate(
+                    decision="needs_changes",
+                    must_fix=[],
+                    should_fix=[],
+                    notes_for_coding_agent=[
+                        "Review LLM response format and ensure it matches expected schema."
+                    ]
+                )
+            )
+        except (TimeoutError, ValueError):
+            raise
+        except Exception as e:
             raise Exception(f"LLM API error: {str(e)}") from e
+

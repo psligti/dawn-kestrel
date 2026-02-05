@@ -11,10 +11,7 @@ from opencode_python.agents.review.contracts import (
     MergeGate,
     get_review_output_schema,
 )
-from opencode_python.ai_session import AISession
-from opencode_python.core.models import Session
-from opencode_python.core.settings import settings
-import uuid
+from opencode_python.core.harness import SimpleReviewAgentRunner
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +103,7 @@ Your agent name is "security"."""
         ]
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
-        """Perform security review on given context using LLM.
+        """Perform security review on given context using SimpleReviewAgentRunner.
 
         Args:
             context: ReviewContext containing changed files, diff, and metadata
@@ -140,38 +137,6 @@ Your agent name is "security"."""
 
         if not relevant_files:
             logger.info(f"[security] No relevant files found, returning early with 'merge' severity")
-
-            import json
-            review_summary = {
-                "agent": self.get_agent_name(),
-                "review_completed": True,
-                "inputs_checked": {
-                    "repo_root": context.repo_root,
-                    "base_ref": context.base_ref,
-                    "head_ref": context.head_ref,
-                    "changed_files_count": len(context.changed_files),
-                    "relevant_files_count": len(relevant_files),
-                    "diff_size": len(context.diff),
-                    "has_pr_title": bool(context.pr_title),
-                    "has_pr_description": bool(context.pr_description),
-                    "pr_title": context.pr_title or "",
-                },
-                "outputs_produced": {
-                    "severity": "merge",
-                    "merge_gate_decision": "approve",
-                    "findings_count": 0,
-                    "checks_count": 0,
-                    "skips_count": 0,
-                    "must_fix_count": 0,
-                    "should_fix_count": 0,
-                },
-                "findings_summary": [],
-                "checks_summary": [],
-                "skips_summary": [],
-            }
-            logger.info(f"[security] REVIEW_SUMMARY: {json.dumps(review_summary, indent=2)}")
-            logger.info(f"[security] <<< review() returning (early - no relevant files)")
-
             return ReviewOutput(
                 agent="security",
                 summary="No security-relevant files changed. Security review not applicable.",
@@ -191,35 +156,8 @@ Your agent name is "security"."""
                 ),
             )
 
-        default_account = settings.get_default_account()
-        if not default_account:
-            raise ValueError("No default account configured. Please configure an account with is_default=True.")
-
-        provider_id = default_account.provider_id
-        model = default_account.model
-        api_key_value = default_account.api_key.get_secret_value()
-
-        session = Session(
-            id=str(uuid.uuid4()),
-            slug="security-review",
-            project_id="review",
-            directory=context.repo_root or "/tmp",
-            title="Security Review",
-            version="1.0"
-        )
-
-        ai_session = AISession(
-            session=session,
-            provider_id=provider_id,
-            model=model,
-            api_key=api_key_value
-        )
-
-        logger.info(f"[security] Context construction starting...")
         system_prompt = self.get_system_prompt()
-        logger.info(f"[security]   System prompt loaded: {len(system_prompt)} chars")
         formatted_context = self.format_inputs_for_prompt(context)
-        logger.info(f"[security]   Formatted context built: {len(formatted_context)} chars")
 
         user_message = f"""{system_prompt}
 
@@ -227,55 +165,21 @@ Your agent name is "security"."""
 
 Please analyze the above changes for security vulnerabilities and provide your review in the specified JSON format."""
 
-        logger.info(f"[security] Context construction complete:")
-        logger.info(f"[security]   Full user_message size: {len(user_message)} chars")
-        logger.info(f"[security]   Relevant files included: {len(relevant_files)}")
-        logger.info(f"[security]   Diff included: {len(context.diff)} chars")
-        logger.debug(f"[security]   User message preview (first 300 chars): {user_message[:300]}...")
+        logger.info(f"[security] Prompt construction complete:")
+        logger.info(f"[security]   System prompt: {len(system_prompt)} chars")
+        logger.info(f"[security]   Formatted context: {len(formatted_context)} chars")
+        logger.info(f"[security]   Full user_message: {len(user_message)} chars")
+        logger.info(f"[security]   Relevant files: {len(relevant_files)}")
+        logger.info(f"[security]   Diff: {len(context.diff)} chars")
 
-        max_retries = 2
-        response_message = None
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"[security] LLM interaction (attempt {attempt + 1}/{max_retries}):")
-                logger.info(f"[security]   provider: {provider_id}")
-                logger.info(f"[security]   model: {model}")
-                logger.info(f"[security]   options: temperature=0.3, top_p=0.9")
-                logger.info(f"[security] Calling LLM API...")
-                response_message = await ai_session.process_message(
-                    user_message,
-                    options={
-                        "temperature": 0.3,
-                        "top_p": 0.9,
-                        "response_format": {"type": "json_object"}
-                    }
-                )
-
-                if not response_message.text or not response_message.text.strip():
-                    if attempt < max_retries - 1:
-                        logger.warning(f"[security] Empty response from LLM, retrying ({attempt + 1}/{max_retries})...")
-                        continue
-                    else:
-                        raise ValueError("Empty response from LLM after retries")
-
-                logger.info(f"[security] LLM response received: {len(response_message.text)} chars")
-                logger.debug(f"[security]   Response preview (first 200 chars): {response_message.text[:200]}...")
-                break
-
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.warning(f"[security] LLM request failed, retrying ({attempt + 1}/{max_retries}): {e}")
-                    continue
-                raise
-
-        if not response_message or not response_message.text:
-            raise ValueError("Empty response from LLM")
+        runner = SimpleReviewAgentRunner(agent_name="security")
 
         try:
+            response_text = await runner.run_with_retry(system_prompt, formatted_context)
+
             logger.info(f"[security] JSON parsing starting:")
-            logger.info(f"[security]   Original response: {len(response_message.text)} chars")
-            output = ReviewOutput.model_validate_json(response_message.text)
+            logger.info(f"[security]   Original response: {len(response_text)} chars")
+            output = ReviewOutput.model_validate_json(response_text)
             logger.info(f"[security] JSON validation successful!")
             logger.info(f"[security] Parsed ReviewOutput:")
             logger.info(f"[security]   agent: {output.agent}")
@@ -297,57 +201,6 @@ Please analyze the above changes for security vulnerabilities and provide your r
                 logger.debug(f"[security]     recommendation: {finding.recommendation[:150]}{'...' if len(finding.recommendation) > 150 else ''}")
 
             logger.info(f"[security] Parsing complete, returning ReviewOutput")
-
-            import json
-            review_summary = {
-                "agent": self.get_agent_name(),
-                "review_completed": True,
-                "inputs_checked": {
-                    "repo_root": context.repo_root,
-                    "base_ref": context.base_ref,
-                    "head_ref": context.head_ref,
-                    "changed_files_count": len(context.changed_files),
-                    "relevant_files_count": len(relevant_files),
-                    "diff_size": len(context.diff),
-                    "has_pr_title": bool(context.pr_title),
-                    "has_pr_description": bool(context.pr_description),
-                    "pr_title": context.pr_title or "",
-                },
-                "outputs_produced": {
-                    "severity": output.severity,
-                    "merge_gate_decision": output.merge_gate.decision,
-                    "findings_count": len(output.findings),
-                    "checks_count": len(output.checks),
-                    "skips_count": len(output.skips),
-                    "must_fix_count": len(output.merge_gate.must_fix),
-                    "should_fix_count": len(output.merge_gate.should_fix),
-                },
-                "findings_summary": [
-                    {
-                        "id": f.id,
-                        "title": f.title,
-                        "severity": f.severity,
-                        "confidence": f.confidence,
-                        "owner": f.owner,
-                        "estimate": f.estimate,
-                    }
-                    for f in output.findings
-                ],
-                "checks_summary": [
-                    {
-                        "name": c.name,
-                        "required": c.required,
-                    }
-                    for c in output.checks
-                ],
-                "skips_summary": [
-                    {
-                        "name": s.name,
-                    }
-                    for s in output.skips
-                ],
-            }
-            logger.info(f"[security] REVIEW_SUMMARY: {json.dumps(review_summary, indent=2)}")
             logger.info(f"[security] <<< review() returning")
             return output
         except pd.ValidationError as e:
@@ -356,40 +209,7 @@ Please analyze the above changes for security vulnerabilities and provide your r
             logger.error(f"[security]   Error count: {len(e.errors())}")
             for error in e.errors()[:5]:
                 logger.error(f"[security]     - {error['loc']}: {error['msg']}")
-            logger.error(f"[security]   Original response (first 500 chars): {response_message.text[:500]}...")
-            logger.error(f"[security]   Raw response (first 500 chars): {response_message.text[:500]}...")
-
-            import json
-            review_summary = {
-                "agent": self.get_agent_name(),
-                "review_completed": False,
-                "review_error": "JSON validation error",
-                "inputs_checked": {
-                    "repo_root": context.repo_root,
-                    "base_ref": context.base_ref,
-                    "head_ref": context.head_ref,
-                    "changed_files_count": len(context.changed_files),
-                    "relevant_files_count": len(relevant_files),
-                    "diff_size": len(context.diff),
-                    "has_pr_title": bool(context.pr_title),
-                    "has_pr_description": bool(context.pr_description),
-                    "pr_title": context.pr_title or "",
-                },
-                "outputs_produced": {
-                    "severity": "critical",
-                    "merge_gate_decision": "needs_changes",
-                    "findings_count": 0,
-                    "checks_count": 0,
-                    "skips_count": 0,
-                    "must_fix_count": 0,
-                    "should_fix_count": 0,
-                },
-                "findings_summary": [],
-                "checks_summary": [],
-                "skips_summary": [],
-            }
-            logger.info(f"[security] REVIEW_SUMMARY: {json.dumps(review_summary, indent=2)}")
-            logger.info(f"[security] <<< review() returning (error - validation failed)")
+            logger.error(f"[security]   Original response (first 500 chars): {response_text[:500]}...")
 
             return ReviewOutput(
                 agent=self.get_agent_name(),
@@ -410,8 +230,7 @@ Please analyze the above changes for security vulnerabilities and provide your r
                     ]
                 )
             )
-
-        except (TimeoutError, Exception) as e:
-            if isinstance(e, (TimeoutError, ValueError)):
-                raise
+        except (TimeoutError, ValueError):
+            raise
+        except Exception as e:
             raise Exception(f"LLM API error: {str(e)}") from e
