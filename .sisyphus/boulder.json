@@ -2,7 +2,16 @@
   "active_plan": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/harness-agent-rework/.sisyphus/plans/review-harness-refactor.md",
   "started_at": "2026-02-05T17:14:30.576Z",
   "session_ids": [
-    "ses_3d133a4edffeIrR0IwBQp9HTjC"
+    "ses_3d133a4edffeIrR0IwBQp9HTjC",
+    "ses_3d12fae37ffeUO1CNOrRECMsEp",
+    "ses_3d110b6aeffe9nEqBlyjNVBft4",
+    "ses_3d1025307ffeueRv4URG90tPCM",
+    "ses_3d0ed0b13ffeOYLHVStdm2Bv5R",
+    "ses_3d1025306ffe861ciTanT7uDQ5",
+    "ses_3d0ed0b12ffe3K1ORlubMAoisZ",
+    "ses_3d0dca702ffexN2ncd8eHzFj92"
   ],
-  "plan_name": "review-harness-refactor"
+  "plan_name": "review-harness-refactor",
+  "completed_at": "2026-02-05T17:50:00.000Z",
+  "status": "completed"
 }
