@@ -196,7 +196,7 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
 
 ---
 
-- [ ] 3. Implement AgentRunner (Template Method) and context consolidation
+- [x] 3. Implement AgentRunner (Template Method) and context consolidation
 
   **What to do**:
   - Create `core/harness/runner.py` using ContextBuilder + LLM client
@@ -217,7 +217,7 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
 
 ---
 
-- [ ] 4. Refactor review agents to config-only + strategies
+- [x] 4. Refactor review agents to config-only + strategies
 
   **What to do**:
   - Remove AISession calls from agents
@@ -234,7 +234,7 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
 
 ---
 
-- [ ] 5. Add result aggregation + budgets/FSM loop
+- [x] 5. Add result aggregation + budgets/FSM loop
 
   **What to do**:
   - Implement `core/harness/aggregation.py` (dedupe + contract checks)
@@ -251,7 +251,7 @@ Critical Path: Task 2 → Task 3 → Task 4 → Task 5 → Task 7
 
 ---
 
-- [ ] 6. Refactor discovery to use ToolRegistry
+- [x] 6. Refactor discovery to use ToolRegistry
 
   **What to do**:
   - Convert subprocess calls in `discovery.py` to ToolRegistry invocations
