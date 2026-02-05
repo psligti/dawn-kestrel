@@ -3,7 +3,7 @@ import pytest
 import asyncio
 import logging
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 from opencode_python.llm import (
     LLMClient,
@@ -298,7 +298,7 @@ class TestLLMClient:
     async def test_complete_success(self, mock_provider, mock_model_info):
         """Test that complete() successfully collects response."""
         # Mock streaming events
-        stream_events = [
+        stream_events_list = [
             StreamEvent(event_type="text-delta", data={"delta": "Hello "}),
             StreamEvent(event_type="text-delta", data={"delta": "world"}),
             StreamEvent(
@@ -313,7 +313,11 @@ class TestLLMClient:
             ),
         ]
 
-        mock_provider.stream = AsyncMock(return_value=aiter(stream_events))
+        async def stream_generator(model, messages, tools, options):
+            for event in stream_events_list:
+                yield event
+
+        mock_provider.stream = stream_generator
 
         with patch("opencode_python.llm.client.get_provider", return_value=mock_provider):
             client = LLMClient(
@@ -333,12 +337,16 @@ class TestLLMClient:
     @pytest.mark.asyncio
     async def test_stream_yields_events(self, mock_provider, mock_model_info):
         """Test that stream() yields events correctly."""
-        stream_events = [
+        stream_events_list = [
             StreamEvent(event_type="start", data={}),
             StreamEvent(event_type="text-delta", data={"delta": "Hello"}),
         ]
 
-        mock_provider.stream = AsyncMock(return_value=aiter(stream_events))
+        async def stream_generator(model, messages, tools, options):
+            for event in stream_events_list:
+                yield event
+
+        mock_provider.stream = stream_generator
 
         with patch("opencode_python.llm.client.get_provider", return_value=mock_provider):
             client = LLMClient(
@@ -360,7 +368,7 @@ class TestLLMClient:
     @pytest.mark.asyncio
     async def test_chat_completion_convenience_method(self, mock_provider, mock_model_info):
         """Test that chat_completion() provides backward-compatible API."""
-        stream_events = [
+        stream_events_list = [
             StreamEvent(event_type="text-delta", data={"delta": "Response"}),
             StreamEvent(
                 event_type="finish",
@@ -371,7 +379,12 @@ class TestLLMClient:
             ),
         ]
 
-        mock_provider.stream = AsyncMock(return_value=aiter(stream_events))
+        async def stream_generator(model, messages, tools, options):
+            for event in stream_events_list:
+                yield event
+
+        stream_mock = Mock(side_effect=lambda *args, **kwargs: stream_generator(*args, **kwargs))
+        mock_provider.stream = stream_mock
 
         with patch("opencode_python.llm.client.get_provider", return_value=mock_provider):
             client = LLMClient(

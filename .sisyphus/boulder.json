@@ -1,6 +1,8 @@
 {
-  "active_plan": ".sisyphus/plans/security-review-deterministic-discovery.md",
-  "plan_name": "security-review-deterministic-discovery",
-  "started_at": "2026-02-05T14:55:13.835Z",
-  "session_ids": ["ses_3d1cb7d0dffefFtQ2quVYmDUvZ"]
+  "active_plan": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/harness-agent-rework/.sisyphus/plans/review-harness-refactor.md",
+  "started_at": "2026-02-05T17:14:30.576Z",
+  "session_ids": [
+    "ses_3d133a4edffeIrR0IwBQp9HTjC"
+  ],
+  "plan_name": "review-harness-refactor"
 }
