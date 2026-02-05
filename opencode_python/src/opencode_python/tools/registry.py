@@ -12,7 +12,8 @@ from .builtin import (
     ReadTool,
     WriteTool,
     GrepTool,
-    GlobTool
+    GlobTool,
+    ASTGrepTool
 )
 from .additional import (
     EditTool,
@@ -57,6 +58,7 @@ class ToolRegistry(ToolRegistry):
         self.tools["write"] = WriteTool()
         self.tools["grep"] = GrepTool()
         self.tools["glob"] = GlobTool()
+        self.tools["ast_grep_search"] = ASTGrepTool()
         self.tools["edit"] = EditTool()
         self.tools["list"] = ListTool()
         self.tools["task"] = TaskTool()
