@@ -2,7 +2,7 @@ from .base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, Provider
 from .zai_base import ZAIBaseProvider
 from .zai import ZAIProvider
 from .zai_coding_plan import ZAICodingPlanProvider
-from typing import AsyncIterator, Optional, List, Dict, Any, Union
+from typing import AsyncIterator, Optional, List, Dict, Any, Union, Callable
 from decimal import Decimal
 import httpx
 import json
@@ -10,6 +10,14 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+ProviderFactory = Callable[[str], Union[
+    "AnthropicProvider",
+    "OpenAIProvider",
+    "ZAIProvider",
+    "ZAICodingPlanProvider",
+]]
 
 
 __all__ = [
@@ -30,6 +38,7 @@ __all__ = [
     "ZAICodingPlanProvider",
     # Provider functions
     "get_provider",
+    "register_provider_factory",
     "get_available_models",
 ]
 
@@ -280,13 +289,27 @@ class OpenAIProvider:
 
 
 def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
-    providers = {
-        ProviderID.ANTHROPIC: AnthropicProvider(api_key),
-        ProviderID.OPENAI: OpenAIProvider(api_key),
-        ProviderID.Z_AI: ZAIProvider(api_key),
-        ProviderID.Z_AI_CODING_PLAN: ZAICodingPlanProvider(api_key)
-    }
-    return providers.get(provider_id)
+    factory = PROVIDER_FACTORIES.get(provider_id)
+    if factory is None:
+        return None
+    return factory(api_key)
+
+
+def register_provider_factory(provider_id: ProviderID, factory: ProviderFactory) -> None:
+    """Register a provider factory.
+
+    This creates an extension seam so new provider implementations can be
+    registered without editing `get_provider`.
+    """
+    PROVIDER_FACTORIES[provider_id] = factory
+
+
+PROVIDER_FACTORIES: Dict[ProviderID, ProviderFactory] = {
+    ProviderID.ANTHROPIC: AnthropicProvider,
+    ProviderID.OPENAI: OpenAIProvider,
+    ProviderID.Z_AI: ZAIProvider,
+    ProviderID.Z_AI_CODING_PLAN: ZAICodingPlanProvider,
+}
 
 async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
     provider = get_provider(provider_id, api_key)

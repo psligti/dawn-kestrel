@@ -1,7 +1,88 @@
 """Pydantic contracts for review agent output."""
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from typing import List, Literal
 import pydantic as pd
+
+
+class MergePolicy(ABC):
+    """Interface for merge decision policies.
+
+    A merge policy determines the final merge decision and fix lists
+    based on review outputs from subagents.
+
+    Implementations must preserve the contract: decision values must
+    be one of: "approve", "needs_changes", "block", "approve_with_warnings"
+    """
+
+    @abstractmethod
+    def compute_merge_decision(self, results: List["ReviewOutput"]) -> MergeGate:
+        """Compute merge decision based on review outputs.
+
+        Args:
+            results: List of ReviewOutput from subagents
+
+        Returns:
+            MergeGate with decision and fix lists
+        """
+        pass
+
+
+class PriorityMergePolicy(MergePolicy):
+    """Default merge policy based on severity priority.
+
+    Priority ordering: blocking > critical > warning > approve
+
+    Decision logic:
+    - Any blocking finding -> "block"
+    - Any critical finding (no blocking) -> "needs_changes"
+    - Any warning finding (no blocking/critical) -> "approve_with_warnings"
+    - No findings -> "approve"
+    """
+
+    def compute_merge_decision(self, results: List["ReviewOutput"]) -> MergeGate:
+        """Compute merge decision using priority policy.
+
+        Args:
+            results: List of ReviewOutput from subagents
+
+        Returns:
+            MergeGate with decision and fix lists
+        """
+        must_fix = []
+        should_fix = []
+        decision: Literal["approve", "needs_changes", "block", "approve_with_warnings"] = "approve"
+
+        for result in results:
+            must_fix.extend(result.merge_gate.must_fix)
+            should_fix.extend(result.merge_gate.should_fix)
+
+            for finding in result.findings:
+                if finding.severity == "blocking":
+                    must_fix.append(f"{finding.title}: {finding.recommendation}")
+                elif finding.severity == "critical":
+                    must_fix.append(f"{finding.title}: {finding.recommendation}")
+                elif finding.severity == "warning":
+                    should_fix.append(f"{finding.title}: {finding.recommendation}")
+
+        if must_fix:
+            has_blocking = any(
+                f.severity == "blocking" for result in results for f in result.findings
+            )
+            decision = "block" if has_blocking else "needs_changes"
+        elif should_fix:
+            decision = "approve_with_warnings"
+        else:
+            decision = "approve"
+
+        return MergeGate(
+            decision=decision,
+            must_fix=list(set(must_fix)),
+            should_fix=list(set(should_fix)),
+            notes_for_coding_agent=[
+                f"Review completed by {len(results)} subagents"
+            ],
+        )
 
 
 class Scope(pd.BaseModel):

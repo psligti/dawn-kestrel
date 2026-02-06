@@ -1,7 +1,7 @@
-"""OpenCode Python - LLM Client Abstraction
+"""OpenCode Python - LLM Client Abstraction.
 
-Provider-agnostic LLM client with retry, timeout, and logging decorators.
-Designed to work with existing provider system and maintain AISession compatibility.
+Provider-agnostic LLM client with explicit runtime policies for retry,
+timeout, and logging.
 """
 from __future__ import annotations
 
@@ -40,95 +40,6 @@ T = TypeVar("T")
 P = ParamSpec("P")
 
 
-def with_retry(
-    max_attempts: int = 3,
-    base_delay: float = 1.0,
-    max_delay: float = 60.0,
-    exponential_base: float = 2.0,
-    retryable_exceptions: tuple = (Exception,),
-):
-    """Decorator for retrying async functions with exponential backoff.
-
-    Args:
-        max_attempts: Maximum number of retry attempts
-        base_delay: Initial delay in seconds
-        max_delay: Maximum delay in seconds
-        exponential_base: Base for exponential backoff calculation
-        retryable_exceptions: Tuple of exception types to retry on
-
-    Returns:
-        Decorated function with retry logic
-
-    Example:
-        @with_retry(max_attempts=3, base_delay=1.0)
-        async def call_llm():
-            ...
-    """
-    def decorator(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            last_exception = None
-
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    return await func(*args, **kwargs)
-                except retryable_exceptions as e:
-                    last_exception = e
-
-                    if attempt >= max_attempts:
-                        logger.error(
-                            f"Function {func.__name__} failed after {max_attempts} attempts: {e}"
-                        )
-                        raise
-
-                    delay = min(
-                        base_delay * (exponential_base ** (attempt - 1)),
-                        max_delay,
-                    )
-
-                    logger.warning(
-                        f"Function {func.__name__} failed (attempt {attempt}/{max_attempts}): {e}. "
-                        f"Retrying in {delay:.2f}s..."
-                    )
-                    await asyncio.sleep(delay)
-
-            raise cast(Exception, last_exception)
-
-        return wrapper
-
-    return decorator
-
-
-def with_timeout(timeout_seconds: float):
-    """Decorator for adding timeout to async functions.
-
-    Args:
-        timeout_seconds: Maximum execution time in seconds
-
-    Returns:
-        Decorated function with timeout logic
-
-    Example:
-        @with_timeout(timeout_seconds=120)
-        async def long_running_call():
-            ...
-    """
-    def decorator(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            try:
-                return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
-            except asyncio.TimeoutError:
-                logger.error(f"Function {func.__name__} timed out after {timeout_seconds}s")
-                raise TimeoutError(
-                    f"Function {func.__name__} exceeded timeout of {timeout_seconds}s"
-                )
-
-        return wrapper
-
-    return decorator
-
-
 def with_logging(
     log_args: bool = False,
     log_result: bool = False,
@@ -154,7 +65,9 @@ def with_logging(
     def decorator(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
-            func_name = f"{func.__module__}.{func.__name__}"
+            module_name = getattr(func, "__module__", "unknown")
+            attr_name = getattr(func, "__name__", "unknown")
+            func_name = f"{module_name}.{attr_name}"
 
             logger.log(log_level, f"Calling {func_name}")
             if log_args:
@@ -217,6 +130,16 @@ class LLMResponse:
     cost: Decimal = Decimal("0")
 
 
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Retry policy for LLM calls."""
+
+    max_attempts: int = 3
+    base_delay: float = 1.0
+    max_delay: float = 60.0
+    exponential_base: float = 2.0
+
+
 class LLMProviderProtocol(ABC):
     """Protocol defining the interface for LLM providers.
 
@@ -273,7 +196,7 @@ class LLMProviderProtocol(ABC):
 
 
 class LLMClient:
-    """Provider-agnostic LLM client with built-in retry, timeout, and logging.
+    """Provider-agnostic LLM client with policy-driven retry, timeout, and logging.
 
     This client provides a unified interface for calling different LLM providers
     while handling retries, timeouts, and observability through decorators.
@@ -319,6 +242,7 @@ class LLMClient:
         self.base_url = base_url
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
+        self.retry_policy = RetryPolicy(max_attempts=max_retries)
 
         self._provider = get_provider(self.provider_id, self.api_key)
         self._model_info: Optional[ModelInfo] = None
@@ -380,7 +304,7 @@ class LLMClient:
             self._generate_timeout(self.timeout_seconds)
         )
         stream_task = asyncio.create_task(
-            self._collect_stream_events(
+            self._collect_stream_events_with_retry(
                 model_info, messages, tools_dict, options_dict
             )
         )
@@ -405,9 +329,8 @@ class LLMClient:
     async def _generate_timeout(self, timeout_seconds: float):
         await asyncio.sleep(timeout_seconds)
 
-    @with_retry(max_attempts=3, base_delay=1.0)
     @with_logging(log_args=False, log_result=False, log_level=logging.INFO)
-    async def _collect_stream_events(
+    async def _collect_stream_events_once(
         self,
         model_info: ModelInfo,
         messages: List[Dict[str, Any]],
@@ -424,7 +347,44 @@ class LLMClient:
             events.append(event)
         return events
 
-    @with_timeout(timeout_seconds=120.0)
+    async def _collect_stream_events_with_retry(
+        self,
+        model_info: ModelInfo,
+        messages: List[Dict[str, Any]],
+        tools: Dict[str, Any],
+        options: Dict[str, Any],
+    ) -> List[StreamEvent]:
+        """Collect stream events with configurable retry policy."""
+        last_exception: Optional[Exception] = None
+
+        for attempt in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                return await self._collect_stream_events_once(
+                    model_info=model_info,
+                    messages=messages,
+                    tools=tools,
+                    options=options,
+                )
+            except Exception as e:
+                last_exception = e
+                if attempt >= self.retry_policy.max_attempts:
+                    raise
+
+                delay = min(
+                    self.retry_policy.base_delay * (self.retry_policy.exponential_base ** (attempt - 1)),
+                    self.retry_policy.max_delay,
+                )
+                logger.warning(
+                    "LLM stream collection failed (attempt %s/%s): %s. Retrying in %.2fs...",
+                    attempt,
+                    self.retry_policy.max_attempts,
+                    e,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+
+        raise cast(Exception, last_exception)
+
     @with_logging(log_args=False, log_result=False, log_level=logging.INFO)
     async def complete(
         self,
@@ -454,10 +414,14 @@ class LLMClient:
         usage = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
         finish_reason = "stop"
 
-        events = await self._collect_stream_events(
-            model_info, messages,
-            {} if tools is None else {"tools": tools},
-            options.to_dict() if isinstance(options, LLMRequestOptions) else (options or {}),
+        events = await asyncio.wait_for(
+            self._collect_stream_events_with_retry(
+                model_info,
+                messages,
+                {} if tools is None else {"tools": tools},
+                options.to_dict() if isinstance(options, LLMRequestOptions) else (options or {}),
+            ),
+            timeout=self.timeout_seconds,
         )
 
         for event in events:
@@ -527,35 +491,3 @@ class LLMClient:
         response = await self.complete(messages, options=options)
         return response.text
 
-
-class LegacyLLMClient(LLMClient):
-    """Legacy LLMClient for backward compatibility.
-
-    This class maintains the original API of the first LLMClient implementation.
-    New code should use LLMClient directly.
-    """
-
-    def __init__(
-        self,
-        provider_id: str = "z.ai",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        model: str = "glm-4.7",
-    ):
-        """Initialize legacy LLM client.
-
-        Args:
-            provider_id: Provider identifier (z.ai, zai-coding-plan, openai, anthropic)
-            api_key: API key for provider
-            base_url: Custom base URL (overrides default)
-            model: Model identifier to use
-        """
-        super().__init__(
-            provider_id=provider_id,
-            model=model,
-            api_key=api_key,
-            base_url=base_url,
-        )
-        logger.warning(
-            "LegacyLLMClient is deprecated. Use LLMClient with proper provider_id instead."
-        )

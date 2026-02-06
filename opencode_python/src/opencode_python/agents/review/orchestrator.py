@@ -10,12 +10,15 @@ from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import (
     Finding,
     MergeGate,
+    MergePolicy,
     OrchestratorOutput,
+    PriorityMergePolicy,
     ReviewInputs,
     ReviewOutput,
     Scope,
     ToolPlan,
 )
+from opencode_python.agents.review.context_builder import ContextBuilder, DefaultContextBuilder
 from opencode_python.agents.review.discovery import EntryPointDiscovery
 from opencode_python.agents.review.streaming import ReviewStreamManager
 from opencode_python.agents.review.utils.executor import (
@@ -33,12 +36,16 @@ class PRReviewOrchestrator:
         command_executor: CommandExecutor | None = None,
         stream_manager: ReviewStreamManager | None = None,
         discovery: EntryPointDiscovery | None = None,
+        context_builder: ContextBuilder | None = None,
+        merge_policy: MergePolicy | None = None,
     ):
         self.subagents = subagents
         self.command_executor = command_executor or CommandExecutor()
         self.stream_manager = stream_manager or ReviewStreamManager()
         # Entry point discovery module for intelligent context filtering
         self.discovery = discovery or EntryPointDiscovery()
+        self.context_builder = context_builder or DefaultContextBuilder(self.discovery)
+        self.merge_policy = merge_policy or PriorityMergePolicy()
 
     async def run_review(
         self, inputs: ReviewInputs, stream_callback: Callable | None = None
@@ -186,9 +193,7 @@ class PRReviewOrchestrator:
         return await self.command_executor.execute(command, timeout=timeout)
 
     def compute_merge_decision(self, results: List[ReviewOutput]) -> MergeGate:
-        """Compute merge decision based on PRD policy.
-
-        Policy: blocking > critical > warning > merge
+        """Compute merge decision using injected policy.
 
         Args:
             results: List of ReviewOutput from subagents
@@ -196,40 +201,7 @@ class PRReviewOrchestrator:
         Returns:
             MergeGate with decision and fix lists
         """
-        must_fix = []
-        should_fix = []
-        decision: Literal["approve", "needs_changes", "block", "approve_with_warnings"] = "approve"
-
-        for result in results:
-            must_fix.extend(result.merge_gate.must_fix)
-            should_fix.extend(result.merge_gate.should_fix)
-
-            for finding in result.findings:
-                if finding.severity == "blocking":
-                    must_fix.append(f"{finding.title}: {finding.recommendation}")
-                elif finding.severity == "critical":
-                    must_fix.append(f"{finding.title}: {finding.recommendation}")
-                elif finding.severity == "warning":
-                    should_fix.append(f"{finding.title}: {finding.recommendation}")
-
-        if must_fix:
-            has_blocking = any(
-                f.severity == "blocking" for result in results for f in result.findings
-            )
-            decision = "block" if has_blocking else "needs_changes"
-        elif should_fix:
-            decision = "approve_with_warnings"
-        else:
-            decision = "approve"
-
-        return MergeGate(
-            decision=decision,
-            must_fix=list(set(must_fix)),
-            should_fix=list(set(should_fix)),
-            notes_for_coding_agent=[
-                f"Review completed by {len(results)} subagents"
-            ],
-        )
+        return self.merge_policy.compute_merge_decision(results)
 
     def dedupe_findings(self, all_findings: List[Finding]) -> List[Finding]:
         """De-duplicate findings by grouping.
@@ -286,63 +258,4 @@ class PRReviewOrchestrator:
     async def _build_context(
         self, inputs: ReviewInputs, agent: BaseReviewerAgent
     ) -> ReviewContext:
-        """Build ReviewContext for a specific agent.
-
-        This method performs intelligent context filtering using entry point discovery:
-        1. Discovers entry points relevant to the agent's patterns
-        2. Filters changed_files to only those containing discovered entry points
-        3. Falls back to is_relevant_to_changes() if discovery fails
-
-        Args:
-            inputs: ReviewInputs with review parameters
-            agent: BaseReviewerAgent to build context for
-
-        Returns:
-            ReviewContext populated with review data (filtered changed_files)
-        """
-        from opencode_python.agents.review.utils.git import get_changed_files, get_diff
-
-        agent_name = agent.__class__.__name__
-
-        all_changed_files = await get_changed_files(
-            inputs.repo_root, inputs.base_ref, inputs.head_ref
-        )
-
-        entry_points = await self.discovery.discover_entry_points(
-            agent_name=agent_name,
-            repo_root=inputs.repo_root,
-            changed_files=all_changed_files,
-        )
-
-        if entry_points is not None:
-            ep_file_set = {ep.file_path for ep in entry_points}
-            filtered_files = [f for f in all_changed_files if f in ep_file_set]
-            logger.info(
-                f"[{agent_name}] Entry point discovery found {len(entry_points)} entry points, "
-                f"filtered to {len(filtered_files)}/{len(all_changed_files)} files"
-            )
-            changed_files = filtered_files
-        else:
-            logger.info(
-                f"[{agent_name}] Entry point discovery returned None, "
-                f"using is_relevant_to_changes() fallback"
-            )
-            if agent.is_relevant_to_changes(all_changed_files):
-                changed_files = all_changed_files
-            else:
-                changed_files = []
-                logger.info(
-                    f"[{agent_name}] Agent not relevant to changes, skipping review"
-                )
-
-        diff = await get_diff(inputs.repo_root, inputs.base_ref, inputs.head_ref)
-
-        return ReviewContext(
-            changed_files=changed_files,
-            diff=diff,
-            repo_root=inputs.repo_root,
-            base_ref=inputs.base_ref,
-            head_ref=inputs.head_ref,
-            pr_title=inputs.pr_title,
-            pr_description=inputs.pr_description,
-        )
+        return await self.context_builder.build(inputs, agent)

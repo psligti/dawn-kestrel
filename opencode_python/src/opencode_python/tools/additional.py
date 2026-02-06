@@ -129,59 +129,6 @@ class EditTool(Tool):
             },
         )
 
-        if not path.exists():
-            return ToolResult(
-                title="File not found",
-                output=f"Error: File {file_path} does not exist",
-                metadata={"error": "file_not_found", "file_path": file_path},
-            )
-
-        try:
-            with open(path, "r") as f:
-                content = f.read()
-        except Exception as e:
-            return ToolResult(
-                title="Failed to read file",
-                output=f"Error reading file: {e}",
-                metadata={"error": "read_error"},
-            )
-
-        if old_string not in content:
-            return ToolResult(
-                title="String not found",
-                output=f"Error: Could not find '{old_string[:50]}...' in file",
-                metadata={"error": "string_not_found", "old_string_preview": old_string[:50]},
-            )
-
-        if replace_all:
-            occurrences = content.count(old_string)
-            new_content = content.replace(old_string, new_string)
-        else:
-            new_content = content.replace(old_string, new_string, 1)
-            occurrences = 1
-
-        try:
-            with open(path, "w") as f:
-                f.write(new_content)
-        except Exception as e:
-            return ToolResult(
-                title="Failed to write file",
-                output=f"Error writing file: {e}",
-                metadata={"error": "write_error"},
-            )
-
-        changes = f"{occurrences} occurrence(s) replaced"
-
-        return ToolResult(
-            title=f"Edited {path.name}",
-            output=changes,
-            metadata={
-                "file_path": str(path),
-                "occurrences": occurrences,
-                "bytes_written": len(new_content),
-            },
-        )
-
 
 class ListTool(Tool):
     id = "list"

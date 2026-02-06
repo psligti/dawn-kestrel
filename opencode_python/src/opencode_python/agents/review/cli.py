@@ -12,34 +12,9 @@ from rich.console import Console
 
 from opencode_python.agents.review.orchestrator import PRReviewOrchestrator
 from opencode_python.agents.review.contracts import ReviewInputs
-
-from opencode_python.agents.review.agents.architecture import ArchitectureReviewer
-from opencode_python.agents.review.agents.security import SecurityReviewer
-from opencode_python.agents.review.agents.documentation import DocumentationReviewer
-from opencode_python.agents.review.agents.telemetry import TelemetryMetricsReviewer
-from opencode_python.agents.review.agents.linting import LintingReviewer
-from opencode_python.agents.review.agents.unit_tests import UnitTestsReviewer
-from opencode_python.agents.review.agents.diff_scoper import DiffScoperReviewer
-from opencode_python.agents.review.agents.requirements import RequirementsReviewer
-from opencode_python.agents.review.agents.performance import PerformanceReliabilityReviewer
-from opencode_python.agents.review.agents.dependencies import DependencyLicenseReviewer
-from opencode_python.agents.review.agents.changelog import ReleaseChangelogReviewer
+from opencode_python.agents.review.registry import ReviewerRegistry
 
 console = Console()
-
-AGENT_MAP = {
-    "security": SecurityReviewer,
-    "architecture": ArchitectureReviewer,
-    "documentation": DocumentationReviewer,
-    "telemetry": TelemetryMetricsReviewer,
-    "linting": LintingReviewer,
-    "unit_tests": UnitTestsReviewer,
-    "diff_scoper": DiffScoperReviewer,
-    "requirements": RequirementsReviewer,
-    "performance": PerformanceReliabilityReviewer,
-    "dependencies": DependencyLicenseReviewer,
-    "changelog": ReleaseChangelogReviewer,
-}
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -74,26 +49,9 @@ def get_subagents(include_optional: bool = False) -> list:
     Returns:
         List of reviewer agents
     """
-    core_agents = [
-        ArchitectureReviewer(),
-        SecurityReviewer(),
-        DocumentationReviewer(),
-        TelemetryMetricsReviewer(),
-        LintingReviewer(),
-        UnitTestsReviewer(),
-    ]
-
-    optional_agents = [
-        DiffScoperReviewer(),
-        RequirementsReviewer(),
-        PerformanceReliabilityReviewer(),
-        DependencyLicenseReviewer(),
-        ReleaseChangelogReviewer(),
-    ]
-
     if include_optional:
-        return core_agents + optional_agents
-    return core_agents
+        return ReviewerRegistry.get_all_reviewers()
+    return ReviewerRegistry.get_core_reviewers()
 
 
 def format_terminal_progress(agent_name: str, status: str, data: dict) -> None:
@@ -151,9 +109,9 @@ def format_terminal_error(agent_name: str, error_msg: str) -> None:
 @click.command()
 @click.option(
     "--agent",
-    type=click.Choice(list(AGENT_MAP.keys())),
+    type=click.Choice(ReviewerRegistry.get_all_names()),
     default=None,
-    help=f"Run only a specific agent (default: run all agents). Options: {', '.join(sorted(AGENT_MAP.keys()))}",
+    help=f"Run only a specific agent (default: run all agents). Options: {', '.join(ReviewerRegistry.get_all_names())}",
 )
 @click.option(
     "--repo-root",
@@ -220,7 +178,7 @@ def review(
         setup_logging(verbose)
 
         if agent:
-            subagents = [AGENT_MAP[agent]()]
+            subagents = [ReviewerRegistry.create_reviewer(agent)]
             console.print(f"[cyan]Running only '{agent}' agent...[/cyan]")
         else:
             subagents = get_subagents(include_optional)
@@ -420,30 +378,10 @@ def generate_docs(
     console.print()
 
     from opencode_python.agents.review.doc_gen import DocGenAgent
-    from opencode_python.agents.review.agents.architecture import ArchitectureReviewer
-    from opencode_python.agents.review.agents.security import SecurityReviewer
-    from opencode_python.agents.review.agents.documentation import DocumentationReviewer
-    from opencode_python.agents.review.agents.telemetry import TelemetryMetricsReviewer
-    from opencode_python.agents.review.agents.linting import LintingReviewer
-    from opencode_python.agents.review.agents.unit_tests import UnitTestsReviewer
-    from opencode_python.agents.review.agents.diff_scoper import DiffScoperReviewer
-    from opencode_python.agents.review.agents.requirements import RequirementsReviewer
-    from opencode_python.agents.review.agents.performance import PerformanceReliabilityReviewer
-    from opencode_python.agents.review.agents.dependencies import DependencyLicenseReviewer
-    from opencode_python.agents.review.agents.changelog import ReleaseChangelogReviewer
 
     all_agents = {
-        'architecture': ArchitectureReviewer(),
-        'security': SecurityReviewer(),
-        'documentation': DocumentationReviewer(),
-        'telemetry': TelemetryMetricsReviewer(),
-        'linting': LintingReviewer(),
-        'unit_tests': UnitTestsReviewer(),
-        'diff_scoper': DiffScoperReviewer(),
-        'requirements': RequirementsReviewer(),
-        'performance': PerformanceReliabilityReviewer(),
-        'dependencies': DependencyLicenseReviewer(),
-        'changelog': ReleaseChangelogReviewer(),
+        name: ReviewerRegistry.create_reviewer(name)
+        for name in ReviewerRegistry.get_all_names()
     }
 
     doc_gen = DocGenAgent(agents_dir=output)

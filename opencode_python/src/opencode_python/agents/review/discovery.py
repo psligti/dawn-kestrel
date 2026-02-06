@@ -14,7 +14,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from dataclasses import dataclass
 import time
 
@@ -79,6 +79,21 @@ class EntryPointDiscovery:
 
     DISCOVERY_TIMEOUT = 30
     MAX_ENTRY_POINTS = 50
+    LANGUAGE_EXTENSIONS: Dict[str, str] = {
+        "python": ".py",
+        "javascript": ".js",
+        "typescript": ".ts",
+        "tsx": ".tsx",
+        "jsx": ".jsx",
+        "go": ".go",
+        "rust": ".rs",
+        "java": ".java",
+        "c": ".c",
+        "cpp": ".cpp",
+        "csharp": ".cs",
+        "ruby": ".rb",
+        "php": ".php",
+    }
 
     def __init__(self, timeout_seconds: int = DISCOVERY_TIMEOUT, tool_registry: Optional[ToolRegistry] = None):
         """Initialize entry point discovery.
@@ -374,23 +389,6 @@ class EntryPointDiscovery:
         """
         entry_points: List[EntryPoint] = []
 
-        # Language to file extension mapping
-        language_extensions = {
-            "python": ".py",
-            "javascript": ".js",
-            "typescript": ".ts",
-            "tsx": ".tsx",
-            "jsx": ".jsx",
-            "go": ".go",
-            "rust": ".rs",
-            "java": ".java",
-            "c": ".c",
-            "cpp": ".cpp",
-            "csharp": ".cs",
-            "ruby": ".rb",
-            "php": ".php",
-        }
-
         for pattern_def in patterns:
             pattern = pattern_def.get("pattern")
             language = pattern_def.get("language", "python")
@@ -400,10 +398,7 @@ class EntryPointDiscovery:
                 continue
 
             try:
-                extension = language_extensions.get(language, f".{language}")
-                lang_files = [
-                    f for f in changed_files if f.endswith(extension)
-                ]
+                lang_files = self._get_changed_files_for_language(changed_files, language)
 
                 if not lang_files:
                     continue
@@ -417,15 +412,10 @@ class EntryPointDiscovery:
                     break
 
                 # Create minimal ToolContext for tool execution
-                ctx = ToolContext(
-                    session_id="discovery",
-                    message_id="discovery",
-                    agent="discovery",
-                    abort=asyncio.Event(),
-                    messages=[],
-                )
+                ctx = self._build_tool_context()
 
-                result = await tool.execute(
+                result = await self._execute_tool(
+                    tool=tool,
                     args={
                         "pattern": pattern,
                         "language": language,
@@ -486,23 +476,6 @@ class EntryPointDiscovery:
         """
         entry_points: List[EntryPoint] = []
 
-        # Language to file extension mapping (same as _discover_ast_patterns)
-        language_extensions = {
-            "python": ".py",
-            "javascript": ".js",
-            "typescript": ".ts",
-            "tsx": ".tsx",
-            "jsx": ".jsx",
-            "go": ".go",
-            "rust": ".rs",
-            "java": ".java",
-            "c": ".c",
-            "cpp": ".cpp",
-            "csharp": ".cs",
-            "ruby": ".rb",
-            "php": ".php",
-        }
-
         for pattern_def in patterns:
             pattern = pattern_def.get("pattern")
             language = pattern_def.get("language", "python")
@@ -512,10 +485,7 @@ class EntryPointDiscovery:
                 continue
 
             try:
-                extension = language_extensions.get(language, f".{language}")
-                lang_files = [
-                    f for f in changed_files if f.endswith(extension)
-                ]
+                lang_files = self._get_changed_files_for_language(changed_files, language)
 
                 if not lang_files:
                     continue
@@ -529,18 +499,13 @@ class EntryPointDiscovery:
                     break
 
                 # Create minimal ToolContext for tool execution
-                ctx = ToolContext(
-                    session_id="discovery",
-                    message_id="discovery",
-                    agent="discovery",
-                    abort=asyncio.Event(),
-                    messages=[],
-                )
+                ctx = self._build_tool_context()
 
                 # Build file pattern from full paths
                 file_pattern = " ".join(full_paths)
 
-                result = await tool.execute(
+                result = await self._execute_tool(
+                    tool=tool,
                     args={
                         "pattern": pattern,
                         "include": file_pattern,
@@ -646,37 +611,40 @@ class EntryPointDiscovery:
         from opencode_python.agents.review.base import _match_glob_pattern
         return _match_glob_pattern(file_path, pattern)
 
-        if pattern.startswith("**/") and pattern.endswith("*.py"):
-            dir_part = pattern[3:-4]
-            return f"/{dir_part}/" in path_str and path_str.endswith(".py")
+    def _get_changed_files_for_language(self, changed_files: List[str], language: str) -> List[str]:
+        """Filter changed files by language extension."""
+        extension = self.LANGUAGE_EXTENSIONS.get(language, f".{language}")
+        return [file_path for file_path in changed_files if file_path.endswith(extension)]
 
-        if pattern.endswith("/*"):
-            dir_path = pattern[:-2]
-            return path_str.startswith(dir_path + "/")
+    def _build_tool_context(self) -> ToolContext:
+        """Build a minimal tool context used by discovery tools."""
+        return ToolContext(
+            session_id="discovery",
+            message_id="discovery",
+            agent="discovery",
+            abort=asyncio.Event(),
+            messages=[],
+        )
 
-        if pattern.endswith("/**/*.py"):
-            dir_part = pattern[:-6]
-            return f"/{dir_part}/" in path_str and path_str.endswith(".py")
+    async def _execute_tool(self, tool: Any, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+        """Execute a tool supporting both object.execute(...) and callable mocks."""
+        result: Any
+        execute = getattr(tool, "execute", None)
 
-        if pattern.endswith("/**/*.md"):
-            dir_part = pattern[:-7]
-            return path_str.startswith(dir_path + "/") and path_str.endswith(".md")
+        if callable(execute):
+            result = await execute(args=args, ctx=ctx)
+        elif callable(tool):
+            result = await tool(args=args, ctx=ctx)
+        else:
+            raise TypeError("Tool is not executable")
 
-        if pattern.endswith("/**/*.yml") or pattern.endswith("/**/*.yaml"):
-            dir_part = pattern[:-8]
-            return path_str.startswith(dir_path + "/") and (path_str.endswith(".yml") or path_str.endswith(".yaml"))
+        if asyncio.iscoroutine(result):
+            result = await result
 
-        if pattern.endswith("/**/*.js") or pattern.endswith("/**/*.ts") or pattern.endswith("/**/*.tsx"):
-            dir_part = pattern[:-7]
-            ext = pattern[-6:]
-            return path_str.startswith(dir_path + "/") and path_str.endswith(ext)
+        if not isinstance(result, ToolResult) and callable(tool):
+            fallback = await tool(args=args, ctx=ctx)
+            if asyncio.iscoroutine(fallback):
+                fallback = await fallback
+            result = fallback
 
-        if pattern.endswith("/**/*.json"):
-            dir_part = pattern[:-8]
-            return path_str.startswith(dir_path + "/") and path_str.endswith(".json")
-
-        from fnmatch import fnmatch
-        try:
-            return fnmatch.fnmatch(path_str, pattern)
-        except Exception:
-            return False
+        return cast(ToolResult, result)

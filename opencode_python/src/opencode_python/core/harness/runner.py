@@ -380,6 +380,7 @@ class SimpleReviewAgentRunner:
     def __init__(
         self,
         agent_name: str,
+        allowed_tools: Optional[List[str]] = None,
         temperature: float = 0.3,
         top_p: float = 0.9,
         max_retries: int = 2,
@@ -389,17 +390,34 @@ class SimpleReviewAgentRunner:
 
         Args:
             agent_name: Name of the review agent (e.g., "security", "unit_tests")
+            allowed_tools: Optional explicit allowlist of tool/command prefixes
             temperature: LLM temperature
             top_p: LLM top_p parameter
             max_retries: Maximum number of retry attempts
             timeout_seconds: Request timeout in seconds
         """
         self.agent_name = agent_name
+        self.allowed_tools = allowed_tools or []
         self.temperature = temperature
         self.top_p = top_p
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
         self._llm_client: Optional[LLMClient] = None
+
+    def _build_system_prompt(self, system_prompt: str) -> str:
+        """Inject per-agent tool policy into the system prompt."""
+        if not self.allowed_tools:
+            return system_prompt
+
+        allowed = ", ".join(self.allowed_tools)
+        tool_policy = (
+            "\n\nTool policy:\n"
+            "- Only propose checks/commands that start with one of these tool prefixes: "
+            f"{allowed}.\n"
+            "- If useful validation would require a different tool, add it under skips with why_safe and when_to_run.\n"
+            "- Keep proposed commands deterministic and repository-local."
+        )
+        return f"{system_prompt.rstrip()}{tool_policy}"
 
     def _initialize_llm_client(self) -> LLMClient:
         """Initialize LLM client from settings."""
@@ -445,8 +463,10 @@ class SimpleReviewAgentRunner:
         """
         llm_client = self._initialize_llm_client()
 
+        effective_system_prompt = self._build_system_prompt(system_prompt)
+
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": effective_system_prompt},
             {"role": "user", "content": formatted_context},
         ]
 

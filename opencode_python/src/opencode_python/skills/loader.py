@@ -1,13 +1,14 @@
 """OpenCode Python - Skills system"""
 from __future__ import annotations
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Iterable, Tuple, Any
 from pathlib import Path
 import logging
+import importlib
 
+frontmatter: Any = None
 try:
-    import frontmatter
+    frontmatter = importlib.import_module("frontmatter")
 except ImportError:
-    frontmatter = None
     logging.warning("python-frontmatter package not installed. Frontmatter support disabled.")
 
 
@@ -32,6 +33,11 @@ class Skill:
 class SkillLoader:
     """Loader for skills from .opencode/skill/ and .claude/skills/ directories"""
 
+    SKILL_SOURCES: Tuple[Tuple[str, str], ...] = (
+        (".opencode", "skill"),
+        (".claude", "skills"),
+    )
+
     def __init__(self, base_dir: Path):
         """Initialize skill loader
 
@@ -41,38 +47,38 @@ class SkillLoader:
         self.base_dir = Path(base_dir)
         self._skills_cache: Optional[List[Skill]] = None
 
+    def clear_cache(self) -> None:
+        """Clear cached skills and force reload on next access."""
+        self._skills_cache = None
+
+    def _iter_skill_files(self) -> Iterable[Path]:
+        """Yield all discovered SKILL.md files from configured sources."""
+        for parent, child in self.SKILL_SOURCES:
+            skill_dir = self.base_dir / parent / child
+            if not skill_dir.exists():
+                continue
+            yield from skill_dir.rglob("*/SKILL.md")
+
     def discover_skills(self) -> List[Skill]:
         """Discover all available skills
 
         Returns:
             List of skills found in standard locations
         """
-        skills = []
+        if self._skills_cache is not None:
+            return list(self._skills_cache)
 
-        # Search .opencode/skill/
-        opencode_skill_dir = self.base_dir / ".opencode" / "skill"
-        if opencode_skill_dir.exists():
-            for skill_file in opencode_skill_dir.rglob("*/SKILL.md"):
-                try:
-                    skill = self._load_skill_file(skill_file)
-                    if skill:
-                        skills.append(skill)
-                except Exception as e:
-                    logger.error(f"Failed to load skill {skill_file}: {e}")
-
-        # Search .claude/skills/
-        claude_skill_dir = self.base_dir / ".claude" / "skills"
-        if claude_skill_dir.exists():
-            for skill_file in claude_skill_dir.rglob("*/SKILL.md"):
-                try:
-                    skill = self._load_skill_file(skill_file)
-                    if skill:
-                        skills.append(skill)
-                except Exception as e:
-                    logger.error(f"Failed to load skill {skill_file}: {e}")
+        skills: List[Skill] = []
+        for skill_file in self._iter_skill_files():
+            try:
+                skill = self._load_skill_file(skill_file)
+                if skill:
+                    skills.append(skill)
+            except Exception as e:
+                logger.error(f"Failed to load skill {skill_file}: {e}")
 
         self._skills_cache = skills
-        return skills
+        return list(skills)
 
     def _load_skill_file(self, file_path: Path) -> Optional[Skill]:
         """Load a single SKILL.md file
@@ -133,4 +139,4 @@ class SkillLoader:
 
 
 # Global skill loader instance
-loader = SkillLoader
+loader = SkillLoader(Path.cwd())

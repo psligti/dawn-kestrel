@@ -1,17 +1,17 @@
 """TelemetryMetricsReviewer - checks for logging quality and observability coverage."""
 from __future__ import annotations
 from typing import List
-import pydantic as pd
+import logging
 
 from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
 from opencode_python.agents.review.contracts import (
     ReviewOutput,
-    Scope,
-    MergeGate,
     get_review_output_schema,
 )
-from opencode_python.core.harness import SimpleReviewAgentRunner
 
+
+
+logger = logging.getLogger(__name__)
 
 
 class TelemetryMetricsReviewer(BaseReviewerAgent):
@@ -77,6 +77,10 @@ Your agent name is "telemetry"."""
             "**/monitoring/**",
         ]
 
+    def get_allowed_tools(self) -> List[str]:
+        """Get allowed tools for telemetry review checks."""
+        return ["git", "grep", "ast-grep", "python", "pytest"]
+
     async def review(self, context: ReviewContext) -> ReviewOutput:
         """Perform telemetry review on given context using SimpleReviewAgentRunner.
 
@@ -91,62 +95,7 @@ Your agent name is "telemetry"."""
             TimeoutError: If LLM request times out
             Exception: For other API-related errors
         """
-        relevant_files = []
-        for file_path in context.changed_files:
-            if self.is_relevant_to_changes([file_path]):
-                relevant_files.append(file_path)
-
-        system_prompt = self.get_system_prompt()
-        formatted_context = self.format_inputs_for_prompt(context)
-
-        user_message = f"""{system_prompt}
-
-{formatted_context}
-
-Please analyze the above changes for telemetry and logging issues and provide your review in the specified JSON format."""
-
-        logger.info(f"[telemetry] Prompt construction complete:")
-        logger.info(f"[telemetry]   System prompt: {len(system_prompt)} chars")
-        logger.info(f"[telemetry]   Formatted context: {len(formatted_context)} chars")
-        logger.info(f"[telemetry]   Full user_message: {len(user_message)} chars")
-        logger.info(f"[telemetry]   Relevant files: {len(relevant_files)}")
-
-        runner = SimpleReviewAgentRunner(agent_name="telemetry")
-
-        try:
-            response_text = await runner.run_with_retry(system_prompt, formatted_context)
-            logger.info(f"[telemetry] Got response: {len(response_text)} chars")
-
-            output = ReviewOutput.model_validate_json(response_text)
-            logger.info(f"[telemetry] JSON validation successful!")
-            logger.info(f"[telemetry]   agent: {output.agent}")
-            logger.info(f"[telemetry]   severity: {output.severity}")
-            logger.info(f"[telemetry]   findings: {len(output.findings)}")
-
-            return output
-        except pd.ValidationError as e:
-            logger.error(f"[telemetry] JSON validation error: {e}")
-            return ReviewOutput(
-                agent=self.get_agent_name(),
-                summary=f"Error parsing LLM response: {str(e)}",
-                severity="critical",
-                scope=Scope(
-                    relevant_files=relevant_files,
-                    ignored_files=[],
-                    reasoning="Failed to parse LLM JSON response due to validation error."
-                ),
-                findings=[],
-                merge_gate=MergeGate(
-                    decision="needs_changes",
-                    must_fix=[],
-                    should_fix=[],
-                    notes_for_coding_agent=[
-                        "Review LLM response format and ensure it matches expected schema."
-                    ]
-                )
-            )
-        except (TimeoutError, ValueError):
-            raise
-        except Exception as e:
-            raise Exception(f"LLM API error: {str(e)}") from e
-
+        return await self._execute_review_with_runner(
+            context,
+            early_return_on_no_relevance=False,
+        )
