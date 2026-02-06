@@ -14,6 +14,7 @@ from typing import Dict
 
 import pytest
 from pydantic import SecretStr
+from pydantic_settings.main import SettingsConfigDict
 
 from opencode_python.core.settings import Settings
 from opencode_python.core.provider_settings import AccountConfig
@@ -26,7 +27,7 @@ class TestSettingsAccounts:
     def test_accounts_field_exists(self) -> None:
         """Test that accounts field is present in Settings."""
         settings = Settings()
-        assert hasattr(settings, 'accounts')
+        assert hasattr(settings, "accounts")
         assert isinstance(settings.accounts, dict)
 
     def test_accounts_field_default_empty_dict(self) -> None:
@@ -40,7 +41,7 @@ class TestSettingsAccounts:
             account_name="test-account",
             provider_id=ProviderID.OPENAI,
             api_key=SecretStr("sk-test-key-12345678901234567890"),
-            model="gpt-4"
+            model="gpt-4",
         )
         settings = Settings(accounts={"test-account": account})
         result = settings.get_account("test-account")
@@ -61,19 +62,19 @@ class TestSettingsAccounts:
                 account_name="openai-1",
                 provider_id=ProviderID.OPENAI,
                 api_key=SecretStr("sk-key1-12345678901234567890"),
-                model="gpt-4"
+                model="gpt-4",
             ),
             "openai-2": AccountConfig(
                 account_name="openai-2",
                 provider_id=ProviderID.OPENAI,
                 api_key=SecretStr("sk-key2-12345678901234567890"),
-                model="gpt-3.5"
+                model="gpt-3.5",
             ),
             "anthropic-1": AccountConfig(
                 account_name="anthropic-1",
                 provider_id=ProviderID.ANTHROPIC,
                 api_key=SecretStr("sk-ant-key-12345678901234567890"),
-                model="claude-3"
+                model="claude-3",
             ),
         }
         settings = Settings(accounts=accounts)
@@ -91,7 +92,7 @@ class TestSettingsAccounts:
                 account_name="anthropic-1",
                 provider_id=ProviderID.ANTHROPIC,
                 api_key=SecretStr("sk-ant-key-12345678901234567890"),
-                model="claude-3"
+                model="claude-3",
             ),
         }
         settings = Settings(accounts=accounts)
@@ -106,14 +107,14 @@ class TestSettingsAccounts:
                 provider_id=ProviderID.OPENAI,
                 api_key=SecretStr("sk-key1-12345678901234567890"),
                 model="gpt-4",
-                is_default=False
+                is_default=False,
             ),
             "openai-default": AccountConfig(
                 account_name="openai-default",
                 provider_id=ProviderID.OPENAI,
                 api_key=SecretStr("sk-key2-12345678901234567890"),
                 model="gpt-4",
-                is_default=True
+                is_default=True,
             ),
         }
         settings = Settings(accounts=accounts)
@@ -122,27 +123,45 @@ class TestSettingsAccounts:
         assert result.account_name == "openai-default"
         assert result.is_default is True
 
-    def test_get_default_account_returns_none_if_no_default(self) -> None:
-        """Test get_default_account returns None if no default account."""
+    def test_get_default_account_falls_back_to_provider_default(self) -> None:
+        """Test get_default_account falls back to provider_default account."""
         accounts: Dict[str, AccountConfig] = {
             "openai-1": AccountConfig(
                 account_name="openai-1",
                 provider_id=ProviderID.OPENAI,
                 api_key=SecretStr("sk-key1-12345678901234567890"),
                 model="gpt-4",
-                is_default=False
+                is_default=False,
             ),
             "anthropic-1": AccountConfig(
                 account_name="anthropic-1",
                 provider_id=ProviderID.ANTHROPIC,
                 api_key=SecretStr("sk-ant-key-12345678901234567890"),
                 model="claude-3",
-                is_default=False
+                is_default=False,
             ),
         }
         settings = Settings(accounts=accounts)
+        settings.provider_default = ProviderID.ANTHROPIC.value
         result = settings.get_default_account()
-        assert result is None
+        assert result is not None
+        assert result.account_name == "anthropic-1"
+
+    def test_get_default_account_synthesizes_from_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test get_default_account creates default account from env vars."""
+        monkeypatch.setenv("OPENCODE_PYTHON_PROVIDER_DEFAULT", "openai")
+        monkeypatch.setenv("OPENCODE_PYTHON_MODEL_DEFAULT", "gpt-4.1")
+        monkeypatch.setenv("OPENCODE_PYTHON_OPENAI_API_KEY", "sk-fallback-key-12345678901234567890")
+
+        settings = Settings()
+        result = settings.get_default_account()
+        assert result is not None
+        assert result.account_name == "default"
+        assert result.provider_id == ProviderID.OPENAI
+        assert result.model == "gpt-4.1"
+        assert result.is_default is True
 
     def test_multi_env_file_loading(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test that both repo and home .env files are loaded."""
@@ -166,18 +185,26 @@ class TestSettingsAccounts:
             "OPENCODE_PYTHON_ACCOUNTS__HOME_ACCOUNT__MODEL=claude-3\n"
         )
 
-        # Create settings with custom env_file paths
-        settings = Settings(
-            _env_file=[repo_env, home_env],
-            _env_file_encoding="utf-8"
-        )
+        class TestSettings(Settings):
+            model_config = SettingsConfigDict(
+                env_file=(repo_env, home_env),
+                env_file_encoding="utf-8",
+                env_prefix="OPENCODE_PYTHON_",
+                env_nested_delimiter="__",
+                case_sensitive=False,
+                extra="ignore",
+            )
+
+        settings = TestSettings()
 
         # Both accounts should be loaded
         assert len(settings.accounts) == 2
         assert "repo_account" in settings.accounts
         assert "home_account" in settings.accounts
 
-    def test_home_env_overrides_repo_env(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_home_env_overrides_repo_env(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Test that home .env overrides repo .env for same account."""
         # Create repo .env
         repo_env = tmp_path / ".env"
@@ -199,11 +226,17 @@ class TestSettingsAccounts:
             "OPENCODE_PYTHON_ACCOUNTS__TEST_ACCOUNT__MODEL=claude-3\n"
         )
 
-        # Create settings with custom env_file paths (home last for override)
-        settings = Settings(
-            _env_file=[repo_env, home_env],
-            _env_file_encoding="utf-8"
-        )
+        class TestSettings(Settings):
+            model_config = SettingsConfigDict(
+                env_file=(repo_env, home_env),
+                env_file_encoding="utf-8",
+                env_prefix="OPENCODE_PYTHON_",
+                env_nested_delimiter="__",
+                case_sensitive=False,
+                extra="ignore",
+            )
+
+        settings = TestSettings()
 
         # Home values should override repo values
         account = settings.get_account("test_account")
@@ -217,7 +250,7 @@ class TestSettingsAccounts:
             account_name="test-account",
             provider_id=ProviderID.OPENAI,
             api_key=SecretStr("sk-secret-key-12345678901234567890"),
-            model="gpt-4"
+            model="gpt-4",
         )
         settings = Settings(accounts={"test-account": account})
         str_repr = str(settings)
@@ -229,7 +262,7 @@ class TestSettingsAccounts:
             account_name="test-account",
             provider_id=ProviderID.OPENAI,
             api_key=SecretStr("sk-secret-key-12345678901234567890"),
-            model="gpt-4"
+            model="gpt-4",
         )
         settings = Settings(accounts={"test-account": account})
         repr_str = repr(settings)
