@@ -1,9 +1,10 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/agentic_coding/.worktrees/harness-agent-rework/.sisyphus/plans/opencode-python-review-composition-refactor.md",
-  "started_at": "2026-02-05T22:36:53.056Z",
+  "active_plan": null,
+  "started_at": "2026-02-06T17:10:00.000Z",
   "session_ids": [
     "ses_3d01de24fffem91RHBZBnJszQg",
-    "ses_3cfff3147ffe2owtr91JffGoxA"
+    "ses_3cfff3147ffe2owtr91JffGoxA",
+    "ses_3cc289e20ffe2i2gyUlFn2h4fx"
   ],
-  "plan_name": "opencode-python-review-composition-refactor"
+  "plan_name": "Planning Agent Initial Conversation + Orchestration Upgrade"
 }

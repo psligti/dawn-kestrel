@@ -4,16 +4,16 @@ ContextBuilder - Build agent execution context
 Assembles provider-ready request inputs including system prompt, tool definitions,
 and conversation history with provider compatibility for Anthropic and OpenAI.
 """
+
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from opencode_python.core.agent_types import AgentContext
-from opencode_python.core.models import Session, Message, TextPart, ToolPart
+from opencode_python.core.models import Session, Message, TextPart
 from opencode_python.skills.injector import SkillInjector
 from opencode_python.tools.framework import ToolRegistry
-from opencode_python.core.agent_types import SessionManagerLike
 
 
 class ContextBuilder:
@@ -71,12 +71,14 @@ class ContextBuilder:
         messages = await self._build_message_history(session)
 
         # Determine model from agent or use default
-        model = "gpt-4o-mini"
+        model: str = "gpt-4o-mini"
         if agent.get("model"):
             model_config = agent["model"]
             if isinstance(model_config, dict):
                 # provider/model format
-                model = model_config.get("model", model)
+                model_value = model_config.get("model", model)
+                if isinstance(model_value, str):
+                    model = model_value
 
         return AgentContext(
             system_prompt=system_prompt,
@@ -108,7 +110,6 @@ class ContextBuilder:
 
         for i, memory in enumerate(memories, 1):
             content = memory.get("content", "")
-            timestamp = memory.get("created", "")
             lines.append(f"{i}. {content}")
 
         return "\n".join(lines)
@@ -150,12 +151,25 @@ class ContextBuilder:
             memories: Optional list of memory entries to inject
 
         Returns:
-            System instruction string with memories → skills → base prompt
+            System instruction string with memories → planning controls → skills → base prompt
         """
         # Format memories if provided (limit to 3-5 memories max)
         memory_section = ""
         if memories:
             memory_section = self._format_memories_for_prompt(memories[:5])
+
+        # Optional planning orchestration controls (for PLAN_AGENT), injected
+        # before the skills section and base prompt for deterministic guidance.
+        controls_section = ""
+        agent_options: Dict[str, Any] = {}
+        raw_options = agent.get("options")
+        if isinstance(raw_options, dict):
+            agent_options = raw_options
+
+        if isinstance(agent_options, dict):
+            controls = agent_options.get("planning_orchestration_controls")
+            if isinstance(controls, str) and controls.strip():
+                controls_section = controls.strip()
 
         # Get agent base prompt (or use default)
         agent_prompt = agent.get("prompt") or "You are a helpful assistant."
@@ -167,10 +181,14 @@ class ContextBuilder:
             default_prompt="You are a helpful assistant.",
         )
 
-        # Combine memories + (skills + base prompt)
+        composed_prompt = skills_prompt
+        if controls_section:
+            composed_prompt = f"{controls_section}\n\n{skills_prompt}"
+
+        # Combine memories + (planning controls + skills + base prompt)
         if memory_section:
-            return f"{memory_section}\n\n{skills_prompt}"
-        return skills_prompt
+            return f"{memory_section}\n\n{composed_prompt}"
+        return composed_prompt
 
     def build_provider_context(
         self,
@@ -234,9 +252,9 @@ class ContextBuilder:
         Returns:
             List of tool definitions in provider format
         """
-        tool_definitions = []
+        tool_definitions: List[Dict[str, Any]] = []
 
-        for tool_id, tool in tools.tools.items():
+        for _, tool in tools.tools.items():
             # Build tool definition in provider format
             tool_def = {
                 "type": "function",
@@ -244,7 +262,7 @@ class ContextBuilder:
                     "name": tool.id,
                     "description": tool.description,
                     "parameters": tool.parameters(),
-                }
+                },
             }
             tool_definitions.append(tool_def)
 
@@ -290,7 +308,7 @@ class ContextBuilder:
         Returns:
             List of provider-format messages
         """
-        llm_messages = []
+        llm_messages: List[Dict[str, Any]] = []
 
         for msg in messages:
             if msg.role == "user":
@@ -303,7 +321,9 @@ class ContextBuilder:
                 assistant_content: str = ""
                 for part in msg.parts:
                     if isinstance(part, TextPart) and hasattr(part, "text"):
-                        assistant_content += part.text
+                        part_text = part.text
+                        if isinstance(part_text, str):
+                            assistant_content += part_text
                 llm_messages.append({"role": "assistant", "content": assistant_content})
 
         return llm_messages
