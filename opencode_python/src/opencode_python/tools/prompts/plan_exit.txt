@@ -1,15 +1,20 @@
-Exit plan mode to return to build mode for implementation tasks.
+Exit plan mode and return to build mode for implementation work.
 
-Use this tool when:
-- You have completed your research and planning phase
-- You're ready to start implementing the solution
-- You need to re-enable tools that modify the codebase
-- You want to test or validate your planned implementation
+Only exit after planning completes with one deterministic outcome from the canonical policy (opencode_python/docs/planning-agent-orchestration.md):
+- recommendation_ready: actionable implementation path with confidence and evidence
+- blocking_question: one precise question that cannot be resolved with available tools
+- budget_exhausted: best-effort recommendation plus explicit unresolved uncertainty
+- stagnation: strategy switch attempted and still no meaningful progress
+- human_required: required secret/access/decision must come from a human
+
+Before exiting, planning output should include:
+- confidence score (0.0-1.0)
+- concise evidence summary and unresolved uncertainties
+- budget consumption (iterations, subagent calls, wall time)
+- next action (implement now or answer blocking question)
 
 After exiting plan mode:
-- All file modification tools (edit, multiedit, apply_patch) will be re-enabled
-- The agent will switch focus to implementation and testing
-- Tool execution will return to normal, permissive mode
-- Any constraints or permission gates set during plan mode will be removed
+- Build-mode permissions apply again, including edit/write tooling per BUILD_AGENT policy
+- Focus shifts from investigation to implementation and validation
 
-Note: This is separate from "build" subagent type. The actual implementation of build agents may vary, but they all share the same purpose: to implement the planned solution after planning is complete.
+Note: mode transitions are runtime policy controls and are separate from subagent labels.
