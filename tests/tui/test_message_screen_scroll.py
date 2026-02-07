@@ -9,8 +9,8 @@ TDD Workflow:
 import pytest
 from textual.app import App
 
-from opencode_python.tui.screens.message_screen import MessageScreen
-from opencode_python.core.models import Session
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
+from dawn_kestrel.core.models import Session
 
 
 @pytest.fixture

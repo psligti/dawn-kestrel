@@ -10,8 +10,8 @@ import pytest
 from textual.app import App
 from textual.widgets import Static
 
-from opencode_python.tui.screens.message_screen import MessageScreen
-from opencode_python.core.models import (
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
+from dawn_kestrel.core.models import (
     Message,
     TextPart,
     Part,

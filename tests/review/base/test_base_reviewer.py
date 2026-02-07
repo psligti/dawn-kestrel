@@ -1,7 +1,7 @@
 """Test BaseReviewerAgent abstract class and its utility methods."""
 import pytest
 from abc import ABC, abstractmethod
-from opencode_python.agents.review.base import BaseReviewerAgent, ReviewContext
+from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
 
 
 class MockReviewerAgent(BaseReviewerAgent):

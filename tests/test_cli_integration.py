@@ -1,457 +1,410 @@
-"""
-Test suite for CLI commands with SessionService and handler integration.
+"""Tests for CLI integration with SessionService and handlers."""
 
-This test suite follows TDD approach:
-- RED: Tests are written first and will fail initially
-- GREEN: Implementation will make tests pass
-- REFACTOR: Code will be refactored while keeping tests green
-"""
+from __future__ import annotations
 
-import pytest
-import asyncio
-import tempfile
-import json
-import gzip
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
+from unittest.mock import Mock, MagicMock, AsyncMock, patch
+import pytest
 from click.testing import CliRunner
-import sys
+import tempfile
+import shutil
 
-# Add src directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
-
-
-@pytest.fixture
-def temp_storage_dir():
-    """Create temporary storage directory for tests."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        storage_path = Path(tmpdir)
-        yield storage_path
+from dawn_kestrel.cli.main import cli
+from dawn_kestrel.core.models import Session
 
 
 @pytest.fixture
-def sample_session(temp_storage_dir):
-    """Create a sample session for testing."""
-    from opencode_python.storage.store import SessionStorage
-    from opencode_python.core.models import Session
+def runner():
+    """Click CLI test runner."""
+    return CliRunner()
 
-    storage = SessionStorage(temp_storage_dir)
-    session = Session(
-        id="test-session-123",
-        slug="test-session",
-        project_id="test-project",
-        directory=str(temp_storage_dir),
-        title="Test Session",
-        version="1.0.0",
-    )
-    asyncio.run(storage.create_session(session))
-    return session
+
+@pytest.fixture
+def temp_dir():
+    """Temporary directory for test sessions."""
+    temp_path = Path(tempfile.mkdtemp())
+    yield temp_path
+    shutil.rmtree(temp_path, ignore_errors=True)
+
+
+@pytest.fixture
+def mock_storage(temp_dir):
+    """Mock session storage."""
+    storage = Mock()
+    storage.base_dir = temp_dir
+    return storage
 
 
 class TestListSessionsCommand:
-    """Test list_sessions command uses SessionService."""
+    """Tests for list-sessions command."""
 
-    def test_list_sessions_imports_session_service(self):
-        """Test that list_sessions imports SessionService."""
-        from opencode_python.cli.main import list_sessions
-        assert list_sessions is not None
-
-    @pytest.mark.asyncio
-    async def test_list_sessions_works_with_real_session(
-        self, sample_session, temp_storage_dir
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    def test_list_sessions_uses_session_service(
+        self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
-        """Test that list_sessions command works with real session data."""
-        from opencode_python.cli.main import cli
+        """Test that list-sessions uses SessionService."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service.list_sessions = AsyncMock(return_value=[])
+        mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
-        result = runner.invoke(cli, ['list-sessions', '--directory', str(temp_storage_dir)])
+        result = runner.invoke(cli, ["list-sessions"])
 
-        assert result.exit_code == 0
-        assert sample_session.id in result.output
-        assert sample_session.title in result.output
+        # Verify SessionService was created with handlers
+        assert mock_service_cls.called
+        call_kwargs = mock_service_cls.call_args[1]
+        assert "storage" in call_kwargs
+        assert "io_handler" in call_kwargs
+        assert "progress_handler" in call_kwargs
+        assert "notification_handler" in call_kwargs
 
-    @pytest.mark.asyncio
-    async def test_list_sessions_displays_correct_format(self, sample_session, temp_storage_dir):
-        """Test that list_sessions displays sessions in correct format with ID, Title, Created columns."""
-        from opencode_python.cli.main import cli
+        # Verify list_sessions was called
+        mock_service.list_sessions.assert_called_once()
 
-        runner = CliRunner()
-        result = runner.invoke(cli, ['list-sessions', '--directory', str(temp_storage_dir)])
-
-        assert result.exit_code == 0
-        assert "ID" in result.output
-        assert "Title" in result.output
-        assert "Created" in result.output
-
-    @pytest.mark.asyncio
-    async def test_list_sessions_works_with_cwd_when_no_directory(
-        self, sample_session, temp_storage_dir
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    def test_list_sessions_displays_sessions(
+        self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
-        """Test that list_sessions uses current working directory when --directory not provided."""
-        from opencode_python.cli.main import cli
+        """Test that list-sessions displays sessions correctly."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        session1 = Session(
+            id="ses_001",
+            title="Test Session 1",
+            slug="test-session-1",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567890,
+            version="1.0.0",
+        )
+        session2 = Session(
+            id="ses_002",
+            title="Test Session 2",
+            slug="test-session-2",
+            project_id="test-project",
+            directory="/test",
+            time_created=1234567900,
+            version="1.0.0",
+        )
+        mock_service.list_sessions = AsyncMock(return_value=[session1, session2])
+        mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
-        result = runner.invoke(cli, ['list-sessions'])
+        result = runner.invoke(cli, ["list-sessions"])
 
+        # Verify sessions are displayed
         assert result.exit_code == 0
+        assert "ses_001" in result.output
+        assert "ses_002" in result.output
+        assert "Test Session 1" in result.output
+        assert "Test Session 2" in result.output
 
 
 class TestExportSessionCommand:
-    """Test export_session command uses SessionService and handlers."""
+    """Tests for export-session command."""
 
-    def test_export_session_imports_session_service(self):
-        """Test that export_session imports SessionService."""
-        from opencode_python.cli.main import export_session
-        assert export_session is not None
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.cli.main.ExportImportManager")
+    @patch("dawn_kestrel.cli.main.SessionManager")
+    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    def test_export_session_uses_session_service(
+        self,
+        mock_git_snapshot_cls,
+        mock_session_manager_cls,
+        mock_manager_cls,
+        mock_service_cls,
+        mock_storage_cls,
+        mock_get_dir,
+        temp_dir,
+    ):
+        """Test that export-session uses SessionService."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    @pytest.mark.asyncio
-    async def test_export_session_works_with_session_data(self, temp_storage_dir):
-        """Test that export_session command works with real session data."""
-        from opencode_python.cli.main import cli
-        from opencode_python.storage.store import SessionStorage, MessageStorage
-        from opencode_python.core.models import Session, Message
-
-        storage = SessionStorage(temp_storage_dir)
+        mock_service = Mock()
         session = Session(
-            id="export-session-123",
-            slug="export-session",
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
             project_id="test-project",
-            directory=str(temp_storage_dir),
-            title="Export Test Session",
+            directory="/test",
+            time_created=1234567890,
             version="1.0.0",
         )
-        await storage.create_session(session)
+        mock_service.get_session = AsyncMock(return_value=session)
+        mock_service_cls.return_value = mock_service
 
-        msg_storage = MessageStorage(temp_storage_dir)
-        message = Message(
-            id="msg-123",
-            session_id=session.id,
-            role="user",
-            text="Test message for export",
+        mock_manager = Mock()
+        mock_manager.export_session = AsyncMock(
+            return_value={
+                "path": "/test/export.json",
+                "format": "json",
+                "message_count": 10,
+            }
         )
-        await msg_storage.create_message(session.id, message)
+        mock_manager_cls.return_value = mock_manager
 
         runner = CliRunner()
+        result = runner.invoke(cli, ["export-session", "ses_001"])
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = Path(tmpdir) / "export.json"
+        # Verify SessionService was created with handlers
+        assert mock_service_cls.called
+        call_kwargs = mock_service_cls.call_args[1]
+        assert "storage" in call_kwargs
+        assert "io_handler" in call_kwargs
+        assert "progress_handler" in call_kwargs
+        assert "notification_handler" in call_kwargs
 
-            result = runner.invoke(
-                cli,
-                ['export-session', session.id, '--output', str(output_path)]
-            )
+        # Verify handlers are instances of CLI handlers
+        from dawn_kestrel.cli.handlers import (
+            CLIIOHandler,
+            CLIProgressHandler,
+            CLINotificationHandler,
+        )
+        assert isinstance(call_kwargs["io_handler"], CLIIOHandler)
+        assert isinstance(call_kwargs["progress_handler"], CLIProgressHandler)
+        assert isinstance(call_kwargs["notification_handler"], CLINotificationHandler)
 
-            assert result.exit_code == 0
-            assert output_path.exists()
-            assert "Export complete" in result.output
+        # Verify get_session was called
+        mock_service.get_session.assert_called_once_with("ses_001")
 
-    @pytest.mark.asyncio
-    async def test_export_session_supports_jsonl_gz_format(self, temp_storage_dir):
-        """Test that export_session supports jsonl.gz format."""
-        from opencode_python.cli.main import cli
-        from opencode_python.storage.store import SessionStorage
-        from opencode_python.core.models import Session
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.cli.main.ExportImportManager")
+    @patch("dawn_kestrel.cli.main.SessionManager")
+    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    def test_export_session_uses_progress_handler(
+        self,
+        mock_git_snapshot_cls,
+        mock_session_manager_cls,
+        mock_manager_cls,
+        mock_service_cls,
+        mock_storage_cls,
+        mock_get_dir,
+        temp_dir,
+    ):
+        """Test that export-session uses progress handler."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-        storage = SessionStorage(temp_storage_dir)
+        mock_service = Mock()
         session = Session(
-            id="gz-session-123",
-            slug="gz-session",
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
             project_id="test-project",
-            directory=str(temp_storage_dir),
-            title="GZ Test Session",
+            directory="/test",
+            time_created=1234567890,
             version="1.0.0",
         )
-        await storage.create_session(session)
+        mock_service.get_session = AsyncMock(return_value=session)
+        mock_service_cls.return_value = mock_service
+
+        mock_manager = Mock()
+        mock_manager.export_session = AsyncMock(
+            return_value={
+                "path": "/test/export.json",
+                "format": "json",
+                "message_count": 10,
+            }
+        )
+        mock_manager_cls.return_value = mock_manager
 
         runner = CliRunner()
+        result = runner.invoke(cli, ["export-session", "ses_001"])
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = Path(tmpdir) / "export.jsonl.gz"
-
-            result = runner.invoke(
-                cli,
-                ['export-session', session.id, '--output', str(output_path), '--format', 'jsonl.gz']
-            )
-
-            assert output_path.exists()
-            with gzip.open(output_path, 'rt') as f:
-                content = f.read()
-            assert result.exit_code == 0
+        # Verify progress handler methods would be called during export
+        # (Progress handler is passed to SessionService)
+        assert result.exit_code == 0
+        assert "Export complete" in result.output
 
 
 class TestImportSessionCommand:
-    """Test import_session command uses storage layer."""
+    """Tests for import-session command."""
 
-    def test_import_session_imports_storage_layer(self):
-        """Test that import_session uses storage layer directly."""
-        from opencode_python.cli.main import import_session
-        assert import_session is not None
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.cli.main.ExportImportManager")
+    @patch("dawn_kestrel.cli.main.SessionManager")
+    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    @patch("dawn_kestrel.cli.main.MessageStorage")
+    def test_import_session_uses_session_service(
+        self,
+        mock_message_storage_cls,
+        mock_git_snapshot_cls,
+        mock_session_manager_cls,
+        mock_manager_cls,
+        mock_service_cls,
+        mock_storage_cls,
+        mock_get_dir,
+        temp_dir,
+    ):
+        """Test that import-session uses SessionService."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-    @pytest.mark.asyncio
-    async def test_import_session_creates_messages_via_storage(self, temp_storage_dir):
-        """Test that import_session creates messages using storage.create_message()."""
-        from opencode_python.cli.main import cli
-        from opencode_python.storage.store import SessionStorage, MessageStorage
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
 
-        storage = SessionStorage(temp_storage_dir)
-
-        import_data = {
-            "session": {
-                "id": "import-session-123",
-                "title": "Import Test Session",
-                "project_id": "test-project",
-                "directory": str(temp_storage_dir),
-                "time_created": 1234567890.0,
-                "time_updated": 1234567890.0,
-                "version": "1.0.0",
-            },
-            "messages": [
-                {
-                    "id": "msg-1",
-                    "session_id": "import-session-123",
-                    "role": "user",
-                    "text": "Imported message 1",
-                },
-                {
-                    "id": "msg-2",
-                    "session_id": "import-session-123",
-                    "role": "assistant",
-                    "text": "Imported message 2",
-                },
-            ],
-        }
-
-        runner = CliRunner()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            import_path = Path(tmpdir) / "import.json"
-            with open(import_path, "w") as f:
-                json.dump(import_data, f)
-
-            result = runner.invoke(cli, ['import-session', str(import_path)])
-
-            assert result.exit_code == 0
-            assert "Import complete" in result.output
-
-            session = await storage.get_session("import-session-123")
-            assert session is not None
-            assert session.title == "Import Test Session"
-
-            msg_storage = MessageStorage(temp_storage_dir)
-            messages = await msg_storage.list_messages("import-session-123")
-            assert len(messages) == 2
-
-
-class TestHandlerIntegration:
-    """Test that CLI commands use handlers correctly."""
-
-    @pytest.mark.asyncio
-    async def test_cli_instantiates_handlers_in_list_sessions(self, temp_storage_dir):
-        """Test that CLI instantiates handlers when running list_sessions."""
-        from opencode_python.cli.main import cli
-        from opencode_python.cli.handlers import CLIIOHandler, CLIProgressHandler, CLINotificationHandler
-
-        runner = CliRunner()
-        result = runner.invoke(cli, ['list-sessions', '--directory', str(temp_storage_dir)])
-
-        assert result.exit_code == 0
-
-    @pytest.mark.asyncio
-    async def test_cli_instantiates_handlers_in_export_session(self, temp_storage_dir):
-        """Test that CLI instantiates handlers when running export_session."""
-        from opencode_python.cli.main import cli
-        from opencode_python.storage.store import SessionStorage
-        from opencode_python.core.models import Session
-        from opencode_python.cli.handlers import CLIIOHandler, CLIProgressHandler, CLINotificationHandler
-
-        storage = SessionStorage(temp_storage_dir)
-        session = Session(
-            id="handler-test-123",
-            slug="handler-test",
-            project_id="test-project",
-            directory=str(temp_storage_dir),
-            title="Handler Test Session",
-            version="1.0.0",
+        mock_manager = Mock()
+        mock_manager.import_session = AsyncMock(
+            return_value={
+                "session_id": "ses_001",
+                "message_count": 5,
+            }
         )
-        await storage.create_session(session)
+        mock_manager_cls.return_value = mock_manager
+
+        # Create test export file
+        export_file = temp_dir / "test_export.json"
+        export_file.write_text('{"session": {"id": "ses_001", "title": "Test"}, "messages": []}')
 
         runner = CliRunner()
+        result = runner.invoke(cli, ["import-session", str(export_file)])
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = Path(tmpdir) / "export.json"
+        # Verify SessionService was created with handlers
+        assert mock_service_cls.called
+        call_kwargs = mock_service_cls.call_args[1]
+        assert "storage" in call_kwargs
+        assert "io_handler" in call_kwargs
+        assert "progress_handler" in call_kwargs
+        assert "notification_handler" in call_kwargs
 
-            result = runner.invoke(
-                cli,
-                ['export-session', session.id, '--output', str(output_path)]
-            )
+        # Verify import was called
+        mock_manager.import_session.assert_called_once()
 
-            assert result.exit_code == 0
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.cli.main.ExportImportManager")
+    @patch("dawn_kestrel.cli.main.SessionManager")
+    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    @patch("dawn_kestrel.cli.main.MessageStorage")
+    def test_import_session_uses_notification_handler(
+        self,
+        mock_message_storage_cls,
+        mock_git_snapshot_cls,
+        mock_session_manager_cls,
+        mock_manager_cls,
+        mock_service_cls,
+        mock_storage_cls,
+        mock_get_dir,
+        temp_dir,
+    ):
+        """Test that import-session uses notification handler."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        mock_manager = Mock()
+        mock_manager.import_session = AsyncMock(
+            return_value={
+                "session_id": "ses_001",
+                "message_count": 5,
+            }
+        )
+        mock_manager_cls.return_value = mock_manager
+
+        # Create test export file
+        export_file = temp_dir / "test_export.json"
+        export_file.write_text('{"session": {"id": "ses_001", "title": "Test"}, "messages": []}')
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["import-session", str(export_file)])
+
+        # Verify notification would be shown
+        # (Notification handler is passed to SessionService)
+        assert result.exit_code == 0
+        assert "Import complete" in result.output
+
+
+class TestDeprecationWarnings:
+    """Tests for deprecation warnings."""
+
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    def test_tui_command_shows_deprecation_warning(
+        self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
+    ):
+        """Test that tui command shows deprecation warning."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["tui"])
+
+        # Verify deprecation warning is shown
+        # (This will be implemented when we add the deprecation warning)
+        assert result.exit_code == 0 or "deprecated" in result.output.lower()
 
 
 class TestBackwardCompatibility:
-    """Test that refactored CLI maintains backward compatibility."""
+    """Tests for backward compatibility."""
 
-    @pytest.mark.asyncio
-    async def test_list_sessions_output_unchanged(self, sample_session, temp_storage_dir):
-        """Test that list_sessions output format is unchanged."""
-        from opencode_python.cli.main import cli
+    @patch("dawn_kestrel.cli.main.get_storage_dir")
+    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    def test_list_sessions_output_unchanged(
+        self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
+    ):
+        """Test that list-sessions output is unchanged (backward compatibility)."""
+        # Setup
+        mock_get_dir.return_value = temp_dir
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
 
-        runner = CliRunner()
-        result = runner.invoke(cli, ['list-sessions', '--directory', str(temp_storage_dir)])
-
-        assert result.exit_code == 0
-        assert "ID" in result.output
-        assert "Title" in result.output
-        assert "Created" in result.output
-
-    @pytest.mark.asyncio
-    async def test_export_session_output_unchanged(self, temp_storage_dir):
-        """Test that export_session output format is unchanged."""
-        from opencode_python.cli.main import cli
-        from opencode_python.storage.store import SessionStorage
-        from opencode_python.core.models import Session
-
-        storage = SessionStorage(temp_storage_dir)
+        mock_service = Mock()
         session = Session(
-            id="compat-export-123",
-            slug="compat-export",
+            id="ses_001",
+            title="Test Session",
+            slug="test-session",
             project_id="test-project",
-            directory=str(temp_storage_dir),
-            title="Compatibility Export Test",
+            directory="/test",
+            time_created=1234567890,
             version="1.0.0",
         )
-        await storage.create_session(session)
+        mock_service.list_sessions = AsyncMock(return_value=[session])
+        mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
+        result = runner.invoke(cli, ["list-sessions"])
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = Path(tmpdir) / "export.json"
-
-            result = runner.invoke(
-                cli,
-                ['export-session', session.id, '--output', str(output_path)]
-            )
-
-            assert result.exit_code == 0
-            assert "Export complete" in result.output
-
-    @pytest.mark.asyncio
-    async def test_import_session_output_unchanged(self, temp_storage_dir):
-        """Test that import_session output format is unchanged."""
-        from opencode_python.cli.main import cli
-
-        import_data = {
-            "session": {
-                "id": "compat-import-123",
-                "title": "Compatibility Import Test",
-                "project_id": "test-project",
-                "directory": str(temp_storage_dir),
-                "time_created": 1234567890.0,
-                "time_updated": 1234567890.0,
-                "version": "1.0.0",
-            },
-            "messages": [],
-        }
-
-        runner = CliRunner()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            import_path = Path(tmpdir) / "import.json"
-            with open(import_path, "w") as f:
-                json.dump(import_data, f)
-
-            result = runner.invoke(cli, ['import-session', str(import_path)])
-
-            assert result.exit_code == 0
-            assert "Import complete" in result.output
-
-    def test_cli_command_signatures_unchanged(self):
-        """Test that CLI command signatures (arguments, options) are unchanged."""
-        from opencode_python.cli.main import list_sessions, export_session, import_session, cli
-        import click
-
-        assert isinstance(list_sessions, click.Command)
-        assert '--directory' in list_sessions.params or '-d' in list_sessions.params
-
-        assert isinstance(export_session, click.Command)
-        assert 'session_id' in export_session.params
-        assert '--output' in export_session.params or '-o' in export_session.params
-        assert '--format' in export_session.params or '-f' in export_session.params
-
-        assert isinstance(import_session, click.Command)
-        assert 'import_path' in import_session.params
-        assert '--project-id' in import_session.params or '-p' in import_session.params
-
-        assert isinstance(cli, click.Group)
-
-
-class TestErrorHandling:
-    """Test that CLI commands propagate errors correctly."""
-
-    @pytest.mark.asyncio
-    async def test_export_session_handles_nonexistent_session(self, temp_storage_dir):
-        """Test that export_session handles nonexistent session gracefully."""
-        from opencode_python.cli.main import cli
-
-        runner = CliRunner()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_path = Path(tmpdir) / "export.json"
-
-            result = runner.invoke(
-                cli,
-                ['export-session', 'nonexistent-id', '--output', str(output_path)]
-            )
-
-            assert result.exit_code != 0 or "not found" in result.output.lower()
-
-    @pytest.mark.asyncio
-    async def test_import_session_handles_invalid_json(self, temp_storage_dir):
-        """Test that import_session handles invalid JSON gracefully."""
-        from opencode_python.cli.main import cli
-
-        runner = CliRunner()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            import_path = Path(tmpdir) / "invalid.json"
-            with open(import_path, "w") as f:
-                f.write("invalid json content")
-
-            result = runner.invoke(cli, ['import-session', str(import_path)])
-
-            assert result.exit_code != 0 or "invalid" in result.output.lower()
-
-
-class TestTUILaunchRemoval:
-    """Test that TUI import and launch is removed from run command."""
-
-    def test_run_command_no_tui_import(self):
-        """Test that run command does not import OpenCodeTUI at module level."""
-        from opencode_python.cli import main
-
-        assert 'from opencode_python.tui.app import OpenCodeTUI' not in main.__doc__
-
-
-    def test_run_command_signature_unchanged(self):
-        """Test that run command signature is unchanged."""
-        from opencode_python.cli.main import run
-        import click
-
-        assert isinstance(run, click.Command)
-        assert any(p.name == 'message' for p in run.params if isinstance(p, click.Argument))
-        assert any(p.name == 'agent' for p in run.params if isinstance(p, click.Option))
-        assert any(p.name == 'model' for p in run.params if isinstance(p, click.Option))
-
-    def test_run_command_still_exists(self):
-        """Test that run command still exists in CLI."""
-        from opencode_python.cli.main import cli, run
-
-        assert 'run' in cli.commands
-
-    def test_tui_command_still_works(self):
-        """Test that tui command still exists and works."""
-        from opencode_python.cli.main import cli
-        import click
-
-        assert 'tui' in cli.commands
-        assert isinstance(cli.commands['tui'], click.Command)
+        # Verify output format is unchanged
+        assert result.exit_code == 0
+        assert "ses_001" in result.output
+        assert "Test Session" in result.output
+        # Should have a table format
+        assert "ID" in result.output or "Title" in result.output

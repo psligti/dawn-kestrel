@@ -1,0 +1,9 @@
+# Staged patterns for mockreviewer reviewer
+# These patterns await manual approval before integration
+# To commit: python -m dawn_kestrel.agents.review.pattern_learning commit {agent_name}
+
+learned_patterns:
+  - type: content
+    pattern: "API_KEY"
+    language: python
+    weight: 0.95

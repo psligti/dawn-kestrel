@@ -1,10 +1,10 @@
 """Test UnitTestsReviewer agent with LLM-based analysis."""
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from opencode_python.agents.review.agents.unit_tests import UnitTestsReviewer
-from opencode_python.agents.review.base import ReviewContext
-from opencode_python.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
-from opencode_python.core.models import Session
+from dawn_kestrel.agents.review.agents.unit_tests import UnitTestsReviewer
+from dawn_kestrel.agents.review.base import ReviewContext
+from dawn_kestrel.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
+from dawn_kestrel.core.models import Session
 
 
 class TestUnitTestsReviewerLLMBased:
@@ -89,10 +89,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = AsyncMock(return_value=mock_message)
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 result = await reviewer.review(sample_context)
@@ -124,10 +124,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 with pytest.raises(ValueError, match="API key not found"):
@@ -150,10 +150,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 result = await reviewer.review(sample_context)
@@ -177,10 +177,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 with pytest.raises(TimeoutError):
@@ -219,10 +219,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 result = await reviewer.review(sample_context)
@@ -254,10 +254,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 await reviewer.review(sample_context)
@@ -315,10 +315,10 @@ class TestUnitTestsReviewerLLMBased:
 
         mock_ai_session.process_message = mock_process_message
 
-        with patch('opencode_python.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
+        with patch('dawn_kestrel.agents.review.agents.unit_tests.AISession') as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
-            with patch('opencode_python.agents.review.agents.unit_tests.Session') as mock_session_cls:
+            with patch('dawn_kestrel.agents.review.agents.unit_tests.Session') as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 result = await reviewer.review(sample_context)

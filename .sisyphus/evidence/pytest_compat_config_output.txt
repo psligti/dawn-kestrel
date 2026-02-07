@@ -1,0 +1,472 @@
+.....FEFE.E.........................................F................... [ 63%]
+.......................................F.                                [100%]
+==================================== ERRORS ====================================
+_ ERROR at setup of TestFixtureCompatibility.test_orchestrator_compatibility_minimal _
+
+self = <review.test_parity_baseline.TestFixtureCompatibility object at 0x112e54e60>
+
+    @pytest.fixture
+    def mock_reviewer(self):
+        """Create a mock reviewer agent that returns minimal fixture output."""
+    
+        class MockReviewer(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "security"
+    
+            async def review(self, context: ReviewContext) -> ReviewOutput:
+                # Return minimal fixture output (no findings, merge severity)
+                return ReviewOutput(
+                    agent="security",
+                    summary="No security issues found in reviewed files",
+                    severity="merge",
+                    scope=Scope(
+                        relevant_files=["config/auth.py", "config/routes.py"],
+                        ignored_files=[],
+                        reasoning="Reviewed authentication and API route files for common security vulnerabilities"
+                    ),
+                    checks=[],
+                    skips=[],
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="approve",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[]
+                    )
+                )
+    
+            def get_system_prompt(self) -> str:
+                return "Mock security review agent"
+    
+            def get_relevant_file_patterns(self) -> list[str]:
+                return ["*.py"]
+    
+>       return MockReviewer()
+               ^^^^^^^^^^^^^^
+E       TypeError: Can't instantiate abstract class MockReviewer without an implementation for abstract method 'get_allowed_tools'
+
+tests/review/test_parity_baseline.py:178: TypeError
+__ ERROR at setup of TestFixtureCompatibility.test_orchestrator_deduplication __
+
+self = <review.test_parity_baseline.TestFixtureCompatibility object at 0x112e7aa80>
+
+    @pytest.fixture
+    def mock_reviewer(self):
+        """Create a mock reviewer agent that returns minimal fixture output."""
+    
+        class MockReviewer(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "security"
+    
+            async def review(self, context: ReviewContext) -> ReviewOutput:
+                # Return minimal fixture output (no findings, merge severity)
+                return ReviewOutput(
+                    agent="security",
+                    summary="No security issues found in reviewed files",
+                    severity="merge",
+                    scope=Scope(
+                        relevant_files=["config/auth.py", "config/routes.py"],
+                        ignored_files=[],
+                        reasoning="Reviewed authentication and API route files for common security vulnerabilities"
+                    ),
+                    checks=[],
+                    skips=[],
+                    findings=[],
+                    merge_gate=MergeGate(
+                        decision="approve",
+                        must_fix=[],
+                        should_fix=[],
+                        notes_for_coding_agent=[]
+                    )
+                )
+    
+            def get_system_prompt(self) -> str:
+                return "Mock security review agent"
+    
+            def get_relevant_file_patterns(self) -> list[str]:
+                return ["*.py"]
+    
+>       return MockReviewer()
+               ^^^^^^^^^^^^^^
+E       TypeError: Can't instantiate abstract class MockReviewer without an implementation for abstract method 'get_allowed_tools'
+
+tests/review/test_parity_baseline.py:178: TypeError
+_ ERROR at setup of TestSelfVerification.test_backward_compatibility_existing_methods _
+
+self = <review.test_self_verification.TestSelfVerification object at 0x112f42030>
+
+    @pytest.fixture
+    def reviewer(self):
+        """Create a MockReviewerAgent instance."""
+>       return MockReviewerAgent()
+               ^^^^^^^^^^^^^^^^^^^
+E       TypeError: Can't instantiate abstract class MockReviewerAgent without an implementation for abstract methods 'get_agent_name', 'get_allowed_tools'
+
+tests/review/test_self_verification.py:50: TypeError
+=================================== FAILURES ===================================
+_________ test_build_context_backward_compatibility_without_discovery __________
+
+sample_review_inputs = ReviewInputs(repo_root='/tmp/repo', base_ref='main', head_ref='feature', pr_title='Add authentication feature', pr_description='Implements login/logout functionality', ticket_description='', include_optional=False, timeout_seconds=60)
+sample_changed_files = ['src/auth/login.py', 'src/auth/logout.py', 'src/api/routes.py', 'src/models/user.py', 'config/settings.py', 'tests/test_auth.py']
+
+    @pytest.mark.asyncio
+    async def test_build_context_backward_compatibility_without_discovery(
+        sample_review_inputs,
+        sample_changed_files,
+    ):
+        """Test backward compatibility when orchestrator is used without discovery parameter."""
+>       agent = TestReviewerAgent(agent_name="TestReviewer", is_relevant=True)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Can't instantiate abstract class TestReviewerAgent without an implementation for abstract method 'get_allowed_tools'
+
+tests/review/test_orchestrator_entry_points.py:587: TypeError
+_______ TestFixtureCompatibility.test_orchestrator_compatibility_typical _______
+
+self = <review.test_parity_baseline.TestFixtureCompatibility object at 0x112e57a10>
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_compatibility_typical(self):
+        """Verify orchestrator can handle typical fixture output with findings."""
+        from unittest.mock import AsyncMock, patch
+        from dawn_kestrel.agents.review.contracts import OrchestratorOutput, ReviewOutput, Finding, MergeGate, Scope
+    
+        # Create a mock reviewer that returns typical fixture output with findings
+        class MockReviewerWithFindings(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "security"
+    
+            async def review(self, context: ReviewContext) -> ReviewOutput:
+                return ReviewOutput(
+                    agent="security",
+                    summary="Found potential credential exposure in config file",
+                    severity="blocking",
+                    scope=Scope(
+                        relevant_files=["config/secrets.yaml"],
+                        ignored_files=[],
+                        reasoning="Detected what appears to be a hardcoded API key in the configuration file"
+                    ),
+                    checks=[],
+                    skips=[],
+                    findings=[
+                        Finding(
+                            id="SEC-001",
+                            title="Hardcoded API key in config",
+                            severity="blocking",
+                            confidence="high",
+                            owner="security",
+                            estimate="S",
+                            evidence="Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'",
+                            risk="Secret exposed in version control and production",
+                            recommendation="Remove the hardcoded key and load it from a secure environment variable or secret manager",
+                            suggested_patch="Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')"
+                        )
+                    ],
+                    merge_gate=MergeGate(
+                        decision="block",
+                        must_fix=["Remove hardcoded AWS_ACCESS_KEY from config/secrets.yaml"],
+                        should_fix=["Add secrets validation during deployment"],
+                        notes_for_coding_agent=[
+                            "CRITICAL: Remove hardcoded AWS credentials immediately",
+                            "Rotate any existing keys that may have been exposed"
+                        ]
+                    )
+                )
+    
+            def get_system_prompt(self) -> str:
+                return "Mock security review agent"
+    
+            def get_relevant_file_patterns(self) -> list[str]:
+                return ["*.py"]
+    
+>       orchestrator = PRReviewOrchestrator(subagents=[MockReviewerWithFindings()])
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Can't instantiate abstract class MockReviewerWithFindings without an implementation for abstract method 'get_allowed_tools'
+
+tests/review/test_parity_baseline.py:318: TypeError
+________ TestBackwardCompatibility.test_list_sessions_output_unchanged _________
+
+args = (<test_cli_integration.TestBackwardCompatibility object at 0x113a84b00>,)
+keywargs = {'temp_dir': PosixPath('/var/folders/7q/3wffhx8n6j927vjvnwqb7fxm0000gp/T/tmpozg4p6t2')}
+
+    @wraps(func)
+    def patched(*args, **keywargs):
+>       with self.decoration_helper(patched,
+                                    args,
+                                    keywargs) as (newargs, newkeywargs):
+
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/unittest/mock.py:1390: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/contextlib.py:137: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/unittest/mock.py:1372: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/contextlib.py:526: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/unittest/mock.py:1461: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.mock._patch object at 0x113a5eea0>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'dawn_kestrel.cli.main' from '/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/cli/main.py'> does not have the attribute 'DefaultSessionService'
+
+../../../../.local/share/uv/python/cpython-3.12-macos-aarch64-none/lib/python3.12/unittest/mock.py:1434: AttributeError
+_ TestOpenCodeClientInitialization.test_sync_client_initialization_with_sdk_config _
+
+self = <test_sdk_sync_client.TestOpenCodeClientInitialization object at 0x113c3a9c0>
+mock_storage_cls = <MagicMock name='DefaultSessionService' id='4629131248'>
+mock_service_cls = <MagicMock name='SessionStorage' id='4629122944'>
+
+    @patch("dawn_kestrel.sdk.client.SessionStorage")
+    @patch("dawn_kestrel.sdk.client.DefaultSessionService")
+    def test_sync_client_initialization_with_sdk_config(
+        self, mock_storage_cls, mock_service_cls
+    ) -> None:
+        """Test OpenCodeSyncClient initialization with SDKConfig."""
+        from dawn_kestrel.core.config import SDKConfig
+    
+        mock_storage = Mock()
+        mock_storage_cls.return_value = mock_storage
+    
+        mock_service = Mock()
+        mock_service_cls.return_value = mock_service
+    
+        config = SDKConfig(auto_confirm=True)
+        client = OpenCodeSyncClient(config=config)
+    
+        assert client is not None
+>       assert client._async_client == mock_service
+E       AssertionError: assert <dawn_kestrel.sdk.client.OpenCodeAsyncClient object at 0x1141f9550> == <Mock name='SessionStorage()' id='4632585104'>
+E        +  where <dawn_kestrel.sdk.client.OpenCodeAsyncClient object at 0x1141f9550> = <dawn_kestrel.sdk.client.OpenCodeSyncClient object at 0x1141f8b30>._async_client
+
+tests/test_sdk_sync_client.py:53: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pydantic_settings/main.py:391: 1 warning
+tests/test_config.py: 25 warnings
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/lib/python3.12/site-packages/pydantic_settings/main.py:391: UserWarning: Legacy filename conflict for config '.env': using 'opencode-python' over 'opencode_python'.
+    sources = self.settings_customise_sources(
+
+dawn_kestrel/core/settings.py:55: 1 warning
+tests/test_config.py: 25 warnings
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/core/settings.py:55: UserWarning: Legacy filename conflict for config '.env': using 'opencode-python' over 'opencode_python'.
+    default_factory=lambda: str(_resolve_app_dir("config")), alias="CONFIG_DIR"
+
+tests/test_documentation.py:164
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_documentation.py:164: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/test_documentation.py:180
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_documentation.py:180: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/test_documentation.py:196
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_documentation.py:196: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/test_documentation.py:212
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_documentation.py:212: PytestUnknownMarkWarning: Unknown pytest.mark.slow - is this a typo?  You can register custom marks to avoid this warning - for details, see https://docs.pytest.org/en/stable/how-to/mark.html
+    @pytest.mark.slow
+
+tests/tui/test_keybindings.py:9
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/tui/test_keybindings.py:9: PytestCollectionWarning: cannot collect test class 'TestApp' because it has a __init__ constructor (from: tests/tui/test_keybindings.py)
+    class TestApp(App[None]):
+
+tests/test_config.py::TestSettingsDefaults::test_get_default_provider_with_default_account
+tests/test_config.py::TestSettingsDefaults::test_get_default_model_with_default_account
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/lib/python3.12/site-packages/pydantic/main.py:250: UserWarning: API key is shorter than 32 characters (8 chars). This may be insecure or invalid.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+tests/test_config.py::TestSettingsDefaults::test_get_default_model_with_provider_param
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/lib/python3.12/site-packages/pydantic/main.py:250: UserWarning: API key is shorter than 32 characters (10 chars). This may be insecure or invalid.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+tests/test_config.py::TestSettingsPydanticValidation::test_secret_str_not_exposed_in_repr
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/lib/python3.12/site-packages/pydantic/main.py:250: UserWarning: API key is shorter than 32 characters (15 chars). This may be insecure or invalid.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+tests/test_tui_integration.py::TestTUIIntegration::test_backward_compatibility_tui_visuals_unchanged
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_tui_integration.py:63: DeprecationWarning: io_handler is required in version 0.2.0. Pass QuietIOHandler() for headless mode. Direct I/O will be deprecated in Phase 4.
+    session_service = DefaultSessionService(storage=storage)
+
+tests/test_tui_integration.py::TestTUIIntegration::test_backward_compatibility_tui_visuals_unchanged
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_tui_integration.py:63: DeprecationWarning: progress_handler is required in version 0.2.0. Pass NoOpProgressHandler() for silent mode. Direct progress will be deprecated in Phase 4.
+    session_service = DefaultSessionService(storage=storage)
+
+tests/test_tui_integration.py::TestTUIIntegration::test_backward_compatibility_tui_visuals_unchanged
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/test_tui_integration.py:63: DeprecationWarning: notification_handler is required in version 0.2.0. Pass NoOpNotificationHandler() for silent mode. Direct notifications will be deprecated in Phase 4.
+    session_service = DefaultSessionService(storage=storage)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.12.6-final-0 _______________
+
+Name                                                 Stmts   Miss  Cover   Missing
+----------------------------------------------------------------------------------
+dawn_kestrel/__init__.py                                35     14    60%   25-26, 33-34, 40-41, 60-64, 69-73
+dawn_kestrel/agents/__init__.py                        145    105    28%   30-31, 38-41, 49-70, 74-79, 86-90, 97-103, 111-123, 127, 131, 135, 139, 143-144, 149, 161-164, 184-217, 231-265, 282-292, 304-323, 334-341
+dawn_kestrel/agents/builtin.py                          33      6    82%   115-120
+dawn_kestrel/agents/memory_embedder.py                  95     77    19%   32-34, 43-57, 61-70, 83-96, 107-111, 127-143, 154-182, 193-229, 237, 249
+dawn_kestrel/agents/memory_manager.py                   50     34    32%   21, 31-42, 50, 64-79, 87-92, 104-137
+dawn_kestrel/agents/memory_summarizer.py               130    103    21%   31-36, 45-47, 55, 88-90, 98-111, 115-124, 146-219, 230-232, 243-244, 255, 266-282, 300-375, 383, 395
+dawn_kestrel/agents/orchestrator.py                    142    105    26%   77-81, 111-197, 229-264, 295-323, 337-352, 364-366, 378-379, 388-389, 401-402, 417-423, 432-433, 445-470, 483
+dawn_kestrel/agents/registry.py                        100     66    34%   55, 79-85, 93-121, 138-162, 171-189, 201-202, 214-219, 236-258, 270-271
+dawn_kestrel/agents/review/__init__.py                   5      0   100%
+dawn_kestrel/agents/review/agents/__init__.py           12      0   100%
+dawn_kestrel/agents/review/agents/architecture.py       19      5    74%   30, 34, 84, 88, 104
+dawn_kestrel/agents/review/agents/changelog.py          19      6    68%   28, 31, 34, 63, 76, 92
+dawn_kestrel/agents/review/agents/dependencies.py       16      5    69%   48, 52, 56, 70, 86
+dawn_kestrel/agents/review/agents/diff_scoper.py        17      5    71%   29, 33, 62, 66, 82
+dawn_kestrel/agents/review/agents/documentation.py      17      5    71%   34, 38, 80, 92, 108
+dawn_kestrel/agents/review/agents/linting.py            17      5    71%   26, 30, 66, 80, 96
+dawn_kestrel/agents/review/agents/performance.py        17      5    71%   29, 33, 69, 86, 102
+dawn_kestrel/agents/review/agents/requirements.py       18      5    72%   49, 53, 57, 61, 77
+dawn_kestrel/agents/review/agents/security.py           48     32    33%   35, 39, 89, 110, 136-179
+dawn_kestrel/agents/review/agents/telemetry.py          17      5    71%   29, 33, 71, 82, 98
+dawn_kestrel/agents/review/agents/unit_tests.py         17      5    71%   27, 65, 69, 73, 89
+dawn_kestrel/agents/review/base.py                     155    119    23%   22-58, 90-92, 104, 109, 118, 127, 136, 145, 156-167, 178-217, 242, 285-380, 415-423
+dawn_kestrel/agents/review/cli.py                      195    162    17%   23-34, 46-50, 61-72, 82-92, 102, 175-245, 257-317, 326-353, 398-456
+dawn_kestrel/agents/review/context_builder.py           32     18    44%   47, 69, 90-127
+dawn_kestrel/agents/review/contracts.py                100     21    79%   28, 52-78
+dawn_kestrel/agents/review/discovery.py                268    234    13%   105-106, 134-178, 202-249, 265-308, 322-375, 390-462, 477-552, 570-597, 611-612, 616-617, 621, 632-650
+dawn_kestrel/agents/review/doc_gen.py                  272    248     9%   35-38, 56-170, 181, 192-195, 206-213, 232-279, 297-342, 364-390, 406-449, 471-615, 626-637, 659-684, 706-832, 842-847
+dawn_kestrel/agents/review/neighbors.py                 77     18    77%   43, 55-56, 63-81, 119-120
+dawn_kestrel/agents/review/orchestrator.py              95     75    21%   42-48, 62-74, 86-181, 193, 204, 215-225, 236-252, 261
+dawn_kestrel/agents/review/pattern_learning.py         205    187     9%   34-36, 68-98, 109, 128-168, 191-251, 262, 273-314, 327-356, 367-394, 410-425, 442-482
+dawn_kestrel/agents/review/pr_facts.py                  86     31    64%   74-97, 110-114, 153-162, 201-203
+dawn_kestrel/agents/review/redaction.py                 27     18    33%   28-43, 74-83, 99-102
+dawn_kestrel/agents/review/registry.py                  66     12    82%   61, 85-90, 105-106, 115, 124-125, 134, 143, 152
+dawn_kestrel/agents/review/streaming.py                111     63    43%   80-91, 107, 110, 114, 126-132, 140-145, 157-158, 169-173, 182-183, 195-215, 223-238
+dawn_kestrel/agents/review/utils/__init__.py             0      0   100%
+dawn_kestrel/agents/review/utils/config.py             214     26    88%   47-52, 65-67, 113-115, 136-138, 223, 228, 338, 367, 372-380, 383
+dawn_kestrel/agents/review/utils/executor.py           174    131    25%   86-88, 91-102, 105-120, 123-131, 134-192, 195-205, 208-250, 253-273, 276-297
+dawn_kestrel/agents/review/utils/git.py                 63     51    19%   39-64, 83-101, 117-131, 144-185
+dawn_kestrel/agents/review/verifier.py                  88     78    11%   43, 75-123, 135-164, 188-237
+dawn_kestrel/agents/runtime.py                         106     80    25%   62-289
+dawn_kestrel/agents/tool_execution_tracker.py           91     74    19%   35-37, 63-88, 106-153, 171-194, 208-219, 227-237, 249
+dawn_kestrel/ai/tool_execution.py                      113     97    14%   31-35, 47-183, 186, 203-320, 329-338, 342-344, 354
+dawn_kestrel/ai_session.py                             152    128    16%   39-64, 67-74, 78-80, 86-173, 178-221, 235-291, 295-297, 301-315, 319-334
+dawn_kestrel/benchmarks/__init__.py                     79     38    52%   43, 62, 78, 82-84, 92, 101-102, 117-128, 167-175, 190-191, 216-225, 229, 233-240
+dawn_kestrel/benchmarks/agent_execution.py              30     30     0%   10-96
+dawn_kestrel/benchmarks/context_build.py                40     40     0%   10-148
+dawn_kestrel/benchmarks/memory_search.py                40     40     0%   10-139
+dawn_kestrel/cli/__init__.py                             2      0   100%
+dawn_kestrel/cli/ai_commands.py                        164    164     0%   8-282
+dawn_kestrel/cli/handlers.py                            76     76     0%   7-232
+dawn_kestrel/cli/legacy.py                              21      0   100%
+dawn_kestrel/cli/main.py                               150     91    39%   21-24, 32, 51-90, 99-109, 125-173, 182-223, 229-242
+dawn_kestrel/compaction.py                              89     89     0%   8-178
+dawn_kestrel/context/__init__.py                         2      0   100%
+dawn_kestrel/context/builder.py                         84     66    21%   68-83, 105-115, 137, 157-191, 213-234, 255-269, 290, 311-329
+dawn_kestrel/context/pipeline.py                       102    102     0%   2-279
+dawn_kestrel/core/__init__.py                            4      0   100%
+dawn_kestrel/core/agent_task.py                         53      5    91%   97, 101, 105, 109, 136
+dawn_kestrel/core/agent_types.py                        55      0   100%
+dawn_kestrel/core/config.py                             15      0   100%
+dawn_kestrel/core/event_bus.py                          77     27    65%   52-60, 69-88, 92-96
+dawn_kestrel/core/exceptions.py                          7      0   100%
+dawn_kestrel/core/harness/__init__.py                    2      0   100%
+dawn_kestrel/core/harness/runner.py                    135    103    24%   61-63, 87-106, 127-138, 162-163, 182-186, 204, 234-240, 261-265, 284-291, 305-335, 353-358, 399-405, 409-420, 424-444, 464-493, 512-538
+dawn_kestrel/core/http_client.py                       106     87    18%   26-29, 43-47, 57, 72, 88, 105-179, 193-234, 241-245, 249-263, 270, 278
+dawn_kestrel/core/models.py                            172      1    99%   261
+dawn_kestrel/core/provider_config.py                    34      3    91%   56-57, 147
+dawn_kestrel/core/provider_settings.py                  46      3    93%   137-139
+dawn_kestrel/core/services/session_service.py          100     62    38%   187-216, 230-251, 267-295, 303-304, 315-316, 328-347, 362-381
+dawn_kestrel/core/session.py                           144    106    26%   38, 48-73, 77, 85-102, 106-119, 123-124, 135-152, 156-164, 168-178, 182, 186, 190-210, 214-227, 231-246, 251-266, 271-310, 315, 320, 325, 330-339
+dawn_kestrel/core/session_lifecycle.py                 218    167    23%   34, 42, 51, 60, 68, 76, 84, 127-128, 141-142, 155-156, 169-170, 183-184, 197-198, 211-212, 227-231, 246-250, 265-269, 284-288, 303-307, 322-326, 341-345, 353-355, 363-365, 374-391, 400-417, 426-444, 453-468, 477-489, 498-510, 519-531, 535-543, 553
+dawn_kestrel/core/settings.py                          172     27    84%   155, 191-196, 200, 206, 218-224, 233, 238, 300-310, 333, 350, 384-386
+dawn_kestrel/interfaces/io.py                           67      8    88%   218, 221, 224, 227, 234, 237, 240, 247
+dawn_kestrel/llm/__init__.py                             2      0   100%
+dawn_kestrel/llm/client.py                             183    122    33%   70-97, 112-135, 141-154, 168, 207, 231, 244, 288-300, 305-307, 311-321, 343-370, 373, 383-391, 401-430, 455-490, 524-536
+dawn_kestrel/permissions/__init__.py                     0      0   100%
+dawn_kestrel/permissions/evaluate.py                    28     14    50%   18-28, 51-60, 88
+dawn_kestrel/provider/__init__.py                      103     53    49%   43, 53, 58, 63, 68, 72, 79-82, 85-88, 96-103, 107-112, 115, 119-139, 147, 156-157, 161-162, 166, 170-184
+dawn_kestrel/provider/handler.py                        40     40     0%   2-84
+dawn_kestrel/provider/stream_types.py                   67      1    99%   12
+dawn_kestrel/providers/__init__.py                     116     88    24%   49-50, 53-87, 96-193, 196, 204-210, 215-216, 219-248, 257-272, 279, 286-288, 292-295, 304, 315-318
+dawn_kestrel/providers/base.py                          88     10    89%   40-43, 53-54, 64-65, 95, 99
+dawn_kestrel/providers/openai.py                        72     72     0%   7-200
+dawn_kestrel/providers/registry.py                      95     64    33%   71-77, 99-114, 126, 135, 154-169, 189-201, 210-213, 225-231, 237-252, 266-271, 280-284
+dawn_kestrel/providers/zai.py                           11      3    73%   26-27, 30
+dawn_kestrel/providers/zai_base.py                      82     66    20%   38-40, 45, 49-148, 152-153, 162-167
+dawn_kestrel/providers/zai_coding_plan.py               11      3    73%   26-27, 30
+dawn_kestrel/review.py                                  48     48     0%   2-157
+dawn_kestrel/sdk/__init__.py                             8      2    75%   6-7
+dawn_kestrel/sdk/client.py                             174    101    42%   97, 105, 124-130, 144-150, 161-167, 181-187, 208-214, 238-243, 259-264, 300-318, 351-362, 378, 391, 409-412, 442-452, 465, 478, 491, 504, 549, 557, 575, 592, 606, 623, 642, 646, 650, 660, 673, 679, 683, 687, 697, 701, 705, 709, 713
+dawn_kestrel/session/__init__.py                         5      0   100%
+dawn_kestrel/session/compaction.py                      96     82    15%   20-21, 38-54, 67-128, 153-204
+dawn_kestrel/session/export_import.py                   77     77     0%   2-177
+dawn_kestrel/session/fork_revert.py                    116    116     0%   8-231
+dawn_kestrel/session/import_export.py                   58     45    22%   24, 36-66, 78-115, 120
+dawn_kestrel/session/processor.py                      125    105    16%   50-56, 65-84, 89-206, 214-216, 224-237, 241-245, 249-259, 267-270, 282-283, 287-288, 292-293
+dawn_kestrel/session/revert.py                          31     20    35%   16-18, 35-76, 86, 96
+dawn_kestrel/skills/injector.py                         35     24    31%   51-67, 84-91, 110-118
+dawn_kestrel/skills/loader.py                           74     47    36%   11-12, 27-30, 52, 56-60, 68-81, 92-118, 129-133, 137-138
+dawn_kestrel/snapshot.py                               142    142     0%   8-219
+dawn_kestrel/snapshot/__init__.py                        2      0   100%
+dawn_kestrel/snapshot/index.py                          82     64    22%   17-18, 27-57, 66-84, 97-112, 125-140, 149-173, 182-196, 200-211, 215-221, 225-226
+dawn_kestrel/storage/__init__.py                         0      0   100%
+dawn_kestrel/storage/memory_storage.py                  25     16    36%   14-18, 22-25, 29-39, 43
+dawn_kestrel/storage/store.py                          118     84    29%   23, 27, 31-38, 42-46, 50-53, 57-62, 66-74, 82-87, 91-99, 103-104, 108-110, 114-115, 123-126, 130-131, 135-143, 151-154, 158-159, 163-164, 168-174
+dawn_kestrel/tools/__init__.py                          30     19    37%   42-74, 79-80, 89-100, 109-124
+dawn_kestrel/tools/additional.py                       854    711    17%   42, 50-122, 138-166, 177-206, 214-217, 220-223, 240-344, 362-449, 461-494, 519, 531-578, 590-652, 664-667, 671-675, 691-788, 803-805, 809-872, 878-907, 917-935, 970-979, 1003-1110, 1187, 1203-1204, 1216-1326, 1340-1353, 1358-1372, 1376, 1380, 1402-1450, 1468-1528, 1543-1544, 1559-1608, 1620-1706, 1714-1715, 1734-1797, 1827-1965, 1993-2000, 2023-2030, 2061-2139
+dawn_kestrel/tools/builtin.py                          170    109    36%   34, 47-82, 113-161, 192-216, 247-283, 313-348, 379-435
+dawn_kestrel/tools/framework.py                         60     23    62%   17-18, 22-25, 29, 33, 37, 64, 73, 81, 101, 124-155
+dawn_kestrel/tools/permission_filter.py                 77     61    21%   34-38, 46-57, 74-91, 104-110, 121-141, 149-170, 181-187
+dawn_kestrel/tools/prompts/__init__.py                  10      1    90%   11
+dawn_kestrel/tools/registry.py                          47     47     0%   7-99
+dawn_kestrel/tui/__init__.py                             2      0   100%
+dawn_kestrel/tui/app.py                                134     80    40%   61, 106-151, 155-159, 163-168, 176-178, 183, 187-192, 196-201, 205-217, 221-223, 227-236, 240-265, 269, 273-274, 278-280
+dawn_kestrel/tui/dialogs/__init__.py                   153    107    30%   39-43, 47-53, 57, 65-67, 75, 83, 126-132, 136-147, 151-153, 161-171, 179-183, 191, 195-199, 203, 242-246, 250-264, 268-270, 274, 278-281, 285-288, 292, 300, 338-343, 347-360, 364-367, 371-376, 380-381, 389
+dawn_kestrel/tui/dialogs/command_palette_dialog.py      66     48    27%   37-68, 72-85, 93-106, 117-121, 129-137, 145, 153, 157-164, 168, 172-174, 178-180
+dawn_kestrel/tui/dialogs/model_select_dialog.py         69     51    26%   51-59, 67-74, 78-87, 91-93, 101-114, 122-126, 134, 144-151, 155-161, 165
+dawn_kestrel/tui/dialogs/theme_select_dialog.py         58     43    26%   55-61, 65-74, 78-83, 91-103, 111-112, 120, 124-131, 135
+dawn_kestrel/tui/handlers.py                            38     16    58%   49, 61, 73-75, 87-89, 113-123, 153-154, 167, 175-176
+dawn_kestrel/tui/keybindings.py                          4      1    75%   25
+dawn_kestrel/tui/message_view.py                       114     93    18%   53-55, 58-135, 205-207, 210-240, 244-258, 262
+dawn_kestrel/tui/screens/__init__.py                     2      0   100%
+dawn_kestrel/tui/screens/context_browser.py            228    228     0%   12-508
+dawn_kestrel/tui/screens/diff_viewer.py                225    225     0%   14-457
+dawn_kestrel/tui/screens/message_screen.py             275    221    20%   151-158, 162-174, 178-181, 185-210, 214-217, 221-226, 230-232, 236-274, 278-367, 371-402, 406-410, 414-455, 459-507, 511-546, 550, 554, 558, 562, 566, 570, 574, 578, 582, 586, 590-621, 625-649, 653
+dawn_kestrel/tui/screens/session_list_screen.py         58     39    33%   38-39, 43-44, 48-65, 69-75, 79-105, 109-112
+dawn_kestrel/tui/widgets/__init__.py                     3      0   100%
+dawn_kestrel/tui/widgets/footer.py                      62     37    40%   68-78, 82-105, 109-110, 114-115, 119-120, 124-125, 131, 136, 141, 146
+dawn_kestrel/tui/widgets/header.py                      46     25    46%   64-72, 76-93, 97-98, 104-105, 109-110, 116, 121, 126
+dawn_kestrel/utils/__init__.py                           0      0   100%
+dawn_kestrel/utils/json_parser.py                       18     14    22%   23-37, 52-65
+----------------------------------------------------------------------------------
+TOTAL                                                10862   7507    31%
+=========================== short test summary info ============================
+FAILED tests/review/test_orchestrator_entry_points.py::test_build_context_backward_compatibility_without_discovery - TypeError: Can't instantiate abstract class TestReviewerAgent without an implementation for abstract method 'get_allowed_tools'
+FAILED tests/review/test_parity_baseline.py::TestFixtureCompatibility::test_orchestrator_compatibility_typical - TypeError: Can't instantiate abstract class MockReviewerWithFindings without an implementation for abstract method 'get_allowed_tools'
+FAILED tests/test_cli_integration.py::TestBackwardCompatibility::test_list_sessions_output_unchanged - AttributeError: <module 'dawn_kestrel.cli.main' from '/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/cli/main.py'> does not have the attribute 'DefaultSessionService'
+FAILED tests/test_sdk_sync_client.py::TestOpenCodeClientInitialization::test_sync_client_initialization_with_sdk_config - AssertionError: assert <dawn_kestrel.sdk.client.OpenCodeAsyncClient object at 0x1141f9550> == <Mock name='SessionStorage()' id='4632585104'>
+ +  where <dawn_kestrel.sdk.client.OpenCodeAsyncClient object at 0x1141f9550> = <dawn_kestrel.sdk.client.OpenCodeSyncClient object at 0x1141f8b30>._async_client
+ERROR tests/review/test_parity_baseline.py::TestFixtureCompatibility::test_orchestrator_compatibility_minimal - TypeError: Can't instantiate abstract class MockReviewer without an implementation for abstract method 'get_allowed_tools'
+ERROR tests/review/test_parity_baseline.py::TestFixtureCompatibility::test_orchestrator_deduplication - TypeError: Can't instantiate abstract class MockReviewer without an implementation for abstract method 'get_allowed_tools'
+ERROR tests/review/test_self_verification.py::TestSelfVerification::test_backward_compatibility_existing_methods - TypeError: Can't instantiate abstract class MockReviewerAgent without an implementation for abstract methods 'get_agent_name', 'get_allowed_tools'
+4 failed, 106 passed, 1187 deselected, 64 warnings, 3 errors in 1.34s

@@ -9,8 +9,8 @@ TDD Workflow:
 import pytest
 from datetime import datetime
 
-from opencode_python.tui.screens.session_list_screen import SessionListScreen
-from opencode_python.core.models import Session
+from dawn_kestrel.tui.screens.session_list_screen import SessionListScreen
+from dawn_kestrel.core.models import Session
 
 
 @pytest.fixture
