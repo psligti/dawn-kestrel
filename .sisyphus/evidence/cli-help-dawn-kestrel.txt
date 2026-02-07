@@ -1,0 +1,16 @@
+Usage: dawn-kestrel [OPTIONS] COMMAND [ARGS]...
+
+  OpenCode Python - CLI + TUI for AI-assisted development
+
+Options:
+  --version  Show the version and exit.
+  --help     Show this message and exit.
+
+Commands:
+  docs            Generate review-agent documentation.
+  export-session  Export a session to file
+  import-session  Import a session from file
+  list-sessions   List all sessions in a project
+  review          Run PR review on a git repository.
+  run             Run OpenCode with a message (non-interactive mode)
+  tui             Launch Textual TUI interface

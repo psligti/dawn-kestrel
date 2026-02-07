@@ -1,10 +1,13 @@
 {
-  "active_plan": null,
-  "started_at": "2026-02-06T17:10:00.000Z",
+  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/dawn-kestrel-flatten-rename.md",
+  "started_at": "2026-02-06T21:54:58.155Z",
   "session_ids": [
-    "ses_3d01de24fffem91RHBZBnJszQg",
-    "ses_3cfff3147ffe2owtr91JffGoxA",
-    "ses_3cc289e20ffe2i2gyUlFn2h4fx"
+    "ses_3cb0c841dffemk40hKfFWZpVIG",
+    "ses_3caab9d46ffe6ppmZEnFojPSgM",
+    "ses_3c5eff96effeasiBcjMBWpP037",
+    "ses_3cbefe2e6ffeCyYMo9aRdZgiCh",
+    "ses_3cbefe2e6ffeCyYMo9aRdZgiCh",
+    "ses_3c5d26456ffewbeEtQUbmZ7W3d"
   ],
-  "plan_name": "Planning Agent Initial Conversation + Orchestration Upgrade"
+  "plan_name": "dawn-kestrel-flatten-rename"
 }

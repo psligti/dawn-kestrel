@@ -3,7 +3,7 @@ import pytest
 from textual.binding import Binding
 from textual.app import App, ComposeResult
 
-from opencode_python.tui.keybindings import keybindings
+from dawn_kestrel.tui.keybindings import keybindings
 
 
 class TestApp(App[None]):

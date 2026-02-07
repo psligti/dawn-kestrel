@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from opencode_python.tui.app import OpenCodeTUI
+from dawn_kestrel.tui.app import OpenCodeTUI
 
 
 @pytest.mark.asyncio

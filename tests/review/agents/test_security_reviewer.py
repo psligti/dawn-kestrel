@@ -1,10 +1,11 @@
 """Test SecurityReviewer agent with LLM-based analysis."""
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from opencode_python.agents.review.agents.security import SecurityReviewer
-from opencode_python.agents.review.base import ReviewContext
-from opencode_python.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
-from opencode_python.core.models import Session
+from dawn_kestrel.agents.review.agents.security import SecurityReviewer
+from dawn_kestrel.agents.review.base import ReviewContext
+from dawn_kestrel.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
+from dawn_kestrel.core.models import Session
 
 
 class TestSecurityReviewerLLMBased:
@@ -23,7 +24,7 @@ class TestSecurityReviewerLLMBased:
             diff="+ api_key = 'sk-1234567890abcdef'\n+ password = 'secret123'",
             repo_root="/test/repo",
             base_ref="main",
-            head_ref="feature/add-auth"
+            head_ref="feature/add-auth",
         )
 
     @pytest.fixture
@@ -35,7 +36,7 @@ class TestSecurityReviewerLLMBased:
             project_id="test-project",
             directory="/test/repo",
             title="Test Session",
-            version="1.0"
+            version="1.0",
         )
 
     @pytest.fixture
@@ -76,142 +77,72 @@ class TestSecurityReviewerLLMBased:
 
     @pytest.mark.asyncio
     async def test_review_creates_ai_session_and_calls_process_message(
-        self,
-        reviewer,
-        sample_context,
-        mock_session,
-        sample_review_output_json
+        self, reviewer, sample_context, sample_review_output_json
     ):
-        """Test that review() creates AISession and calls process_message()."""
-        mock_ai_session = MagicMock()
-        mock_message = MagicMock()
-        mock_message.text = sample_review_output_json
+        """Test that review() uses SimpleReviewAgentRunner and parses output."""
+        mock_runner = MagicMock()
+        mock_runner.run_with_retry = AsyncMock(return_value=sample_review_output_json)
 
-        mock_ai_session.process_message = AsyncMock(return_value=mock_message)
+        with patch("dawn_kestrel.core.harness.SimpleReviewAgentRunner", return_value=mock_runner):
+            result = await reviewer.review(sample_context)
 
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
+            mock_runner.run_with_retry.assert_called_once()
 
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
-                mock_session_cls.return_value = mock_session
-
-                result = await reviewer.review(sample_context)
-
-                mock_ai_session_cls.assert_called_once()
-                mock_ai_session.process_message.assert_called_once()
-                process_args = mock_ai_session.process_message.call_args
-                assert "system_prompt" in process_args[1].get('options', {}) or \
-                       sample_context.diff in process_args[0][0]
-
-                # Verify result is valid ReviewOutput
-                assert isinstance(result, ReviewOutput)
-                assert result.agent == "security"
-                assert result.severity == "critical"
-                assert len(result.findings) == 1
-                assert result.findings[0].id == "secret-1"
-                assert result.merge_gate.decision == "needs_changes"
+            assert isinstance(result, ReviewOutput)
+            assert result.agent == "security"
+            assert result.severity == "critical"
+            assert len(result.findings) == 1
+            assert result.findings[0].id == "secret-1"
+            assert result.merge_gate.decision == "needs_changes"
 
     @pytest.mark.asyncio
     async def test_review_handles_missing_api_key_by_raising_exception(
-        self,
-        reviewer,
-        sample_context,
-        mock_session
+        self, reviewer, sample_context
     ):
         """Test that review() raises exception when API key is missing."""
-        # Mock AISession to raise exception
-        mock_ai_session = MagicMock()
-
-        async def mock_process_message(user_message, options=None):
-            raise ValueError("API key not found for provider")
-
-        mock_ai_session.process_message = mock_process_message
-
-        # Patch AISession
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
-
-            # Patch Session creation
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
-                mock_session_cls.return_value = mock_session
-
-                # Should raise exception
-                with pytest.raises(ValueError, match="API key not found"):
-                    await reviewer.review(sample_context)
+        # Patch SimpleReviewAgentRunner.run_with_retry to raise exception
+        with patch(
+            "dawn_kestrel.core.harness.SimpleReviewAgentRunner.run_with_retry",
+            side_effect=ValueError("API key not found for provider"),
+        ):
+            # Should raise exception
+            with pytest.raises(ValueError, match="API key not found"):
+                await reviewer.review(sample_context)
 
     @pytest.mark.asyncio
-    async def test_review_handles_invalid_json_response(
-        self,
-        reviewer,
-        sample_context,
-        mock_session
-    ):
+    async def test_review_handles_invalid_json_response(self, reviewer, sample_context):
         """Test that review() returns error ReviewOutput for invalid JSON."""
-        # Mock AISession to return invalid JSON
-        mock_ai_session = MagicMock()
-        mock_message = MagicMock()
-        mock_message.text = "This is not valid JSON"
+        # Patch SimpleReviewAgentRunner.run_with_retry to return invalid JSON
+        with patch(
+            "dawn_kestrel.core.harness.SimpleReviewAgentRunner.run_with_retry",
+            return_value="This is not valid JSON",
+        ):
+            # Should return error ReviewOutput with severity='critical'
+            result = await reviewer.review(sample_context)
 
-        async def mock_process_message(user_message, options=None):
-            return mock_message
-
-        mock_ai_session.process_message = mock_process_message
-
-        # Patch AISession
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
-
-            # Patch Session creation
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
-                mock_session_cls.return_value = mock_session
-
-                # Should return error ReviewOutput with severity='critical'
-                result = await reviewer.review(sample_context)
-
-                assert isinstance(result, ReviewOutput)
-                assert result.severity == "critical"
-                assert "error" in result.summary.lower() or "invalid" in result.summary.lower()
+            assert isinstance(result, ReviewOutput)
+            assert result.severity == "critical"
+            assert "error" in result.summary.lower() or "invalid" in result.summary.lower()
 
     @pytest.mark.asyncio
     async def test_review_handles_timeout_error_by_raising_exception(
-        self,
-        reviewer,
-        sample_context,
-        mock_session
+        self, reviewer, sample_context
     ):
         """Test that review() raises exception on timeout."""
-        # Mock AISession to raise timeout
-        mock_ai_session = MagicMock()
-
-        async def mock_process_message(user_message, options=None):
-            raise TimeoutError("Request timed out after 60s")
-
-        mock_ai_session.process_message = mock_process_message
-
-        # Patch AISession
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
-
-            # Patch Session creation
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
-                mock_session_cls.return_value = mock_session
-
-                # Should raise exception
-                with pytest.raises(TimeoutError):
-                    await reviewer.review(sample_context)
+        # Patch SimpleReviewAgentRunner.run_with_retry to raise timeout
+        with patch(
+            "dawn_kestrel.core.harness.SimpleReviewAgentRunner.run_with_retry",
+            side_effect=TimeoutError("Request timed out after 60s"),
+        ):
+            # Should raise exception
+            with pytest.raises(TimeoutError):
+                await reviewer.review(sample_context)
 
     @pytest.mark.asyncio
-    async def test_review_with_no_findings_returns_merge_severity(
-        self,
-        reviewer,
-        sample_context,
-        mock_session
-    ):
+    async def test_review_with_no_findings_returns_merge_severity(self, reviewer, sample_context):
         """Test that review() returns severity='merge' when no findings."""
-        # Mock AISession to return clean review
-        mock_ai_session = MagicMock()
-        mock_message = MagicMock()
-        mock_message.text = """{
+        # Mock runner to return clean review JSON
+        clean_review_json = """{
             "agent": "security",
             "summary": "No security vulnerabilities detected.",
             "severity": "merge",
@@ -229,33 +160,20 @@ class TestSecurityReviewerLLMBased:
             }
         }"""
 
-        async def mock_process_message(user_message, options=None):
-            return mock_message
+        mock_runner = MagicMock()
+        mock_runner.run_with_retry = AsyncMock(return_value=clean_review_json)
 
-        mock_ai_session.process_message = mock_process_message
+        with patch("dawn_kestrel.core.harness.SimpleReviewAgentRunner", return_value=mock_runner):
+            result = await reviewer.review(sample_context)
 
-        # Patch AISession
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
-
-            # Patch Session creation
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
-                mock_session_cls.return_value = mock_session
-
-                result = await reviewer.review(sample_context)
-
-                assert isinstance(result, ReviewOutput)
-                assert result.severity == "merge"
-                assert result.merge_gate.decision == "approve"
-                assert len(result.findings) == 0
+            assert isinstance(result, ReviewOutput)
+            assert result.severity == "merge"
+            assert result.merge_gate.decision == "approve"
+            assert len(result.findings) == 0
 
     @pytest.mark.asyncio
     async def test_review_includes_system_prompt_and_context_in_message(
-        self,
-        reviewer,
-        sample_context,
-        mock_session,
-        sample_review_output_json
+        self, reviewer, sample_context, mock_session, sample_review_output_json
     ):
         """Test that review() includes system prompt and formatted context."""
         # Mock AISession
@@ -273,11 +191,11 @@ class TestSecurityReviewerLLMBased:
         mock_ai_session.process_message = mock_process_message
 
         # Patch AISession
-        with patch('opencode_python.agents.review.agents.security.AISession') as mock_ai_session_cls:
+        with patch("dawn_kestrel.agents.review.agents.security.AISession") as mock_ai_session_cls:
             mock_ai_session_cls.return_value = mock_ai_session
 
             # Patch Session creation
-            with patch('opencode_python.agents.review.agents.security.Session') as mock_session_cls:
+            with patch("dawn_kestrel.agents.review.agents.security.Session") as mock_session_cls:
                 mock_session_cls.return_value = mock_session
 
                 await reviewer.review(sample_context)

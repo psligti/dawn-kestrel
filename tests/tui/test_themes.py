@@ -1,7 +1,7 @@
 """Tests for theme definitions and application integration"""
+
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 
 
@@ -10,19 +10,19 @@ class TestThemeFilesExist:
 
     def test_light_theme_exists(self):
         """Test that light.tcss theme file exists"""
-        light_theme = Path(__file__).parent.parent.parent / "src/opencode_python/tui/themes/light.tcss"
+        light_theme = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/themes/light.tcss"
         assert light_theme.exists(), "light.tcss theme file should exist"
         assert light_theme.is_file(), "light.tcss should be a file"
 
     def test_dark_theme_exists(self):
         """Test that dark.tcss theme file exists"""
-        dark_theme = Path(__file__).parent.parent.parent / "src/opencode_python/tui/themes/dark.tcss"
+        dark_theme = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/themes/dark.tcss"
         assert dark_theme.exists(), "dark.tcss theme file should exist"
         assert dark_theme.is_file(), "dark.tcss should be a file"
 
     def test_dracula_theme_exists(self):
         """Test that dracula.tcss theme file exists"""
-        dracula_theme = Path(__file__).parent.parent.parent / "src/opencode_python/tui/themes/dracula.tcss"
+        dracula_theme = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/themes/dracula.tcss"
         assert dracula_theme.exists(), "dracula.tcss theme file should exist"
         assert dracula_theme.is_file(), "dracula.tcss should be a file"
 
@@ -100,21 +100,58 @@ $background-element: #44475a;
         """Test that all required CSS variables are present in light theme"""
         light_theme = tmp_path / "light.tcss"
         required_vars = [
-            "$primary", "$secondary", "$accent",
-            "$error", "$warning", "$success", "$info",
-            "$text", "$text-muted", "$text-selection",
-            "$background", "$background-panel", "$background-element", "$background-menu",
-            "$border", "$border-active", "$border-subtle",
-            "$diff-added", "$diff-removed", "$diff-context", "$diff-hunk-header",
-            "$diff-highlight-added", "$diff-highlight-removed",
-            "$diff-added-bg", "$diff-removed-bg", "$diff-context-bg",
-            "$diff-line-number", "$diff-added-line-number-bg", "$diff-removed-line-number-bg",
-            "$markdown-text", "$markdown-heading", "$markdown-link", "$markdown-link-text",
-            "$markdown-code", "$markdown-blockquote", "$markdown-emph", "$markdown-strong",
-            "$markdown-horizontal-rule", "$markdown-list-item", "$markdown-list-enumeration",
-            "$markdown-image", "$markdown-image-text", "$markdown-code-block",
-            "$syntax-comment", "$syntax-keyword", "$syntax-function", "$syntax-variable",
-            "$syntax-string", "$syntax-number", "$syntax-type", "$syntax-operator", "$syntax-punctuation",
+            "$primary",
+            "$secondary",
+            "$accent",
+            "$error",
+            "$warning",
+            "$success",
+            "$info",
+            "$text",
+            "$text-muted",
+            "$text-selection",
+            "$background",
+            "$background-panel",
+            "$background-element",
+            "$background-menu",
+            "$border",
+            "$border-active",
+            "$border-subtle",
+            "$diff-added",
+            "$diff-removed",
+            "$diff-context",
+            "$diff-hunk-header",
+            "$diff-highlight-added",
+            "$diff-highlight-removed",
+            "$diff-added-bg",
+            "$diff-removed-bg",
+            "$diff-context-bg",
+            "$diff-line-number",
+            "$diff-added-line-number-bg",
+            "$diff-removed-line-number-bg",
+            "$markdown-text",
+            "$markdown-heading",
+            "$markdown-link",
+            "$markdown-link-text",
+            "$markdown-code",
+            "$markdown-blockquote",
+            "$markdown-emph",
+            "$markdown-strong",
+            "$markdown-horizontal-rule",
+            "$markdown-list-item",
+            "$markdown-list-enumeration",
+            "$markdown-image",
+            "$markdown-image-text",
+            "$markdown-code-block",
+            "$syntax-comment",
+            "$syntax-keyword",
+            "$syntax-function",
+            "$syntax-variable",
+            "$syntax-string",
+            "$syntax-number",
+            "$syntax-type",
+            "$syntax-operator",
+            "$syntax-punctuation",
         ]
 
         light_theme.write_text("\n".join([f"${var}: #color;" for var in required_vars]))
@@ -186,7 +223,7 @@ class TestThemeIntegration:
 
     def test_theme_variables_are_used_in_app(self):
         """Test that app.py references theme CSS variables"""
-        app_path = Path(__file__).parent.parent.parent / "src/opencode_python/tui/app.py"
+        app_path = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/app.py"
         app_content = app_path.read_text()
 
         # Check that app uses CSS variables
@@ -196,7 +233,7 @@ class TestThemeIntegration:
 
     def test_app_css_includes_theme_classes(self):
         """Test that app.py has CSS styles that use theme variables"""
-        app_path = Path(__file__).parent.parent.parent / "src/opencode_python/tui/app.py"
+        app_path = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/app.py"
         app_content = app_path.read_text()
 
         # Check for common TUI widget selectors
@@ -207,7 +244,7 @@ class TestThemeIntegration:
 
     def test_app_uses_theme_variables_in_css(self):
         """Test that app CSS uses theme variables defined in themes/*.tcss files"""
-        app_path = Path(__file__).parent.parent.parent / "src/opencode_python/tui/app.py"
+        app_path = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/app.py"
         app_content = app_path.read_text()
 
         # Check for usage of theme variables in CSS
@@ -217,7 +254,7 @@ class TestThemeIntegration:
 
     def test_multiple_themes_exist_in_directory(self):
         """Test that all three theme files are present in themes directory"""
-        themes_dir = Path(__file__).parent.parent.parent / "src/opencode_python/tui/themes"
+        themes_dir = Path(__file__).parent.parent.parent / "dawn_kestrel/tui/themes"
         theme_files = list(themes_dir.glob("*.tcss"))
 
         assert len(theme_files) >= 3, "Should have at least 3 theme files"

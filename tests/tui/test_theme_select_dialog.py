@@ -8,27 +8,27 @@ from textual.widgets import Label, ListView, ListItem, Static
 
 def test_dialog_exists():
     """Test that ThemeSelectDialog can be imported and instantiated."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     assert ThemeSelectDialog is not None
 
 
 def test_dialog_is_modal_screen():
     """Test that ThemeSelectDialog extends ModalScreen."""
     from textual.screen import ModalScreen
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     assert issubclass(ThemeSelectDialog, ModalScreen)
 
 
 def test_dialog_has_title():
     """Test that ThemeSelectDialog has title property."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     dialog = ThemeSelectDialog(title="Select Theme")
     assert dialog.title == "Select Theme"
 
 
 def test_dialog_has_themes():
     """Test that ThemeSelectDialog has 3 themes (light, dark, dracula)."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     dialog = ThemeSelectDialog(title="Select Theme")
     assert len(dialog.themes) == 3
     theme_names = [t["value"] for t in dialog.themes]
@@ -40,7 +40,7 @@ def test_dialog_has_themes():
 @pytest.mark.asyncio
 async def test_dialog_displays_themes():
     """Test that ThemeSelectDialog displays themes correctly."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
 
     class TestApp(App):
         def compose(self):
@@ -71,7 +71,7 @@ async def test_dialog_displays_themes():
 
 def test_dialog_options_generated():
     """Test that options are generated correctly from themes."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     dialog = ThemeSelectDialog(title="Select Theme")
 
     # Options should be generated with proper structure
@@ -92,7 +92,7 @@ def test_dialog_options_generated():
 
 def test_dialog_get_result():
     """Test that get_result returns selected theme."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     dialog = ThemeSelectDialog(title="Test")
 
     # Before selection
@@ -106,7 +106,7 @@ def test_dialog_get_result():
 @pytest.mark.asyncio
 async def test_dialog_close_returns_selection():
     """Test that dialog closes and returns result."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
 
     class TestApp(App):
         def compose(self):
@@ -128,7 +128,7 @@ async def test_dialog_close_returns_selection():
 @pytest.mark.asyncio
 async def test_dialog_close_without_selection_returns_none():
     """Test that dialog closes without selection returns None."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
 
     class TestApp(App):
         def compose(self):
@@ -149,14 +149,14 @@ async def test_dialog_close_without_selection_returns_none():
 
 def test_dialog_default_result():
     """Test that default result is None."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     dialog = ThemeSelectDialog(title="Test")
     assert dialog.get_result() is None
 
 
 def test_dialog_on_select_callback():
     """Test that on_select callback is called when theme is selected."""
-    from opencode_python.tui.dialogs.theme_select_dialog import ThemeSelectDialog
+    from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
 
     on_select_called = []
     def on_select(theme):

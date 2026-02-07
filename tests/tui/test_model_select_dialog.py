@@ -7,9 +7,9 @@ from textual.app import App, ComposeResult
 from textual.containers import Vertical
 from textual.widgets import Label, ListView, ListItem, Static
 
-from opencode_python.tui.dialogs import ModelSelectDialog
-from opencode_python.providers.base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID
-from opencode_python.core.settings import Settings
+from dawn_kestrel.tui.dialogs import ModelSelectDialog
+from dawn_kestrel.providers.base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID
+from dawn_kestrel.core.settings import Settings
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def available_models():
 
 @pytest.fixture
 def mock_settings():
-    with patch("opencode_python.core.settings.get_settings") as mock:
+    with patch("dawn_kestrel.core.settings.get_settings") as mock:
         settings = Mock(spec=Settings)
         settings.model_default = "claude-3-5-sonnet-20241022"
         settings.provider_default = "anthropic"
@@ -59,14 +59,14 @@ def mock_settings():
 
 def test_dialog_exists():
     """Test that ModelSelectDialog can be imported and instantiated."""
-    from opencode_python.tui.dialogs.model_select_dialog import ModelSelectDialog
+    from dawn_kestrel.tui.dialogs.model_select_dialog import ModelSelectDialog
     assert ModelSelectDialog is not None
 
 
 def test_dialog_is_modal_screen():
     """Test that ModelSelectDialog extends ModalScreen."""
     from textual.screen import ModalScreen
-    from opencode_python.tui.dialogs.model_select_dialog import ModelSelectDialog
+    from dawn_kestrel.tui.dialogs.model_select_dialog import ModelSelectDialog
     assert issubclass(ModelSelectDialog, ModalScreen)
 
 

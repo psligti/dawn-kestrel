@@ -16,12 +16,12 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from opencode_python.sdk import OpenCodeAsyncClient, SDKConfig
-from opencode_python.agents import Agent
-from opencode_python.tools.framework import Tool, ToolRegistry, ToolContext, ToolResult
-from opencode_python.storage.store import SessionStorage
-from opencode_python.skills.loader import SkillLoader
-from opencode_python.core.models import Session, Message
+from dawn_kestrel.sdk import OpenCodeAsyncClient, SDKConfig
+from dawn_kestrel.agents import Agent
+from dawn_kestrel.tools.framework import Tool, ToolRegistry, ToolContext, ToolResult
+from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.skills.loader import SkillLoader
+from dawn_kestrel.core.models import Session, Message
 
 
 # ============================================================================

@@ -195,6 +195,6 @@ heuristics:                     # List of heuristic rules for LLM
 ## References
 
 - PR review entry points plan: `.sisyphus/plans/pr-review-entry-points.md`
-- ReviewOutput contract: `opencode_python/src/opencode_python/agents/review/contracts.py`
-- Base reviewer patterns: `opencode_python/src/opencode_python/agents/review/base.py`
-- Example reviewer: `opencode_python/src/opencode_python/agents/review/agents/security.py`
+- ReviewOutput contract: `dawn_kestrel/agents/review/contracts.py`
+- Base reviewer patterns: `dawn_kestrel/agents/review/base.py`
+- Example reviewer: `dawn_kestrel/agents/review/agents/security.py`

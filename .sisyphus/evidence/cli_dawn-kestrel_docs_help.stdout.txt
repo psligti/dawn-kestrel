@@ -1,0 +1,14 @@
+Usage: dawn-kestrel docs [OPTIONS]
+
+  Generate entry point documentation for review agents.
+
+  Analyzes system prompts and extracts patterns to create YAML frontmatter
+  documentation for reviewer agents.
+
+Options:
+  --agent TEXT   Specific agent name (e.g., security, architecture)
+  --all          Generate documentation for all reviewers
+  --force        Overwrite existing documentation even if hash matches
+  --output PATH  Custom output directory for documentation
+  -v, --verbose  Enable verbose logging
+  --help         Show this message and exit.

@@ -3,7 +3,7 @@ import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import Input, Label, Static
 
-from opencode_python.tui.dialogs import CommandPaletteDialog
+from dawn_kestrel.tui.dialogs import CommandPaletteDialog
 
 
 class TestCommandPaletteDialog:

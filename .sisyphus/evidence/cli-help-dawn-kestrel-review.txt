@@ -1,0 +1,27 @@
+Usage: dawn-kestrel review [OPTIONS]
+
+  Run PR review on a git repository.
+
+  Review analyzes code changes between base-ref and head-ref using specialized
+  review agents running in parallel.
+
+  Use --agent to run a single agent, or run all agents by default.
+
+  Progress will be logged to stdout showing: - Which agents are starting - LLM
+  calls and response sizes - Context building progress - Any errors or retries
+  occurring
+
+Options:
+  --agent TEXT                    Run only a specific agent (default: run all
+                                  agents).
+  --repo-root PATH                Repository root directory (default: current
+                                  directory)
+  --base-ref TEXT                 Base git reference (default: main)
+  --head-ref TEXT                 Head git reference (default: HEAD)
+  --output [json|markdown|terminal]
+                                  Output format (default: terminal)
+  --include-optional              Include optional review subagents
+  --timeout INTEGER               Agent timeout in seconds (default: 300)
+  -v, --verbose                   Enable verbose logging to see detailed
+                                  progress
+  --help                          Show this message and exit.
