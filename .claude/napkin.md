@@ -3,8 +3,7 @@
 ## Corrections
 | Date | Source | What Went Wrong | What To Do Instead |
 |------|--------|----------------|-------------------|
-| 2026-02-07 | self | Tried `python -m build` but command not found | Use `uv build` instead when build module not available, or activate venv first |
-| 2026-02-07 | self | Tried running full pytest suite with 1300 tests | Use targeted subsets with `-k` flag to avoid timeout (e.g., `-k "compat or config"`) |
+| 2026-02-07 | self | Failed to commit after task completion | FOLLOW THE WORKFLOW: After each task completes and verification passes, IMMEDIATELY commit to changes. The workflow is: Verify → Mark in plan → Commit → Next task. Skipping the commit step leaves work untracked and can cause confusion. |
 
 ## User Preferences
 - Use `uv` package manager for build and install operations
@@ -31,3 +30,13 @@
 - Deprecated aliases emit warnings to stderr but still exit with code 0
 - Pre-existing test failures documented in learnings (not caused by rename)
 - Config filename conflict warning is pre-existing issue from Task 1
+
+### Multi-Task Orchestration Learnings (2026-02-07)
+- **Successful 7-task refactoring**: Split dawn-kestrel-flatten-rename into parallelizable waves (tasks 1-2, 3-4, 5-6-7)
+- **Subagent verification**: Use session_read to extract learnings from subagent sessions before finalizing
+- **All tasks verified independently**: Each task had its own acceptance criteria and verification evidence
+- **Evidence preservation**: All CLI, pytest, and build evidence captured to `.sisyphus/evidence/`
+- **Documentation completeness**: All 12 doc files updated, plus new `docs/STRUCTURE.md` created
+- **Test coverage**: pytest suite updated with new tests for compat shims, CLI deprecations, config migration
+- **Subagent learnings captured**: Extracted from sessions ses_3c5ce9d8bffeVeuMTy7yIZvju7, ses_3c5c96543ffeFgF6EkGYCB6KlE, and ses_3c5befdc5ffefAIhd28Y2KNBDK
+
