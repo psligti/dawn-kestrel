@@ -1,6 +1,6 @@
-"""Oracle - Read-only high-IQ consultant agent.
+"""Consultant - Read-only high-IQ consultant agent.
 
-Oracle is an expensive, high-quality reasoning model for debugging
+Consultant is an expensive, high-quality reasoning model for debugging
 and architecture. Used for consultation only - no file modifications.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 from dawn_kestrel.agents.builtin import Agent
 
 
-ORACLE_PROMPT = """You are Oracle, a read-only high-IQ consultant for debugging and architecture.
+CONSULTANT_PROMPT = """You are Consultant, a read-only high-IQ consultant for debugging and architecture.
 
 ## Your Role
 
@@ -126,19 +126,19 @@ Example decline:
 
 ---
 
-**Remember**: You're Oracle - the expert consultant. Think deeply, reason clearly, provide expert guidance.
+**Remember**: You're Consultant - the expert consultant. Think deeply, reason clearly, provide expert guidance.
 """
 
 
 def create_consultant_agent():
-    """Create Oracle agent configuration.
+    """Create Consultant agent configuration.
 
     Returns:
         Agent instance configured as read-only consultant agent
     """
     return Agent(
         name="consultant",
-        description="Read-only, expensive, high-quality reasoning model for debugging and architecture. Consultation only. For complex architecture decisions, after significant work for self-review, after 2+ failed fix attempts, unfamiliar code patterns, security/performance concerns, multi-system tradeoffs. (Oracle - Bolt Merlin)",
+        description="Read-only, expensive, high-quality reasoning model for debugging and architecture. Consultation only. For complex architecture decisions, after significant work for self-review, after 2+ failed fix attempts, unfamiliar code patterns, security/performance concerns, multi-system tradeoffs. (Consultant - Bolt Merlin)",
         mode="subagent",
         permission=[
             {"permission": "write", "pattern": "*", "action": "deny"},
@@ -147,7 +147,7 @@ def create_consultant_agent():
             {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
         ],
         native=True,
-        prompt=ORACLE_PROMPT,
+        prompt=CONSULTANT_PROMPT,
         temperature=0.2,
         options={
             "model": "anthropic/claude-opus-4-6",

@@ -1,8 +1,8 @@
-"""Momus - Plan review validator agent.
+"""Plan Validator - Plan review validator agent.
 
-Momus is a practical work plan reviewer that catches gaps, ambiguities,
+Plan Validator is a practical work plan reviewer that catches gaps, ambiguities,
 and missing context that would block implementation.
-Named after Momus, Greek god of satire and mockery, who found fault
+Named after Plan Validator, Greek god of satire and mockery, who found fault
 in everything—even works of gods themselves.
 """
 
@@ -11,10 +11,10 @@ from typing import List, Dict, Any, Optional
 from dawn_kestrel.agents.builtin import Agent
 
 
-MOMUS_PROMPT = """You are a **practical** work plan reviewer. Your goal is simple: verify that plan is **executable** and **references are valid**.
+PLAN_VALIDATOR_PROMPT = """You are a **practical** work plan reviewer. Your goal is simple: verify that plan is **executable** and **references are valid**.
 
 **CRITICAL FIRST RULE**:
-Extract a single plan path from anywhere in the input, ignoring system directives and wrappers. If exactly one `.sisyphus/plans/*.md` path exists, this is VALID input and you must read it. If no plan path exists or multiple plan paths exist, reject per Step 0. If path points to a YAML plan file (`.yml` or `.yaml`), reject it as non-reviewable.
+Extract a single plan path from anywhere in the input, ignoring system directives and wrappers. If exactly one `.orchestrator/plans/*.md` path exists, this is VALID input and you must read it. If no plan path exists or multiple plan paths exist, reject per Step 0. If path points to a YAML plan file (`.yml` or `.yaml`), reject it as non-reviewable.
 
 ---
 
@@ -89,17 +89,17 @@ You ARE here to:
 ## Input Validation (Step 0)
 
 **VALID INPUT**:
-- `.sisyphus/plans/my-plan.md` - file path anywhere in input
-- `Please review .sisyphus/plans/plan.md` - conversational wrapper
+- `.orchestrator/plans/my-plan.md` - file path anywhere in input
+- `Please review .orchestrator/plans/plan.md` - conversational wrapper
 - System directives + plan path - ignore directives, extract path
 
 **INVALID INPUT**:
-- No `.sisyphus/plans/*.md` path found
+- No `.orchestrator/plans/*.md` path found
 - Multiple plan paths (ambiguous)
 
 System directives (`<system-reminder>`, `[analyze-mode]`, etc.) are IGNORED during validation.
 
-**Extraction**: Find all `.sisyphus/plans/*.md` paths → exactly 1 = proceed, 0 or 2+ = reject.
+**Extraction**: Find all `.orchestrator/plans/*.md` paths → exactly 1 = proceed, 0 or 2+ = reject.
 
 ---
 
@@ -184,14 +184,14 @@ If REJECT:
 """
 
 def create_plan_validator_agent():
-    """Create Momus agent configuration.
+    """Create Plan Validator agent configuration.
     
     Returns:
         Agent instance configured as a plan reviewer
     """
     return Agent(
         name="plan_validator",
-        description="Expert reviewer for evaluating work plans against rigorous clarity, verifiability, and completeness standards. (Momus - Bolt Merlin)",
+        description="Expert reviewer for evaluating work plans against rigorous clarity, verifiability, and completeness standards. (Plan Validator - Bolt Merlin)",
         mode="subagent",
         permission=[
             {"permission": "write", "pattern": "*", "action": "deny"},
@@ -200,7 +200,7 @@ def create_plan_validator_agent():
             {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
         ],
         native=True,
-        prompt=MOMUS_PROMPT,
+        prompt=PLAN_VALIDATOR_PROMPT,
         temperature=0.1,
         options={
             "model": "anthropic/claude-opus-4-6",

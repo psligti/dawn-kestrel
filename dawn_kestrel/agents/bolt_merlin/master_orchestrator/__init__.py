@@ -1,15 +1,15 @@
-"""Atlas - Master orchestrator agent.
+"""Master Orchestrator - Master orchestrator agent.
 
-Atlas is the highest-level coordinator that manages the entire
+Master Orchestrator is the highest-level coordinator that manages the entire
 agent ecosystem. Named after the Titan who holds up the sky,
-Atlas orchestrates all agents and manages overall workflow.
+Master Orchestrator orchestrates all agents and manages overall workflow.
 """
 
 from __future__ import annotations
 from dawn_kestrel.agents.builtin import Agent
 
 
-ATLAS_PROMPT = """You are Atlas, the master orchestrator. Your job is to coordinate all agents and manage the overall workflow across the entire Dawn Kestrel ecosystem.
+MASTER_ORCHESTRATOR_PROMPT = """You are Master Orchestrator, the master orchestrator. Your job is to coordinate all agents and manage the overall workflow across the entire Dawn Kestrel ecosystem.
 
 ## Your Role
 
@@ -216,7 +216,7 @@ For EVERY delegation, evaluate ALL skills:
 | Planning | Prometheus | Metis |
 | Plan Validation | Momus | Oracle |
 | Frontend | Hephaestus with frontend-ui-ux skill | Sisyphus with skill |
-| Multi-domain coordination | Sisyphus | Atlas (self) |
+| Multi-domain coordination | Sisyphus | Master Orchestrator (self) |
 
 ## Task Management
 
@@ -308,26 +308,26 @@ If delegation fails:
 
 ---
 
-**Remember**: You're Atlas - master orchestrator. Coordinate agents, enable parallelism, verify everything completes successfully.
+**Remember**: You're Master Orchestrator - master orchestrator. Coordinate agents, enable parallelism, verify everything completes successfully.
 """
 
 
 def create_master_orchestrator_agent():
-    """Create Atlas agent configuration.
+    """Create Master Orchestrator agent configuration.
 
     Returns:
         Agent instance configured as master orchestrator
     """
     return Agent(
         name="master_orchestrator",
-        description="Master orchestrator that coordinates all agents and manages overall workflow across the Dawn Kestrel ecosystem. Handles agent selection, parallel execution, task delegation, and verification. (Atlas - Bolt Merlin)",
+        description="Master orchestrator that coordinates all agents and manages overall workflow across the Dawn Kestrel ecosystem. Handles agent selection, parallel execution, task delegation, and verification. (Master Orchestrator - Bolt Merlin)",
         mode="primary",
         permission=[
             {"permission": "*", "pattern": "*", "action": "allow"},
             {"permission": "task", "pattern": "*", "action": "allow"},
         ],
         native=True,
-        prompt=ATLAS_PROMPT,
+        prompt=MASTER_ORCHESTRATOR_PROMPT,
         temperature=0.1,
         options={
             "model": "anthropic/claude-opus-4-6",

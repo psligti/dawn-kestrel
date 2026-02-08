@@ -1,8 +1,8 @@
-"""Sisyphus - Main orchestrator agent for Dawn Kestrel.
+"""Orchestrator - Main orchestrator agent for Dawn Kestrel.
 
-Sisyphus is a powerful AI agent with orchestration capabilities from Bolt Merlin.
+Orchestrator is a powerful AI agent with orchestration capabilities from Bolt Merlin.
 Named after the Greek mythological figure condemned to roll a boulder up a hill for eternity.
-Humans roll their boulder every day too. Sisyphus works like a senior engineer.
+Humans roll their boulder every day too. Orchestrator works like a senior engineer.
 """
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ from typing import List, Dict, Any, Optional
 from dawn_kestrel.agents.builtin import Agent
 
 
-SISYPHUS_PROMPT = """<Role>
+ORCHESTRATOR_PROMPT = """<Role>
 You are "Orchestrator" - Powerful AI Agent with orchestration capabilities from Bolt Merlin.
 
-**Why Sisyphus?**: Humans roll their boulder every day. So do you. We're not so different—your code should be indistinguishable from a senior engineer's.
+**Why Orchestrator?**: Humans roll their boulder every day. So do you. We're not so different—your code should be indistinguishable from a senior engineer's.
 
 **Identity**: SF Bay Area engineer. Work, delegate, verify, ship. No AI slop.
 
@@ -146,9 +146,9 @@ IMPORTANT: If codebase appears undisciplined, verify before assuming:
 |----------|------|-------------|
 | `explore` agent | FREE | Contextual grep for codebases |
 | `librarian` agent | CHEAP | Specialized codebase understanding agent for multi-repository analysis, searching remote codebases, retrieving official documentation, and finding implementation examples using GitHub CLI, Context7, and Web Search |
-| `oracle` agent | EXPENSIVE | Read-only consultation agent |
+| `consultant` agent | EXPENSIVE | Read-only consultation agent |
 
-**Default flow**: skill (if match) → explore/librarian (background) + tools → oracle (if required)
+**Default flow**: skill (if match) → explore/librarian (background) + tools → consultant (if required)
 ### Explore Agent = Contextual Grep
 
 Use it as a **peer tool**, not a fallback. Fire liberally.
@@ -380,7 +380,7 @@ When you're mentioned in GitHub issues or asked to "look into" something and "cr
 **This is NOT just investigation. This is a COMPLETE WORK CYCLE.**
 
 #### Pattern Recognition:
-- "@sisyphus look into X"
+- "@orchestrator look into X"
 - "look into X and create PR"
 - "investigate Y and make PR"
 - Mentioned in issue comments
@@ -625,14 +625,14 @@ If the user's approach seems problematic:
 
 
 def create_orchestrator_agent():
-    """Create Sisyphus agent configuration.
+    """Create Orchestrator agent configuration.
 
     Returns:
         Agent instance configured as main orchestrator agent
     """
     return Agent(
         name="orchestrator",
-        description="Powerful AI Agent with orchestration capabilities from Bolt Merlin. Main orchestrator that delegates specialized work, manages parallel execution, and coordinates multi-agent workflows. (Sisyphus - Bolt Merlin)",
+        description="Powerful AI Agent with orchestration capabilities from Bolt Merlin. Main orchestrator that delegates specialized work, manages parallel execution, and coordinates multi-agent workflows. (Orchestrator - Bolt Merlin)",
         mode="primary",
         permission=[
             {"permission": "*", "pattern": "*", "action": "allow"},
@@ -640,7 +640,7 @@ def create_orchestrator_agent():
             {"permission": "plan_enter", "pattern": "*", "action": "allow"},
         ],
         native=True,
-        prompt=SISYPHUS_PROMPT,
+        prompt=ORCHESTRATOR_PROMPT,
         temperature=0.1,
         options={
             "model": "anthropic/claude-opus-4-6",
