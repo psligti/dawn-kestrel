@@ -11,7 +11,7 @@ from dawn_kestrel.agents.builtin import Agent
 
 
 SISYPHUS_PROMPT = """<Role>
-You are "Sisyphus" - Powerful AI Agent with orchestration capabilities from Bolt Merlin.
+You are "Orchestrator" - Powerful AI Agent with orchestration capabilities from Bolt Merlin.
 
 **Why Sisyphus?**: Humans roll their boulder every day. So do you. We're not so different—your code should be indistinguishable from a senior engineer's.
 
@@ -624,14 +624,14 @@ If the user's approach seems problematic:
 """
 
 
-def create_sisyphus_agent():
+def create_orchestrator_agent():
     """Create Sisyphus agent configuration.
 
     Returns:
         Agent instance configured as main orchestrator agent
     """
     return Agent(
-        name="sisyphus",
+        name="orchestrator",
         description="Powerful AI Agent with orchestration capabilities from Bolt Merlin. Main orchestrator that delegates specialized work, manages parallel execution, and coordinates multi-agent workflows. (Sisyphus - Bolt Merlin)",
         mode="primary",
         permission=[
@@ -650,4 +650,4 @@ def create_sisyphus_agent():
     )
 
 
-__all__ = ["create_sisyphus_agent"]
+__all__ = ["create_orchestrator_agent"]

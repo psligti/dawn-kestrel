@@ -15,17 +15,17 @@ All 11 Bolt Merlin agents have been successfully implemented and verified for:
 
 | Agent | Role | Lines | Status |
 |--------|-------|--------|--------|
-| Sisyphus | Main orchestrator | 654 | ✅ Working |
-| Oracle | Read-only consultant | 257 | ✅ Working |
+| Orchestrator | Main orchestrator | 654 | ✅ Working |
+| Consultant | Read-only consultant | 257 | ✅ Working |
 | Librarian | Codebase understanding | 333 | ✅ Working |
 | Explore | Codebase search | 120 | ✅ Working |
 | Multimodal Looker | Media analysis | 71 | ✅ Working |
 | Frontend UI/UX | Design skill | 110 | ✅ Working |
-| Hephaestus | Autonomous worker | 66 | ✅ Working |
-| Metis | Pre-planning analysis | 251 | ✅ Working |
-| Momus | Plan validation | 213 | ✅ Working |
-| Prometheus | Strategic planning | 273 | ✅ Working |
-| Atlas | Master orchestrator | 316 | ✅ Working |
+| Autonomous Worker | Autonomous worker | 66 | ✅ Working |
+| Pre-Planning | Pre-planning analysis | 251 | ✅ Working |
+| Plan Validator | Plan validation | 213 | ✅ Working |
+| Planner | Strategic planning | 273 | ✅ Working |
+| Master Orchestrator | Master orchestrator | 316 | ✅ Working |
 
 **Total**: 2,531 lines of agent implementations
 
@@ -61,8 +61,8 @@ All failures are test assertion issues, not agent functionality:
 
 ### ✅ Multi-Turn Conversations
 All agents tested for multi-turn capability:
-- **Sisyphus**: Maintains context across "analyze code" → "suggest improvements"
-- **Oracle**: Maintains context for deep analysis "analyze architecture" → "elaborate on issues"
+- **Orchestrator**: Maintains context across "analyze code" → "suggest improvements"
+- **Consultant**: Maintains context for deep analysis "analyze architecture" → "elaborate on issues"
 - Context preservation verified through session management
 
 ### ✅ Tool Usage
@@ -73,11 +73,11 @@ Agents use tools appropriately based on permissions:
 - Does NOT use: write, edit, task
 - Tested: ✅ Uses grep/glob for codebase search
 
-**Sisyphus Agent** (Full access):
+**Orchestrator Agent** (Full access):
 - Uses: task, write, edit, all available tools
 - Tested: ✅ Uses task delegation tool
 
-**Oracle Agent** (Read-only consultant):
+**Consultant Agent** (Read-only consultant):
 - Uses: read only
 - Does NOT use: write, edit, task
 - Tested: ✅ Does not use write/edit tools
@@ -91,31 +91,31 @@ Skills can be loaded and passed to agents:
 ### ✅ Expected Outcomes
 Each agent demonstrates expected behavior:
 
-**Metis** (Pre-planning analysis):
+**Pre-Planning** (Pre-planning analysis):
 - Identifies hidden intentions
 - Detects ambiguities
 - Provides clarifying questions
 - Tested: ✅ Returns analysis with "ambiguity" detection
 
-**Prometheus** (Strategic planning):
+**Planner** (Strategic planning):
 - Creates comprehensive work plans
 - Breaks down tasks into phases
 - Identifies dependencies
 - Tested: ✅ Returns structured plan with phases
 
-**Momus** (Plan validation):
+**Plan Validator** (Plan validation):
 - Evaluates plan clarity
 - Checks completeness
 - Verifies success criteria
 - Tested: ✅ Returns validation with "clarity" and "completeness" checks
 
-**Atlas** (Master orchestrator):
+**Master Orchestrator** (Master orchestrator):
 - Coordinates multiple agents
 - Manages parallel execution
 - Handles agent selection
 - Tested: ✅ Returns orchestration response mentioning parallel agents
 
-**Hephaestus** (Autonomous worker):
+**Autonomous Worker** (Autonomous worker):
 - Works independently on tasks
 - Investigates, implements, verifies
 - Fixes complex bugs autonomously
@@ -126,30 +126,30 @@ Each agent demonstrates expected behavior:
 ### Read-Only Agents (Deny Write/Edit)
 | Agent | Write | Edit | Task |
 |--------|-------|------|-------|
-| Oracle | ❌ Denied | ❌ Denied | ❌ Denied |
+| Consultant | ❌ Denied | ❌ Denied | ❌ Denied |
 | Librarian | ❌ Denied | ❌ Denied | ❌ Denied |
 | Explore | ❌ Denied | ❌ Denied | ❌ Denied |
-| Metis | ❌ Denied | ❌ Denied | ❌ Denied |
-| Momus | ❌ Denied | ❌ Denied | ❌ Denied |
-| Prometheus | ❌ Denied | ❌ Denied | ❌ Denied |
+| Pre-Planning | ❌ Denied | ❌ Denied | ❌ Denied |
+| Plan Validator | ❌ Denied | ❌ Denied | ❌ Denied |
+| Planner | ❌ Denied | ❌ Denied | ❌ Denied |
 
 ### Primary Agents (Allow Delegation)
 | Agent | Write | Edit | Task |
 |--------|-------|------|-------|
-| Sisyphus | ✅ Allowed | ✅ Allowed | ✅ Allowed |
-| Atlas | ✅ Allowed | ✅ Allowed | ✅ Allowed |
-| Hephaestus | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Orchestrator | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Master Orchestrator | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| Autonomous Worker | ✅ Allowed | ✅ Allowed | ✅ Allowed |
 
 ## Agent Capabilities Summary
 
-### 1. Sisyphus - Main Orchestrator
+### 1. Orchestrator - Main Orchestrator
 - **Multi-turn**: ✅ Maintains conversation context
 - **Tools**: Full access including task delegation
 - **Skills**: Can load and use skills (frontend-ui-ux, git-master, playwright)
 - **Expected behavior**: Delegates specialized work, manages parallel execution
 - **Status**: ✅ Verified
 
-### 2. Oracle - Read-Only Consultant
+### 2. Consultant - Read-Only Consultant
 - **Multi-turn**: ✅ Maintains deep analysis context
 - **Tools**: Read-only (no write/edit/task)
 - **Skills**: N/A (read-only consultant)
@@ -184,35 +184,35 @@ Each agent demonstrates expected behavior:
 - **Expected behavior**: Designer-turned-developer expertise
 - **Status**: ✅ Verified
 
-### 7. Hephaestus - Autonomous Worker
+### 7. Autonomous Worker - Autonomous Worker
 - **Multi-turn**: ✅ Maintains autonomous work context
 - **Tools**: Full access (read, edit, write, bash)
 - **Skills**: Can use skills
 - **Expected behavior**: Works autonomously on deep tasks
 - **Status**: ✅ Verified
 
-### 8. Metis - Pre-Planning Analysis
+### 8. Pre-Planning - Pre-Planning Analysis
 - **Multi-turn**: ✅ Maintains analysis context
 - **Tools**: Read-only
 - **Skills**: N/A (specialized agent)
 - **Expected behavior**: Identifies hidden intentions and ambiguities
 - **Status**: ✅ Verified
 
-### 9. Momus - Plan Validation
+### 9. Plan Validator - Plan Validation
 - **Multi-turn**: ✅ Maintains validation context
 - **Tools**: Read-only
 - **Skills**: N/A (specialized agent)
 - **Expected behavior**: Validates plan clarity and completeness
 - **Status**: ✅ Verified
 
-### 10. Prometheus - Strategic Planning
+### 10. Planner - Strategic Planning
 - **Multi-turn**: ✅ Maintains planning context
 - **Tools**: Read-only
 - **Skills**: N/A (specialized agent)
 - **Expected behavior**: Creates comprehensive work plans
 - **Status**: ✅ Verified
 
-### 11. Atlas - Master Orchestrator
+### 11. Master Orchestrator - Master Orchestrator
 - **Multi-turn**: ✅ Maintains orchestration context
 - **Tools**: Full access including task delegation
 - **Skills**: Can use skills
@@ -224,17 +224,17 @@ Each agent demonstrates expected behavior:
 ### Import and Instantiate
 ```python
 from dawn_kestrel.agents.opencode import (
-    create_sisyphus_agent,
-    create_oracle_agent,
+    create_orchestrator_agent,
+    create_consultant_agent,
     create_explore_agent,
-    create_metis_agent,
-    create_prometheus_agent,
-    create_atlas_agent,
+    create_pre_planning_agent,
+    create_planner_agent,
+    create_master_orchestrator_agent,
 )
 
 # Create agent instances
-sisyphus = create_sisyphus_agent()
-oracle = create_oracle_agent()
+orchestrator = create_orchestrator_agent()
+consultant = create_consultant_agent()
 ```
 
 ### Register with AgentRegistry
@@ -242,8 +242,8 @@ oracle = create_oracle_agent()
 from dawn_kestrel.agents.registry import create_agent_registry
 
 registry = create_agent_registry(persistence_enabled=False)
-await registry.register_agent(sisyphus)
-await registry.register_agent(oracle)
+await registry.register_agent(orchestrator)
+await registry.register_agent(consultant)
 ```
 
 ### Execute with AgentRuntime
@@ -258,7 +258,7 @@ runtime = create_agent_runtime(
 )
 
 result = await runtime.execute_agent(
-    agent_name="sisyphus",
+    agent_name="orchestrator",
     session_id=session.id,
     user_message="Help me refactor this code",
     session_manager=session_manager,
@@ -272,7 +272,7 @@ result = await runtime.execute_agent(
 ```python
 # First turn
 result1 = await runtime.execute_agent(
-    agent_name="oracle",
+    agent_name="consultant",
     session_id=session.id,
     user_message="Analyze this architecture",
     session_manager=session_manager,
@@ -283,7 +283,7 @@ result1 = await runtime.execute_agent(
 
 # Second turn - context is maintained
 result2 = await runtime.execute_agent(
-    agent_name="oracle",
+    agent_name="consultant",
     session_id=session.id,
     user_message="Elaborate on the security issues you found",
     session_manager=session_manager,

@@ -234,14 +234,14 @@ Every plan must:
 """
 
 
-def create_prometheus_agent():
+def create_planner_agent():
     """Create Prometheus agent configuration.
 
     Returns:
         Agent instance configured as strategic planning agent
     """
     return Agent(
-        name="prometheus",
+        name="planner",
         description="Strategic planning agent that creates comprehensive work plans, breaks down tasks into atomic steps, identifies dependencies, and organizes for efficient execution. (Prometheus - Bolt Merlin)",
         mode="subagent",
         permission=[
@@ -259,4 +259,4 @@ def create_prometheus_agent():
     )
 
 
-__all__ = ["create_prometheus_agent"]
+__all__ = ["create_planner_agent"]

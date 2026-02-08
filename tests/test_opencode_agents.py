@@ -8,17 +8,17 @@ instantiated, and have correct structure.
 import pytest
 
 from dawn_kestrel.agents.opencode import (
-    create_sisyphus_agent,
-    create_oracle_agent,
+    create_orchestrator_agent,
+    create_consultant_agent,
     create_librarian_agent,
     create_explore_agent,
     create_frontend_ui_ux_skill,
     create_multimodal_looker_agent,
-    create_hephaestus_agent,
-    create_metis_agent,
-    create_momus_agent,
-    create_prometheus_agent,
-    create_atlas_agent,
+    create_autonomous_worker_agent,
+    create_pre_planning_agent,
+    create_plan_validator_agent,
+    create_planner_agent,
+    create_master_orchestrator_agent,
 )
 
 
@@ -27,17 +27,17 @@ class TestAgentImports:
 
     def test_sisyphus_import(self):
         """Sisyphus agent should be importable"""
-        assert create_sisyphus_agent is not None
-        agent = create_sisyphus_agent()
-        assert agent.name == "sisyphus"
+        assert create_orchestrator_agent is not None
+        agent = create_orchestrator_agent()
+        assert agent.name == "orchestrator"
         assert agent.description is not None
         assert agent.prompt is not None
 
     def test_oracle_import(self):
         """Oracle agent should be importable"""
-        assert create_oracle_agent is not None
-        agent = create_oracle_agent()
-        assert agent.name == "oracle"
+        assert create_consultant_agent is not None
+        agent = create_consultant_agent()
+        assert agent.name == "consultant"
         assert agent.description is not None
         assert agent.prompt is not None
         # Oracle should be read-only
@@ -87,9 +87,9 @@ class TestAgentImports:
 
     def test_hephaestus_import(self):
         """Hephaestus agent should be importable"""
-        assert create_hephaestus_agent is not None
-        agent = create_hephaestus_agent()
-        assert agent.name == "hephaestus"
+        assert create_autonomous_worker_agent is not None
+        agent = create_autonomous_worker_agent()
+        assert agent.name == "autonomous_worker"
         assert agent.description is not None
         assert agent.prompt is not None
         # Hephaestus should have write permissions
@@ -99,9 +99,9 @@ class TestAgentImports:
 
     def test_metis_import(self):
         """Metis agent should be importable"""
-        assert create_metis_agent is not None
-        agent = create_metis_agent()
-        assert agent.name == "metis"
+        assert create_pre_planning_agent is not None
+        agent = create_pre_planning_agent()
+        assert agent.name == "pre_planning"
         assert agent.description is not None
         assert agent.prompt is not None
         # Metis should be read-only
@@ -111,9 +111,9 @@ class TestAgentImports:
 
     def test_momus_import(self):
         """Momus agent should be importable"""
-        assert create_momus_agent is not None
-        agent = create_momus_agent()
-        assert agent.name == "momus"
+        assert create_plan_validator_agent is not None
+        agent = create_plan_validator_agent()
+        assert agent.name == "plan_validator"
         assert agent.description is not None
         assert agent.prompt is not None
         # Momus should be read-only
@@ -123,9 +123,9 @@ class TestAgentImports:
 
     def test_prometheus_import(self):
         """Prometheus agent should be importable"""
-        assert create_prometheus_agent is not None
-        agent = create_prometheus_agent()
-        assert agent.name == "prometheus"
+        assert create_planner_agent is not None
+        agent = create_planner_agent()
+        assert agent.name == "planner"
         assert agent.description is not None
         assert agent.prompt is not None
         # Prometheus should be read-only
@@ -135,9 +135,9 @@ class TestAgentImports:
 
     def test_atlas_import(self):
         """Atlas agent should be importable"""
-        assert create_atlas_agent is not None
-        agent = create_atlas_agent()
-        assert agent.name == "atlas"
+        assert create_master_orchestrator_agent is not None
+        agent = create_master_orchestrator_agent()
+        assert agent.name == "master_orchestrator"
         assert agent.description is not None
         assert agent.prompt is not None
         # Atlas should have task delegation permissions
@@ -152,16 +152,16 @@ class TestAgentStructure:
     def test_all_agents_have_required_fields(self):
         """All agents should have required fields"""
         agents = [
-            create_sisyphus_agent(),
-            create_oracle_agent(),
+            create_orchestrator_agent(),
+            create_consultant_agent(),
             create_librarian_agent(),
             create_explore_agent(),
             create_multimodal_looker_agent(),
-            create_hephaestus_agent(),
-            create_metis_agent(),
-            create_momus_agent(),
-            create_prometheus_agent(),
-            create_atlas_agent(),
+            create_autonomous_worker_agent(),
+            create_pre_planning_agent(),
+            create_plan_validator_agent(),
+            create_planner_agent(),
+            create_master_orchestrator_agent(),
         ]
 
         for agent in agents:
@@ -174,9 +174,9 @@ class TestAgentStructure:
     def test_primary_agents_have_permissions(self):
         """Primary agents should have appropriate permissions"""
         primary_agents = [
-            create_sisyphus_agent(),
-            create_atlas_agent(),
-            create_hephaestus_agent(),
+            create_orchestrator_agent(),
+            create_master_orchestrator_agent(),
+            create_autonomous_worker_agent(),
         ]
 
         for agent in primary_agents:
@@ -186,12 +186,12 @@ class TestAgentStructure:
     def test_subagent_agents_have_restricted_permissions(self):
         """Subagent agents should be read-only"""
         subagent_agents = [
-            create_oracle_agent(),
+            create_consultant_agent(),
             create_librarian_agent(),
             create_explore_agent(),
-            create_metis_agent(),
-            create_momus_agent(),
-            create_prometheus_agent(),
+            create_pre_planning_agent(),
+            create_plan_validator_agent(),
+            create_planner_agent(),
         ]
 
         for agent in subagent_agents:
@@ -204,16 +204,16 @@ class TestAgentStructure:
     def test_agents_have_appropriate_temperature(self):
         """Agents should have appropriate temperature settings"""
         agents = [
-            create_sisyphus_agent(),
-            create_oracle_agent(),
+            create_orchestrator_agent(),
+            create_consultant_agent(),
             create_librarian_agent(),
             create_explore_agent(),
             create_multimodal_looker_agent(),
-            create_hephaestus_agent(),
-            create_metis_agent(),
-            create_momus_agent(),
-            create_prometheus_agent(),
-            create_atlas_agent(),
+            create_autonomous_worker_agent(),
+            create_pre_planning_agent(),
+            create_plan_validator_agent(),
+            create_planner_agent(),
+            create_master_orchestrator_agent(),
         ]
 
         for agent in agents:
@@ -227,15 +227,15 @@ class TestAgentDescriptions:
     def test_all_agents_have_descriptions(self):
         """All agents should have non-empty descriptions"""
         agents = [
-            ("sisyphus", create_sisyphus_agent()),
-            ("oracle", create_oracle_agent()),
+            ("orchestrator", create_orchestrator_agent()),
+            ("consultant", create_consultant_agent()),
             ("librarian", create_librarian_agent()),
             ("explore", create_explore_agent()),
-            ("hephaestus", create_hephaestus_agent()),
-            ("metis", create_metis_agent()),
-            ("momus", create_momus_agent()),
-            ("prometheus", create_prometheus_agent()),
-            ("atlas", create_atlas_agent()),
+            ("autonomous_worker", create_autonomous_worker_agent()),
+            ("pre_planning", create_pre_planning_agent()),
+            ("plan_validator", create_plan_validator_agent()),
+            ("planner", create_planner_agent()),
+            ("master_orchestrator", create_master_orchestrator_agent()),
         ]
 
         for name, agent in agents:
@@ -247,15 +247,15 @@ class TestAgentDescriptions:
     def test_descriptions_are_unique(self):
         """Agent descriptions should be unique"""
         agents = [
-            create_sisyphus_agent(),
-            create_oracle_agent(),
+            create_orchestrator_agent(),
+            create_consultant_agent(),
             create_librarian_agent(),
             create_explore_agent(),
-            create_hephaestus_agent(),
-            create_metis_agent(),
-            create_momus_agent(),
-            create_prometheus_agent(),
-            create_atlas_agent(),
+            create_autonomous_worker_agent(),
+            create_pre_planning_agent(),
+            create_plan_validator_agent(),
+            create_planner_agent(),
+            create_master_orchestrator_agent(),
         ]
 
         descriptions = [agent.description for agent in agents]
@@ -268,16 +268,16 @@ class TestAgentPrompts:
     def test_all_agents_have_prompts(self):
         """All agents should have non-empty prompts"""
         agents = [
-            create_sisyphus_agent(),
-            create_oracle_agent(),
+            create_orchestrator_agent(),
+            create_consultant_agent(),
             create_librarian_agent(),
             create_explore_agent(),
             create_multimodal_looker_agent(),
-            create_hephaestus_agent(),
-            create_metis_agent(),
-            create_momus_agent(),
-            create_prometheus_agent(),
-            create_atlas_agent(),
+            create_autonomous_worker_agent(),
+            create_pre_planning_agent(),
+            create_plan_validator_agent(),
+            create_planner_agent(),
+            create_master_orchestrator_agent(),
         ]
 
         for agent in agents:
@@ -286,13 +286,13 @@ class TestAgentPrompts:
     def test_prompts_contain_agent_identity(self):
         """Agent prompts should mention agent name/role"""
         agents = [
-            ("sisyphus", create_sisyphus_agent()),
-            ("oracle", create_oracle_agent()),
-            ("hephaestus", create_hephaestus_agent()),
-            ("metis", create_metis_agent()),
-            ("momus", create_momus_agent()),
-            ("prometheus", create_prometheus_agent()),
-            ("atlas", create_atlas_agent()),
+            ("orchestrator", create_orchestrator_agent()),
+            ("consultant", create_consultant_agent()),
+            ("autonomous_worker", create_autonomous_worker_agent()),
+            ("pre_planning", create_pre_planning_agent()),
+            ("plan_validator", create_plan_validator_agent()),
+            ("planner", create_planner_agent()),
+            ("master_orchestrator", create_master_orchestrator_agent()),
         ]
 
         for name, agent in agents:
