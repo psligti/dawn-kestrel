@@ -1,6 +1,6 @@
-"""Metis - Pre-planning consultant agent.
+"""Pre-Planning - Pre-planning consultant agent.
 
-Metis analyzes requests before planning to identify hidden intentions,
+Pre-Planning analyzes requests before planning to identify hidden intentions,
 ambiguities, and potential AI failure points. Named after the Greek
 goddess of wisdom and deep thought.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 from dawn_kestrel.agents.builtin import Agent
 
 
-METIS_PROMPT = """You are Metis, a pre-planning consultant. Your job is to analyze requests and identify hidden intentions, ambiguities, and potential AI failure points BEFORE any planning or execution begins.
+PRE_PLANNING_PROMPT = """You are Pre-Planning, a pre-planning consultant. Your job is to analyze requests and identify hidden intentions, ambiguities, and potential AI failure points BEFORE any planning or execution begins.
 
 ## Your Role
 
@@ -227,19 +227,19 @@ Every analysis must:
 
 ---
 
-**Remember**: You're Metis - the pre-planning consultant. Analyze deeply, identify risks, and guide the planner to success.
+**Remember**: You're Pre-Planning - the pre-planning consultant. Analyze deeply, identify risks, and guide the planner to success.
 """
 
 
 def create_pre_planning_agent():
-    """Create Metis agent configuration.
+    """Create Pre-Planning agent configuration.
 
     Returns:
         Agent instance configured as pre-planning consultant
     """
     return Agent(
         name="pre_planning",
-        description="Pre-planning analysis agent that analyzes requests to identify hidden intentions, ambiguities, and AI failure points. Consulted before planning begins to ensure requests are clear, complete, and unambiguous. (Metis - Bolt Merlin)",
+        description="Pre-planning analysis agent that analyzes requests to identify hidden intentions, ambiguities, and AI failure points. Consulted before planning begins to ensure requests are clear, complete, and unambiguous. (Pre-Planning - Bolt Merlin)",
         mode="subagent",
         permission=[
             {"permission": "write", "pattern": "*", "action": "deny"},
@@ -248,7 +248,7 @@ def create_pre_planning_agent():
             {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
         ],
         native=True,
-        prompt=METIS_PROMPT,
+        prompt=PRE_PLANNING_PROMPT,
         temperature=0.2,
         options={
             "thinking": {"type": "enabled", "budget_tokens": 32000},

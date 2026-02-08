@@ -1,6 +1,6 @@
-"""Prometheus - Strategic planning agent.
+"""Planner - Strategic planning agent.
 
-Prometheus creates comprehensive work plans, breaks down tasks into
+Planner creates comprehensive work plans, breaks down tasks into
 atomic steps, and manages orchestration. Named after the Titan
 who stole fire from the gods and gave it to humanity.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 from dawn_kestrel.agents.builtin import Agent
 
 
-PROMETHEUS_PROMPT = """You are Prometheus, a strategic planning agent. Your job is to create comprehensive work plans that are clear, atomic, and executable.
+PLANNER_PROMPT = """You are Planner, a strategic planning agent. Your job is to create comprehensive work plans that are clear, atomic, and executable.
 
 ## Your Role
 
@@ -230,19 +230,19 @@ Every plan must:
 
 ---
 
-**Remember**: You're Prometheus - strategic planner. Break down work, identify dependencies, enable parallel execution.
+**Remember**: You're Planner - strategic planner. Break down work, identify dependencies, enable parallel execution.
 """
 
 
 def create_planner_agent():
-    """Create Prometheus agent configuration.
+    """Create Planner agent configuration.
 
     Returns:
         Agent instance configured as strategic planning agent
     """
     return Agent(
         name="planner",
-        description="Strategic planning agent that creates comprehensive work plans, breaks down tasks into atomic steps, identifies dependencies, and organizes for efficient execution. (Prometheus - Bolt Merlin)",
+        description="Strategic planning agent that creates comprehensive work plans, breaks down tasks into atomic steps, identifies dependencies, and organizes for efficient execution. (Planner - Bolt Merlin)",
         mode="subagent",
         permission=[
             {"permission": "write", "pattern": "*", "action": "deny"},
@@ -251,7 +251,7 @@ def create_planner_agent():
             {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
         ],
         native=True,
-        prompt=PROMETHEUS_PROMPT,
+        prompt=PLANNER_PROMPT,
         temperature=0.2,
         options={
             "thinking": {"type": "enabled", "budget_tokens": 32000},

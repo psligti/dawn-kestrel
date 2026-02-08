@@ -7,7 +7,7 @@ instantiated, and have correct structure.
 
 import pytest
 
-from dawn_kestrel.agents.opencode import (
+from dawn_kestrel.agents.bolt_merlin import (
     create_orchestrator_agent,
     create_consultant_agent,
     create_librarian_agent,
@@ -25,7 +25,7 @@ from dawn_kestrel.agents.opencode import (
 class TestAgentImports:
     """Test that all agents can be imported"""
 
-    def test_sisyphus_import(self):
+    def test_orchestrator_import(self):
         """Sisyphus agent should be importable"""
         assert create_orchestrator_agent is not None
         agent = create_orchestrator_agent()
@@ -33,7 +33,7 @@ class TestAgentImports:
         assert agent.description is not None
         assert agent.prompt is not None
 
-    def test_oracle_import(self):
+    def test_consultant_import(self):
         """Oracle agent should be importable"""
         assert create_consultant_agent is not None
         agent = create_consultant_agent()
@@ -85,7 +85,7 @@ class TestAgentImports:
         assert agent.description is not None
         assert agent.prompt is not None
 
-    def test_hephaestus_import(self):
+    def test_autonomous_worker_import(self):
         """Hephaestus agent should be importable"""
         assert create_autonomous_worker_agent is not None
         agent = create_autonomous_worker_agent()
@@ -97,7 +97,7 @@ class TestAgentImports:
             p.get("permission") == "write" and p.get("action") == "allow" for p in agent.permission
         )
 
-    def test_metis_import(self):
+    def test_pre_planning_import(self):
         """Metis agent should be importable"""
         assert create_pre_planning_agent is not None
         agent = create_pre_planning_agent()
@@ -109,7 +109,7 @@ class TestAgentImports:
             p.get("permission") == "write" and p.get("action") == "deny" for p in agent.permission
         )
 
-    def test_momus_import(self):
+    def test_plan_validator_import(self):
         """Momus agent should be importable"""
         assert create_plan_validator_agent is not None
         agent = create_plan_validator_agent()
@@ -121,7 +121,7 @@ class TestAgentImports:
             p.get("permission") == "write" and p.get("action") == "deny" for p in agent.permission
         )
 
-    def test_prometheus_import(self):
+    def test_planner_import(self):
         """Prometheus agent should be importable"""
         assert create_planner_agent is not None
         agent = create_planner_agent()
@@ -133,7 +133,7 @@ class TestAgentImports:
             p.get("permission") == "write" and p.get("action") == "deny" for p in agent.permission
         )
 
-    def test_atlas_import(self):
+    def test_master_orchestrator_import(self):
         """Atlas agent should be importable"""
         assert create_master_orchestrator_agent is not None
         agent = create_master_orchestrator_agent()

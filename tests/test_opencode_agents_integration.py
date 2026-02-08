@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, MagicMock, patch
 from typing import Dict, Any
 
-from dawn_kestrel.agents.opencode import (
+from dawn_kestrel.agents.bolt_merlin import (
     create_orchestrator_agent,
     create_consultant_agent,
     create_librarian_agent,
@@ -43,11 +43,11 @@ from dawn_kestrel.skills.loader import Skill, SkillLoader
 
 
 @pytest.fixture
-async def agent_registry_with_opencode():
-    """Create agent registry with all opencode agents registered."""
+async def agent_registry_with_bolt_merlin():
+    """Create agent registry with all bolt_merlin agents registered."""
     registry = create_agent_registry(persistence_enabled=False)
 
-    # Register opencode agents that are not in builtin.py
+    # Register bolt_merlin agents that are not in builtin.py
     # (explore is already a built-in agent)
     agents = [
         create_orchestrator_agent(),
@@ -105,10 +105,10 @@ def skill_loader():
 
 
 @pytest.fixture
-def agent_runtime(agent_registry_with_opencode, tmp_path):
+def agent_runtime(agent_registry_with_bolt_merlin, tmp_path):
     """Create AgentRuntime instance for testing."""
     return create_agent_runtime(
-        agent_registry=agent_registry_with_opencode,
+        agent_registry=agent_registry_with_bolt_merlin,
         base_dir=tmp_path,
         skill_max_char_budget=10000,
     )
@@ -179,9 +179,9 @@ def create_mock_response(
 class TestAllAgentsRegistered:
     """Test that all opencode agents are properly registered."""
 
-    def test_all_bolt_merlin_agents_registered(self, agent_registry_with_opencode):
+    def test_all_bolt_merlin_agents_registered(self, agent_registry_with_bolt_merlin):
         """All opencode agents should be registered."""
-        agent_names = agent_registry_with_opencode.list_agents()
+        agent_names = agent_registry_with_bolt_merlin.list_agents()
 
         expected_agents = [
             "orchestrator",
@@ -201,7 +201,7 @@ class TestAllAgentsRegistered:
 
         # Verify we can fetch each agent
         for name in expected_agents:
-            agent = agent_registry_with_opencode.get_agent(name)
+            agent = agent_registry_with_bolt_merlin.get_agent(name)
             assert agent is not None
             assert agent.name == name
 
@@ -287,7 +287,7 @@ class TestSingleTurnExecution:
     """Test single-turn execution for each agent."""
 
     @pytest.mark.asyncio
-    async def test_sisyphus_single_turn(
+    async def test_orchestrator_single_turn(
         self,
         agent_runtime,
         mock_session,
@@ -315,7 +315,7 @@ class TestSingleTurnExecution:
         assert "help you with" in result.response.lower()
 
     @pytest.mark.asyncio
-    async def test_oracle_single_turn(
+    async def test_consultant_single_turn(
         self,
         agent_runtime,
         mock_session,
@@ -382,7 +382,7 @@ class TestMultiTurnExecution:
     """Test multi-turn conversation capabilities."""
 
     @pytest.mark.asyncio
-    async def test_sisyphus_multi_turn(
+    async def test_orchestrator_multi_turn(
         self,
         agent_runtime,
         mock_session,
@@ -430,7 +430,7 @@ class TestMultiTurnExecution:
         assert "auth analysis" in result2.response.lower()
 
     @pytest.mark.asyncio
-    async def test_oracle_multi_turn(
+    async def test_consultant_multi_turn(
         self,
         agent_runtime,
         mock_session,
@@ -517,7 +517,7 @@ class TestToolUsage:
         assert "glob" in result.tools_used
 
     @pytest.mark.asyncio
-    async def test_sisyphus_uses_delegation_tools(
+    async def test_orchestrator_uses_delegation_tools(
         self,
         agent_runtime,
         mock_session,
@@ -547,7 +547,7 @@ class TestToolUsage:
         assert "task" in result.tools_used
 
     @pytest.mark.asyncio
-    async def test_oracle_does_not_use_write_tools(
+    async def test_consultant_does_not_use_write_tools(
         self,
         agent_runtime,
         mock_session,
@@ -600,7 +600,7 @@ class TestSkillUsage:
         assert "frontend" in skill_content.lower() or "ui/ux" in skill_content.lower()
 
     @pytest.mark.asyncio
-    async def test_sisyphus_with_frontend_skill(
+    async def test_orchestrator_with_frontend_skill(
         self,
         agent_runtime,
         mock_session,
@@ -638,7 +638,7 @@ class TestAgentSpecificBehavior:
     """Test agent-specific expected behaviors."""
 
     @pytest.mark.asyncio
-    async def test_metis_pre_planning_behavior(
+    async def test_pre_planning_pre_planning_behavior(
         self,
         agent_runtime,
         mock_session,
@@ -670,7 +670,7 @@ class TestAgentSpecificBehavior:
         assert "ambiguity" in result.response.lower() or "hidden" in result.response.lower()
 
     @pytest.mark.asyncio
-    async def test_prometheus_planning_behavior(
+    async def test_planner_planning_behavior(
         self,
         agent_runtime,
         mock_session,
@@ -703,7 +703,7 @@ class TestAgentSpecificBehavior:
         assert "plan" in result.response.lower()
 
     @pytest.mark.asyncio
-    async def test_momus_validation_behavior(
+    async def test_plan_validator_validation_behavior(
         self,
         agent_runtime,
         mock_session,
@@ -735,7 +735,7 @@ class TestAgentSpecificBehavior:
         assert "validat" in result.response.lower()
 
     @pytest.mark.asyncio
-    async def test_atlas_orchestration_behavior(
+    async def test_master_orchestrator_orchestration_behavior(
         self,
         agent_runtime,
         mock_session,
@@ -746,8 +746,8 @@ class TestAgentSpecificBehavior:
         mock_ai_session = AsyncMock()
         mock_response = create_mock_response(
             mock_session.id,
-            "Orchestrating parallel execution:\n- Agent 1 (explore): searching codebase\n- Agent 2 (oracle): analyzing architecture\n"
-            "- Agent 3 (prometheus): planning changes\n\nAll agents running in parallel...",
+            "Orchestrating parallel execution:\n- Agent 1 (explore): searching codebase\n- Agent 2 (consultant): analyzing architecture\n"
+            "- Agent 3 (planner): planning changes\n\nAll agents running in parallel...",
         )
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
 
@@ -766,7 +766,7 @@ class TestAgentSpecificBehavior:
         assert result.error is None
 
     @pytest.mark.asyncio
-    async def test_hephaestus_autonomous_behavior(
+    async def test_autonomous_worker_autonomous_behavior(
         self,
         agent_runtime,
         mock_session,
@@ -811,7 +811,7 @@ class TestToolPermissionFiltering:
         builtin_registry,
     ):
         """Read-only agents should have write/edit tools filtered out."""
-        # Test with oracle agent
+        # Test with consultant agent
         from dawn_kestrel.agents.builtin import PLAN_AGENT
 
         with patch.object(
