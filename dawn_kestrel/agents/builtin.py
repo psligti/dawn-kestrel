@@ -107,7 +107,12 @@ PLAN_DEFAULTS = [
 
 def get_all_agents() -> List[Agent]:
     """Get all available agents"""
-    return [BUILD_AGENT, PLAN_AGENT, GENERAL_AGENT, EXPLORE_AGENT]
+    return [
+        BUILD_AGENT,
+        PLAN_AGENT,
+        GENERAL_AGENT,
+        EXPLORE_AGENT,
+    ]
 
 
 def get_agent_by_name(name: str) -> Optional[Agent]:
