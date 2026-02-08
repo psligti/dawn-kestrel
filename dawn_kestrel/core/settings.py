@@ -289,7 +289,7 @@ class Settings(pydantic_settings.BaseSettings):
 
         Environment variables are loaded from:
         - Project root .env file
-        - ~/.config/opencode-python/.env
+        - ~/.config/dawn-kestrel/.env
 
         Args:
             provider_id: The provider ID to get API key for (ProviderID enum or string).
@@ -311,7 +311,6 @@ class Settings(pydantic_settings.BaseSettings):
 
 
 APP_DIR_NAME = "dawn-kestrel"
-LEGACY_APP_DIR_NAMES = ("opencode-python", "opencode_python")
 
 
 def _xdg_base_dir(env_var_name: str, fallback: Path) -> Path:
@@ -321,7 +320,7 @@ def _xdg_base_dir(env_var_name: str, fallback: Path) -> Path:
     return fallback
 
 
-def _app_base_dirs(kind: str) -> tuple[Path, Path, Path]:
+def _app_base_dirs(kind: str) -> Path:
     home = Path.home()
     if kind == "config":
         base = _xdg_base_dir("XDG_CONFIG_HOME", home / ".config")
@@ -332,50 +331,11 @@ def _app_base_dirs(kind: str) -> tuple[Path, Path, Path]:
     else:
         raise ValueError(f"Unsupported app dir kind: {kind}")
 
-    return (
-        base / APP_DIR_NAME,
-        base / LEGACY_APP_DIR_NAMES[0],
-        base / LEGACY_APP_DIR_NAMES[1],
-    )
+    return base / APP_DIR_NAME
 
 
 def _resolve_app_dir(kind: str) -> Path:
-    canonical_dir, legacy_hyphen_dir, legacy_underscore_dir = _app_base_dirs(kind)
-    if canonical_dir.exists():
-        return canonical_dir
-    if legacy_hyphen_dir.exists() or legacy_underscore_dir.exists():
-        _warn_legacy_filename_conflicts(kind)
-        if legacy_hyphen_dir.exists():
-            return legacy_hyphen_dir
-        return legacy_underscore_dir
-    return canonical_dir
-
-
-def _warn_legacy_filename_conflicts(kind: str) -> None:
-    _, legacy_hyphen_dir, legacy_underscore_dir = _app_base_dirs(kind)
-    if not legacy_hyphen_dir.exists() or not legacy_underscore_dir.exists():
-        return
-
-    legacy_hyphen_files: set[Path] = {
-        file_path.relative_to(legacy_hyphen_dir)
-        for file_path in legacy_hyphen_dir.rglob("*")
-        if file_path.is_file()
-    }
-    legacy_underscore_files: set[Path] = {
-        file_path.relative_to(legacy_underscore_dir)
-        for file_path in legacy_underscore_dir.rglob("*")
-        if file_path.is_file()
-    }
-    conflicting_files = sorted(legacy_hyphen_files.intersection(legacy_underscore_files))
-    for conflicting_file in conflicting_files:
-        warnings.warn(
-            (
-                f"Legacy filename conflict for {kind} '{conflicting_file}': "
-                f"using '{LEGACY_APP_DIR_NAMES[0]}' over '{LEGACY_APP_DIR_NAMES[1]}'."
-            ),
-            UserWarning,
-            stacklevel=3,
-        )
+    return _app_base_dirs(kind)
 
 
 def _dotenv_paths(settings_cls: type[pydantic_settings.BaseSettings]) -> tuple[Path | str, ...]:
@@ -385,28 +345,8 @@ def _dotenv_paths(settings_cls: type[pydantic_settings.BaseSettings]) -> tuple[P
             return (explicit_env_files,)
         return tuple(explicit_env_files)
 
-    config_canonical, config_legacy_hyphen, config_legacy_underscore = _app_base_dirs("config")
-    env_files: list[Path | str] = [".env", config_canonical / ".env"]
-    if config_legacy_hyphen.exists() and config_legacy_underscore.exists():
-        if (
-            not config_canonical.exists()
-            and (config_legacy_hyphen / ".env").exists()
-            and (config_legacy_underscore / ".env").exists()
-        ):
-            warnings.warn(
-                (
-                    "Legacy filename conflict for config '.env': "
-                    "using 'opencode-python' over 'opencode_python'."
-                ),
-                UserWarning,
-                stacklevel=3,
-            )
-            env_files.append(config_legacy_hyphen / ".env")
-            return tuple(env_files)
-
-    env_files.append(config_legacy_hyphen / ".env")
-    env_files.append(config_legacy_underscore / ".env")
-    return tuple(env_files)
+    config_dir = _app_base_dirs("config")
+    return (".env", config_dir / ".env")
 
 
 settings: Settings = Settings()

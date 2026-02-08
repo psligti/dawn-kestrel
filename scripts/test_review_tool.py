@@ -3,9 +3,11 @@ import sys
 import subprocess
 from pathlib import Path
 
+
 def test_cli_import():
     try:
         from dawn_kestrel.agents.review.cli import review, generate_docs
+
         print("✓ CLI commands imported successfully")
         print(f"  - review command name: {review.name}")
         print(f"  - generate_docs command name: {generate_docs.name}")
@@ -14,6 +16,7 @@ def test_cli_import():
         print(f"✗ Failed to import CLI commands: {e}")
         return False
 
+
 def test_click_commands():
     try:
         from click.testing import CliRunner
@@ -21,14 +24,14 @@ def test_click_commands():
 
         runner = CliRunner()
 
-        result = runner.invoke(review, ['--help'])
+        result = runner.invoke(review, ["--help"])
         if result.exit_code == 0:
             print("✓ review --help works")
         else:
             print(f"✗ review --help failed: {result.output}")
             return False
 
-        result = runner.invoke(generate_docs, ['--help'])
+        result = runner.invoke(generate_docs, ["--help"])
         if result.exit_code == 0:
             print("✓ generate_docs --help works")
         else:
@@ -40,6 +43,7 @@ def test_click_commands():
         print(f"✗ Click command test failed: {e}")
         return False
 
+
 def test_entry_points():
     pyproject_path = Path(__file__).parent / "pyproject.toml"
     if not pyproject_path.exists():
@@ -49,25 +53,15 @@ def test_entry_points():
     with open(pyproject_path) as f:
         content = f.read()
 
-    entry_points = []
-    if "opencode-review" in content:
-        entry_points.append("opencode-review")
-    if "opencode-review-generate-docs" in content:
-        entry_points.append("opencode-review-generate-docs")
-
-    if "opencode-review" not in content:
-        print("✗ opencode-review entry point not found in pyproject.toml")
+    if "dawn-kestrel" not in content:
+        print("✗ dawn-kestrel entry point not found in pyproject.toml")
         return False
 
-    if "opencode-review-generate-docs" not in content:
-        print("✗ opencode-review-generate-docs entry point not found in pyproject.toml")
-        return False
-
-    print("✓ Entry points found in pyproject.toml:")
-    for entry_point in entry_points:
-        print(f"  - {entry_point}")
+    print("✓ Entry point found in pyproject.toml:")
+    print("  - dawn-kestrel")
 
     return True
+
 
 def test_dependencies():
     core_dependencies = ["click", "rich"]
@@ -97,6 +91,7 @@ def test_dependencies():
         print(f"  (Optional dependencies not installed: {', '.join(missing_optional)})")
 
     return True
+
 
 def main():
     print("=" * 60)
@@ -136,13 +131,14 @@ def main():
     if passed == total:
         print("\n✓ All checks passed! The tool is ready for installation.")
         print("\nTo install as a uv tool:")
-        print("  uv tool install opencode-python")
+        print("  uv tool install .")
         print("\nThen run:")
-        print("  opencode-review --help")
+        print("  dawn-kestrel review --help")
         return 0
     else:
         print(f"\n✗ {total - passed} test(s) failed. Please fix the issues.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -193,36 +193,7 @@ DAWN_KESTREL_MODEL_DEFAULT=glm-4.7
 
 ## Legacy Compatibility
 
-### Import Shim
 
-The `opencode_python/` directory exists as a compatibility shim. It imports from `dawn_kestrel` and emits a deprecation warning.
-
-**Legacy imports (deprecated but work):**
-```python
-from opencode_python.sdk import OpenCodeAsyncClient  # Works, shows deprecation warning
-```
-
-**New imports (recommended):**
-```python
-from dawn_kestrel.sdk import OpenCodeAsyncClient  # Recommended, no warning
-```
-
-### Legacy CLI Commands
-
-The following CLI commands are deprecated but still work for compatibility:
-
-- `parkcode` → Use `dawn-kestrel` instead
-- `opencode-review` → Use `dawn-kestrel review` instead
-- `opencode-review-generate-docs` → Use `dawn-kestrel generate-docs` instead
-
-**Legacy CLI commands emit deprecation warnings:**
-```bash
-# Still works, shows warning
-opencode-review --base-ref main
-
-# Recommended
-dawn-kestrel review --base-ref main
-```
 
 ### Legacy Config Dirs
 

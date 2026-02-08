@@ -5,12 +5,12 @@ build-backend = "uv_build"
 [project]
 name = "dawn-kestrel"
 version = "0.1.0"
-description = "OpenCode Python SDK - Async/sync AI client with optional CLI and TUI interfaces"
+description = "Dawn Kestrel - Async/sync AI client with optional CLI and TUI interfaces"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-  {name = "OpenCode Python Contributors", email = "opencode@example.com"}
+  {name = "Dawn Kestrel Contributors", email = "dawnkestrel@example.com"}
 ]
 keywords = ["cli", "tui", "terminal", "ai", "development", "git", "automation"]
 classifiers = [
@@ -43,7 +43,7 @@ classifiers = [
 
 [project.optional-dependencies]
 cli = ["click>=8.0", "rich>=13.0"]
-tui = ["textual>=0.79.0"]
+tui = ["textual>=7.5.0"]
 full = ["dawn-kestrel[cli,tui]"]
 dev = [
     "faker>=28.0",
@@ -56,9 +56,6 @@ dev = [
 
 [project.scripts]
 dawn-kestrel = "dawn_kestrel.cli.main:cli"
-parkcode = "dawn_kestrel.cli.legacy:parkcode"
-opencode-review = "dawn_kestrel.cli.legacy:opencode_review"
-opencode-review-generate-docs = "dawn_kestrel.cli.legacy:opencode_review_generate_docs"
 
 [dependency-groups]
 dev = [

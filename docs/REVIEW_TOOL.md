@@ -1,18 +1,16 @@
-# OpenCode Review Agent CLI
+# Review Agent CLI
 
-Install and run the multi-agent PR review tool as a standalone `uv tool`.
+Run multi-agent PR review using the dawn-kestrel CLI.
 
 ## Installation
 
-Install the tool globally using uv:
+Install as tool globally using uv:
 
 ```bash
 uv tool install dawn-kestrel
 ```
 
-This will install two commands:
-- `opencode-review` - Run multi-agent PR review
-- `opencode-review-generate-docs` - Generate documentation for review agents
+This will install the `dawn-kestrel` CLI with review subcommands.
 
 ## Usage
 
@@ -20,34 +18,34 @@ This will install two commands:
 
 ```bash
 # Review current branch against main (default) - runs all agents
-opencode-review
+dawn-kestrel review
 
 # Run only a specific agent (e.g., security, architecture, linting)
-opencode-review --agent security
+dawn-kestrel review --agent security
 
 # Review against a specific base branch
-opencode-review --base-ref develop
+dawn-kestrel review --base-ref develop
 
 # Review from base to specific commit
-opencode-review --base-ref main --head-ref abc123
+dawn-kestrel review --base-ref main --head-ref abc123
 
 # Include optional review agents (diff_scoper, requirements, performance, dependencies, changelog)
-opencode-review --include-optional
+dawn-kestrel review --include-optional
 
 # Output in JSON format
-opencode-review --output json
+dawn-kestrel review --output json
 
 # Output in Markdown format
-opencode-review --output markdown
+dawn-kestrel review --output markdown
 
 # Enable verbose logging to see detailed debugging info
-opencode-review -v
+dawn-kestrel review -v
 
 # Custom timeout (seconds)
-opencode-review --timeout 600
+dawn-kestrel review --timeout 600
 
 # Review a different repository
-opencode-review --repo-root /path/to/repo
+dawn-kestrel review --repo-root /path/to/repo
 ```
 
 **Available agents:**
@@ -107,19 +105,19 @@ Generate documentation for review agents:
 
 ```bash
 # Generate docs for a specific agent
-opencode-review-generate-docs --agent security
+dawn-kestrel docs --agent security
 
 # Generate docs for all agents
-opencode-review-generate-docs --all
+dawn-kestrel docs --all
 
 # Force regeneration even if hash matches
-opencode-review-generate-docs --all --force
+dawn-kestrel docs --all --force
 
 # Custom output directory
-opencode-review-generate-docs --all --output ./docs
+dawn-kestrel docs --all --output ./docs
 
 # Verbose mode
-opencode-review-generate-docs --all -v
+dawn-kestrel docs --all -v
 ```
 
 ## Review Agents
@@ -141,7 +139,7 @@ opencode-review-generate-docs --all -v
 
 ## Options
 
-### `opencode-review`
+### `dawn-kestrel review`
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--repo-root PATH` | Repository root directory | Current directory |
@@ -153,7 +151,7 @@ opencode-review-generate-docs --all -v
 | `-v, --verbose` | Enable verbose logging | `false` |
 | `--help` | Show help message | - |
 
-### `opencode-review-generate-docs`
+### `dawn-kestrel docs`
 | Option | Description |
 |--------|-------------|
 | `--agent TEXT` | Specific agent name (e.g., security, architecture) |
@@ -169,22 +167,22 @@ opencode-review-generate-docs --all -v
 ```bash
 cd /path/to/repo
 git checkout feature-branch
-opencode-review --base-ref main
+dawn-kestrel review --base-ref main
 ```
 
 ### Quick check for blocking issues
 ```bash
-opencode-review --output json | jq '.merge_decision.decision'
+dawn-kestrel review --output json | jq '.merge_decision.decision'
 ```
 
 ### Review with all agents
 ```bash
-opencode-review --include-optional -v
+dawn-kestrel review --include-optional -v
 ```
 
 ### Generate all documentation
 ```bash
-opencode-review-generate-docs --all --force
+dawn-kestrel docs --all --force
 ```
 
 ## Integration with CI/CD
@@ -204,7 +202,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: astral-sh/setup-uv@v2
       - run: uv tool install dawn-kestrel
-      - run: opencode-review --base-ref ${{ github.base_ref }} --output markdown > review.md
+      - run: dawn-kestrel review --base-ref ${{ github.base_ref }} --output markdown > review.md
       - uses: actions/upload-artifact@v3
         with:
           name: review-results
@@ -217,7 +215,7 @@ pr_review:
   stage: test
   script:
     - uv tool install dawn-kestrel
-    - opencode-review --base-ref $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --output json > review.json
+    - dawn-kestrel review --base-ref $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --output json > review.json
   artifacts:
     paths:
       - review.json
@@ -309,5 +307,5 @@ uv tool install dawn-kestrel --reinstall
 **Timeout issues:**
 Increase timeout for large reviews:
 ```bash
-opencode-review --timeout 600
+dawn-kestrel review --timeout 600
 ```

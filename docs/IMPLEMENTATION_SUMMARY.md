@@ -6,15 +6,13 @@ The multi-agent PR review agent from `dawn_kestrel/agents/review/` has been conf
 
 ## Changes Made
 
-### 1. pyproject.toml - Entry Points Added
+### 1. pyproject.toml - Entry Point Added
 
-Added two new script entry points to enable standalone tool installation:
+Added script entry point to enable CLI tool installation:
 
 ```toml
 [project.scripts]
-parkcode = "dawn_kestrel.cli:cli"
-opencode-review = "dawn_kestrel.agents.review.cli:review"
-opencode-review-generate-docs = "dawn_kestrel.agents.review.cli:generate_docs"
+dawn-kestrel = "dawn_kestrel.cli.main:cli"
 ```
 
 ### 2. Documentation Created
@@ -57,36 +55,36 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ```bash
 # Basic review (current branch vs main)
-opencode-review
+dawn-kestrel review
 
 # Review with all agents
-opencode-review --include-optional
+dawn-kestrel review --include-optional
 
 # Output in specific format
-opencode-review --output json
-opencode-review --output markdown
+dawn-kestrel review --output json
+dawn-kestrel review --output markdown
 
 # Custom branches
-opencode-review --base-ref develop --head-ref feature-xyz
+dawn-kestrel review --base-ref develop --head-ref feature-xyz
 
 # Verbose mode
-opencode-review -v
+dawn-kestrel review -v
 
 # Review different repository
-opencode-review --repo-root /path/to/repo
+dawn-kestrel review --repo-root /path/to/repo
 ```
 
 ### Generating Documentation
 
 ```bash
 # Generate docs for specific agent
-opencode-review-generate-docs --agent security
+dawn-kestrel docs --agent security
 
 # Generate docs for all agents
-opencode-review-generate-docs --all
+dawn-kestrel docs --all
 
 # Force regeneration
-opencode-review-generate-docs --all --force
+dawn-kestrel docs --all --force
 ```
 
 ## Available Review Agents
@@ -159,29 +157,30 @@ Result: 4/4 tests passed
 - `IMPLEMENTATION_SUMMARY.md` - This file
 
 ### Modified
-- `pyproject.toml` - Added entry points for opencode-review and opencode-review-generate-docs
-- `README.md` - Added section about standalone review tool
+- `pyproject.toml` - Added CLI entry point
+- `README.md` - Updated with CLI commands
+- `REVIEW_TOOL.md` - Comprehensive documentation for review commands
 
 ## Next Steps
 
 1. **Package and publish** (if not already done):
-   ```bash
-   uv build
-   ```
+    ```bash
+    uv build
+    ```
 
 2. **Install and test locally**:
-   ```bash
-   uv tool install .
-   opencode-review --help
-   ```
+    ```bash
+    uv tool install .
+    dawn-kestrel review --help
+    ```
 
 3. **Test on a real repository**:
-   ```bash
-   cd /path/to/your/repo
-   git checkout -b test-branch
-   # Make some changes...
-   opencode-review --base-ref main
-   ```
+    ```bash
+    cd /path/to/your/repo
+    git checkout -b test-branch
+    # Make some changes...
+    dawn-kestrel review --base-ref main
+    ```
 
 4. **Set up CI/CD integration**:
    - Add to GitHub Actions workflow (see REVIEW_TOOL.md for examples)
