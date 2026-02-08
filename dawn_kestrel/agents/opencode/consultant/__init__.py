@@ -130,14 +130,14 @@ Example decline:
 """
 
 
-def create_oracle_agent():
+def create_consultant_agent():
     """Create Oracle agent configuration.
 
     Returns:
         Agent instance configured as read-only consultant agent
     """
     return Agent(
-        name="oracle",
+        name="consultant",
         description="Read-only, expensive, high-quality reasoning model for debugging and architecture. Consultation only. For complex architecture decisions, after significant work for self-review, after 2+ failed fix attempts, unfamiliar code patterns, security/performance concerns, multi-system tradeoffs. (Oracle - Bolt Merlin)",
         mode="subagent",
         permission=[
@@ -157,4 +157,4 @@ def create_oracle_agent():
     )
 
 
-__all__ = ["create_oracle_agent"]
+__all__ = ["create_consultant_agent"]

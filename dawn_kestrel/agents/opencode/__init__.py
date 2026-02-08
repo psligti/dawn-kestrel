@@ -4,48 +4,48 @@ This package provides specialized agents from the Bolt Merlin project,
 adapted for use with the Dawn Kestrel SDK.
 
 Agents include:
-- Sisyphus: Main orchestrator with full delegation capabilities
-- Atlas: Master orchestrator for coordination
-- Prometheus: Strategic planning agent
-- Hephaestus: Autonomous deep worker
-- Oracle: Read-only consultation agent
-- Metis: Pre-planning analysis agent
-- Momus: Plan validation agent
+- Orchestrator: Main orchestrator with full delegation capabilities
+- Master Orchestrator: Master orchestrator for coordination
+- Planner: Strategic planning agent
+- Autonomous Worker: Autonomous deep worker
+- Consultant: Read-only consultation agent
+- Pre-Planning: Pre-planning analysis agent
+- Plan Validator: Plan validation agent
 - Librarian: Docs and codebase search specialist
 - Explore: Fast codebase exploration
 - Frontend UI/UX Engineer: Frontend development
 - Multimodal Looker: PDF/image analysis
 
 Each agent is registered in the AgentRegistry and can be invoked
-via the AgentRuntime and AgentOrchestrator.
+via AgentRuntime and AgentOrchestrator.
 """
 
 from __future__ import annotations
 
 # Import agent factories from each subdirectory
-from .sisyphus import create_sisyphus_agent
-from .oracle import create_oracle_agent
+from .orchestrator import create_orchestrator_agent
+from .master_orchestrator import create_master_orchestrator_agent
+from .planner import create_planner_agent
+from .autonomous_worker import create_autonomous_worker_agent
+from .consultant import create_consultant_agent
+from .pre_planning import create_pre_planning_agent
+from .plan_validator import create_plan_validator_agent
 from .librarian import create_librarian_agent
 from .explore import create_explore_agent
 from .frontend_ui_engineer import create_frontend_ui_ux_skill
 from .multimodal_looker import create_multimodal_looker_agent
-from .hephaestus import create_hephaestus_agent
-from .metis import create_metis_agent
-from .momus import create_momus_agent
-from .prometheus import create_prometheus_agent
-from .atlas import create_atlas_agent
 
 # Re-export all agent factory functions
 __all__ = [
-    "create_sisyphus_agent",
-    "create_oracle_agent",
+    "create_orchestrator_agent",
+    "create_master_orchestrator_agent",
+    "create_planner_agent",
+    "create_autonomous_worker_agent",
+    "create_consultant_agent",
+    "create_pre_planning_agent",
+    "create_plan_validator_agent",
     "create_librarian_agent",
     "create_explore_agent",
     "create_frontend_ui_ux_skill",
     "create_multimodal_looker_agent",
-    "create_hephaestus_agent",
-    "create_metis_agent",
-    "create_momus_agent",
-    "create_prometheus_agent",
-    "create_atlas_agent",
 ]

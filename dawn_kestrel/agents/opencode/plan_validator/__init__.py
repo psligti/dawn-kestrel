@@ -183,14 +183,14 @@ If REJECT:
 **Response Language**: Match language of the plan content.
 """
 
-def create_momus_agent():
+def create_plan_validator_agent():
     """Create Momus agent configuration.
     
     Returns:
         Agent instance configured as a plan reviewer
     """
     return Agent(
-        name="momus",
+        name="plan_validator",
         description="Expert reviewer for evaluating work plans against rigorous clarity, verifiability, and completeness standards. (Momus - Bolt Merlin)",
         mode="subagent",
         permission=[
@@ -209,4 +209,4 @@ def create_momus_agent():
     )
 
 
-__all__ = ["create_momus_agent"]
+__all__ = ["create_plan_validator_agent"]

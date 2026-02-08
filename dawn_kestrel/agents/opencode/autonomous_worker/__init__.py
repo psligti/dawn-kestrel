@@ -43,10 +43,10 @@ Your job is to SOLVE problems, not report them.
 
 
 # Create Hephaestus Agent
-def create_hephaestus_agent() -> Agent:
+def create_autonomous_worker_agent() -> Agent:
     """Create a Hephaestus agent instance."""
     return Agent(
-        name="hephaestus",
+        name="autonomous_worker",
         description="Autonomous deep worker, goal-oriented execution. Powered by GPT 5.2 Codex with medium reasoning effort.",
         mode="primary",
         permission=[
@@ -62,4 +62,4 @@ def create_hephaestus_agent() -> Agent:
     )
 
 
-__all__ = ["create_hephaestus_agent"]
+__all__ = ["create_autonomous_worker_agent"]

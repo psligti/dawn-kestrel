@@ -231,14 +231,14 @@ Every analysis must:
 """
 
 
-def create_metis_agent():
+def create_pre_planning_agent():
     """Create Metis agent configuration.
 
     Returns:
         Agent instance configured as pre-planning consultant
     """
     return Agent(
-        name="metis",
+        name="pre_planning",
         description="Pre-planning analysis agent that analyzes requests to identify hidden intentions, ambiguities, and AI failure points. Consulted before planning begins to ensure requests are clear, complete, and unambiguous. (Metis - Bolt Merlin)",
         mode="subagent",
         permission=[
@@ -256,4 +256,4 @@ def create_metis_agent():
     )
 
 
-__all__ = ["create_metis_agent"]
+__all__ = ["create_pre_planning_agent"]

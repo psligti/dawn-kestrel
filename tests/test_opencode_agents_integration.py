@@ -15,17 +15,17 @@ from unittest.mock import AsyncMock, Mock, MagicMock, patch
 from typing import Dict, Any
 
 from dawn_kestrel.agents.opencode import (
-    create_sisyphus_agent,
-    create_oracle_agent,
+    create_orchestrator_agent,
+    create_consultant_agent,
     create_librarian_agent,
     create_explore_agent,
     create_frontend_ui_ux_skill,
     create_multimodal_looker_agent,
-    create_hephaestus_agent,
-    create_metis_agent,
-    create_momus_agent,
-    create_prometheus_agent,
-    create_atlas_agent,
+    create_autonomous_worker_agent,
+    create_pre_planning_agent,
+    create_plan_validator_agent,
+    create_planner_agent,
+    create_master_orchestrator_agent,
 )
 from dawn_kestrel.agents.registry import create_agent_registry
 from dawn_kestrel.agents.runtime import create_agent_runtime
@@ -50,15 +50,15 @@ async def agent_registry_with_opencode():
     # Register opencode agents that are not in builtin.py
     # (explore is already a built-in agent)
     agents = [
-        create_sisyphus_agent(),
-        create_oracle_agent(),
+        create_orchestrator_agent(),
+        create_consultant_agent(),
         create_librarian_agent(),
         create_multimodal_looker_agent(),
-        create_hephaestus_agent(),
-        create_metis_agent(),
-        create_momus_agent(),
-        create_prometheus_agent(),
-        create_atlas_agent(),
+        create_autonomous_worker_agent(),
+        create_pre_planning_agent(),
+        create_plan_validator_agent(),
+        create_planner_agent(),
+        create_master_orchestrator_agent(),
     ]
 
     for agent in agents:
@@ -184,16 +184,16 @@ class TestAllAgentsRegistered:
         agent_names = agent_registry_with_opencode.list_agents()
 
         expected_agents = [
-            "sisyphus",
-            "oracle",
+            "orchestrator",
+            "consultant",
             "librarian",
             "explore",
             "multimodal_looker",
-            "hephaestus",
-            "metis",
-            "momus",
-            "prometheus",
-            "atlas",
+            "autonomous_worker",
+            "pre_planning",
+            "plan_validator",
+            "planner",
+            "master_orchestrator",
         ]
 
         for name in expected_agents:
@@ -212,16 +212,16 @@ class TestAgentInstantiation:
     def test_all_agents_instantiate(self):
         """All agent factory functions should return valid Agent instances."""
         agents = {
-            "sisyphus": create_sisyphus_agent(),
-            "oracle": create_oracle_agent(),
+            "orchestrator": create_orchestrator_agent(),
+            "consultant": create_consultant_agent(),
             "librarian": create_librarian_agent(),
             "explore": create_explore_agent(),
             "multimodal_looker": create_multimodal_looker_agent(),
-            "hephaestus": create_hephaestus_agent(),
-            "metis": create_metis_agent(),
-            "momus": create_momus_agent(),
-            "prometheus": create_prometheus_agent(),
-            "atlas": create_atlas_agent(),
+            "autonomous_worker": create_autonomous_worker_agent(),
+            "pre_planning": create_pre_planning_agent(),
+            "plan_validator": create_plan_validator_agent(),
+            "planner": create_planner_agent(),
+            "master_orchestrator": create_master_orchestrator_agent(),
         }
 
         for name, agent in agents.items():
@@ -243,12 +243,12 @@ class TestAgentPermissions:
     def test_read_only_agents_deny_write(self):
         """Read-only agents should deny write/edit permissions."""
         read_only_agents = [
-            ("oracle", create_oracle_agent()),
+            ("consultant", create_consultant_agent()),
             ("librarian", create_librarian_agent()),
             ("explore", create_explore_agent()),
-            ("metis", create_metis_agent()),
-            ("momus", create_momus_agent()),
-            ("prometheus", create_prometheus_agent()),
+            ("pre_planning", create_pre_planning_agent()),
+            ("plan_validator", create_plan_validator_agent()),
+            ("planner", create_planner_agent()),
         ]
 
         for name, agent in read_only_agents:
@@ -265,8 +265,8 @@ class TestAgentPermissions:
     def test_primary_agents_allow_delegation(self):
         """Primary agents should allow task delegation."""
         primary_agents = [
-            ("sisyphus", create_sisyphus_agent()),
-            ("atlas", create_atlas_agent()),
+            ("orchestrator", create_orchestrator_agent()),
+            ("master_orchestrator", create_master_orchestrator_agent()),
         ]
 
         for name, agent in primary_agents:
@@ -301,7 +301,7 @@ class TestSingleTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="sisyphus",
+                agent_name="orchestrator",
                 session_id=mock_session.id,
                 user_message="Help me understand this codebase",
                 session_manager=mock_session_manager,
@@ -310,7 +310,7 @@ class TestSingleTurnExecution:
                 options={},
             )
 
-        assert result.agent_name == "sisyphus"
+        assert result.agent_name == "orchestrator"
         assert result.error is None
         assert "help you with" in result.response.lower()
 
@@ -332,7 +332,7 @@ class TestSingleTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="oracle",
+                agent_name="consultant",
                 session_id=mock_session.id,
                 user_message="What's wrong with this architecture?",
                 session_manager=mock_session_manager,
@@ -341,7 +341,7 @@ class TestSingleTurnExecution:
                 options={},
             )
 
-        assert result.agent_name == "oracle"
+        assert result.agent_name == "consultant"
         assert result.error is None
         assert "analysis" in result.response.lower()
 
@@ -398,7 +398,7 @@ class TestMultiTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result1 = await agent_runtime.execute_agent(
-                agent_name="sisyphus",
+                agent_name="orchestrator",
                 session_id=mock_session.id,
                 user_message="Analyze the auth system",
                 session_manager=mock_session_manager,
@@ -417,7 +417,7 @@ class TestMultiTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result2 = await agent_runtime.execute_agent(
-                agent_name="sisyphus",
+                agent_name="orchestrator",
                 session_id=mock_session.id,
                 user_message="Now suggest improvements",
                 session_manager=mock_session_manager,
@@ -449,7 +449,7 @@ class TestMultiTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result1 = await agent_runtime.execute_agent(
-                agent_name="oracle",
+                agent_name="consultant",
                 session_id=mock_session.id,
                 user_message="Analyze this architecture",
                 session_manager=mock_session_manager,
@@ -469,7 +469,7 @@ class TestMultiTurnExecution:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result2 = await agent_runtime.execute_agent(
-                agent_name="oracle",
+                agent_name="consultant",
                 session_id=mock_session.id,
                 user_message="Yes, elaborate please",
                 session_manager=mock_session_manager,
@@ -535,7 +535,7 @@ class TestToolUsage:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="sisyphus",
+                agent_name="orchestrator",
                 session_id=mock_session.id,
                 user_message="Refactor the entire codebase",
                 session_manager=mock_session_manager,
@@ -565,7 +565,7 @@ class TestToolUsage:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="oracle",
+                agent_name="consultant",
                 session_id=mock_session.id,
                 user_message="Analyze this code",
                 session_manager=mock_session_manager,
@@ -621,7 +621,7 @@ class TestSkillUsage:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="sisyphus",
+                agent_name="orchestrator",
                 session_id=mock_session.id,
                 user_message="Create a stunning button component",
                 session_manager=mock_session_manager,
@@ -630,7 +630,7 @@ class TestSkillUsage:
                 options={},
             )
 
-        assert result.agent_name == "sisyphus"
+        assert result.agent_name == "orchestrator"
         assert result.error is None
 
 
@@ -656,7 +656,7 @@ class TestAgentSpecificBehavior:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="metis",
+                agent_name="pre_planning",
                 session_id=mock_session.id,
                 user_message="Improve the code",
                 session_manager=mock_session_manager,
@@ -665,7 +665,7 @@ class TestAgentSpecificBehavior:
                 options={},
             )
 
-        assert result.agent_name == "metis"
+        assert result.agent_name == "pre_planning"
         assert result.error is None
         assert "ambiguity" in result.response.lower() or "hidden" in result.response.lower()
 
@@ -689,7 +689,7 @@ class TestAgentSpecificBehavior:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="prometheus",
+                agent_name="planner",
                 session_id=mock_session.id,
                 user_message="Plan the refactoring",
                 session_manager=mock_session_manager,
@@ -698,7 +698,7 @@ class TestAgentSpecificBehavior:
                 options={},
             )
 
-        assert result.agent_name == "prometheus"
+        assert result.agent_name == "planner"
         assert result.error is None
         assert "plan" in result.response.lower()
 
@@ -721,7 +721,7 @@ class TestAgentSpecificBehavior:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="momus",
+                agent_name="plan_validator",
                 session_id=mock_session.id,
                 user_message="Validate this plan: implement auth system",
                 session_manager=mock_session_manager,
@@ -730,7 +730,7 @@ class TestAgentSpecificBehavior:
                 options={},
             )
 
-        assert result.agent_name == "momus"
+        assert result.agent_name == "plan_validator"
         assert result.error is None
         assert "validat" in result.response.lower()
 
@@ -753,7 +753,7 @@ class TestAgentSpecificBehavior:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="atlas",
+                agent_name="master_orchestrator",
                 session_id=mock_session.id,
                 user_message="Coordinate a comprehensive refactoring",
                 session_manager=mock_session_manager,
@@ -762,7 +762,7 @@ class TestAgentSpecificBehavior:
                 options={},
             )
 
-        assert result.agent_name == "atlas"
+        assert result.agent_name == "master_orchestrator"
         assert result.error is None
 
     @pytest.mark.asyncio
@@ -785,7 +785,7 @@ class TestAgentSpecificBehavior:
 
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
-                agent_name="hephaestus",
+                agent_name="autonomous_worker",
                 session_id=mock_session.id,
                 user_message="Fix this complex bug",
                 session_manager=mock_session_manager,
@@ -794,7 +794,7 @@ class TestAgentSpecificBehavior:
                 options={},
             )
 
-        assert result.agent_name == "hephaestus"
+        assert result.agent_name == "autonomous_worker"
         assert result.error is None
         assert len(result.tools_used) > 0
 
@@ -903,14 +903,14 @@ class TestAgentResults:
     ):
         """All agents should return complete AgentResult objects."""
         agents_to_test = [
-            "sisyphus",
-            "oracle",
+            "orchestrator",
+            "consultant",
             "explore",
-            "metis",
-            "prometheus",
-            "momus",
-            "atlas",
-            "hephaestus",
+            "pre_planning",
+            "planner",
+            "plan_validator",
+            "master_orchestrator",
+            "autonomous_worker",
             "librarian",
             "multimodal_looker",
         ]
@@ -952,16 +952,16 @@ class TestAgentPrompts:
     def test_all_agents_have_substantial_prompts(self):
         """All agents should have substantial prompts (500+ chars)."""
         agents = {
-            "sisyphus": create_sisyphus_agent(),
-            "oracle": create_oracle_agent(),
+            "orchestrator": create_orchestrator_agent(),
+            "consultant": create_consultant_agent(),
             "librarian": create_librarian_agent(),
             "explore": create_explore_agent(),
             "multimodal_looker": create_multimodal_looker_agent(),
-            "hephaestus": create_hephaestus_agent(),
-            "metis": create_metis_agent(),
-            "momus": create_momus_agent(),
-            "prometheus": create_prometheus_agent(),
-            "atlas": create_atlas_agent(),
+            "autonomous_worker": create_autonomous_worker_agent(),
+            "pre_planning": create_pre_planning_agent(),
+            "plan_validator": create_plan_validator_agent(),
+            "planner": create_planner_agent(),
+            "master_orchestrator": create_master_orchestrator_agent(),
         }
 
         for name, agent in agents.items():
@@ -971,10 +971,10 @@ class TestAgentPrompts:
     def test_prompts_contain_role_definition(self):
         """Agent prompts should contain role definitions."""
         agents = {
-            "sisyphus": create_sisyphus_agent(),
-            "oracle": create_oracle_agent(),
-            "metis": create_metis_agent(),
-            "prometheus": create_prometheus_agent(),
+            "orchestrator": create_orchestrator_agent(),
+            "consultant": create_consultant_agent(),
+            "pre_planning": create_pre_planning_agent(),
+            "planner": create_planner_agent(),
         }
 
         for name, agent in agents.items():
@@ -1003,15 +1003,15 @@ class TestAllAgentsSummary:
     ):
         """All agents should execute basic requests successfully."""
         agents_to_test = [
-            ("sisyphus", "Help me understand this code"),
-            ("oracle", "Analyze this architecture"),
+            ("orchestrator", "Help me understand this code"),
+            ("consultant", "Analyze this architecture"),
             ("librarian", "Find documentation for React hooks"),
             ("explore", "Find all auth files"),
-            ("metis", "Analyze this request"),
-            ("prometheus", "Create a work plan"),
-            ("momus", "Validate this plan"),
-            ("atlas", "Orchestrate this task"),
-            ("hephaestus", "Fix this bug"),
+            ("pre_planning", "Analyze this request"),
+            ("planner", "Create a work plan"),
+            ("plan_validator", "Validate this plan"),
+            ("master_orchestrator", "Orchestrate this task"),
+            ("autonomous_worker", "Fix this bug"),
             ("multimodal_looker", "Analyze this image"),
         ]
 

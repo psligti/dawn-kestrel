@@ -312,14 +312,14 @@ If delegation fails:
 """
 
 
-def create_atlas_agent():
+def create_master_orchestrator_agent():
     """Create Atlas agent configuration.
 
     Returns:
         Agent instance configured as master orchestrator
     """
     return Agent(
-        name="atlas",
+        name="master_orchestrator",
         description="Master orchestrator that coordinates all agents and manages overall workflow across the Dawn Kestrel ecosystem. Handles agent selection, parallel execution, task delegation, and verification. (Atlas - Bolt Merlin)",
         mode="primary",
         permission=[
@@ -337,4 +337,4 @@ def create_atlas_agent():
     )
 
 
-__all__ = ["create_atlas_agent"]
+__all__ = ["create_master_orchestrator_agent"]
