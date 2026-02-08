@@ -24,7 +24,7 @@
 - Using `python -m build` without checking if build module is installed
 
 ## Domain Notes
-- Package rename: opencode_python → dawn_kestrel
+- Package rename: opencode_python → dawn_kestrel; Directory renamed: opencode → bolt_merlin
 - Distribution name: dawn-kestrel (with hyphen)
 - CLI commands: dawn-kestrel (main), parkcode/opencode-review/opencode-review-generate-docs (deprecated)
 - Deprecated aliases emit warnings to stderr but still exit with code 0
@@ -87,8 +87,8 @@
   - Permission filtering: Read-only agents properly deny write/edit tools
   - Result completeness: All agents return complete AgentResult objects
 - **Verification**: All agents import, instantiate, and have correct structure/permissions
-- **Permissions**: Read-only agents (Oracle, Librarian, Explore, Metis, Momus, Prometheus) deny write/edit
-- **Primary agents**: Sisyphus, Atlas, Hephaestus have broader permissions for orchestration
+- **Permissions**: Read-only agents (Consultant, Librarian, Explore, Pre-Planning, Plan Validator, Planner) deny write/edit
+- **Primary agents**: Sisyphus, Master Orchestrator, Autonomous Worker have broader permissions for orchestration
 - **Docstring necessity**: Module and function docstrings are necessary public API documentation
 
 ### Agent Verification Summary (2026-02-08)
