@@ -1,6 +1,6 @@
-# OpenCode Python
+# Dawn Kestrel
 
-OpenCode Python SDK provides Python bindings for OpenCode with both async and sync clients, CLI, and TUI interfaces.
+Dawn Kestrel SDK provides async/sync AI client with optional CLI and TUI interfaces.
 
 ## Features
 
@@ -22,19 +22,16 @@ For development with additional dependencies:
 pip install dawn-kestrel[dev]
 ```
 
-## Standalone Review Tool
+## CLI Commands
 
-The multi-agent PR review agent can be installed as a standalone `uv tool` for running reviews in any repository.
+After installation, you can use the CLI with:
 
 ```bash
-uv tool install dawn-kestrel
+dawn-kestrel review --help      # Run multi-agent PR review
+dawn-kestrel docs --help         # Generate documentation for review agents
 ```
 
-This provides two commands:
-- `opencode-review` - Run multi-agent PR review
-- `opencode-review-generate-docs` - Generate documentation for review agents
-
-See [REVIEW_TOOL.md](REVIEW_TOOL.md) for detailed usage and examples.
+For detailed usage and examples, see the getting started guide and documentation.
 
 ## Getting Started
 

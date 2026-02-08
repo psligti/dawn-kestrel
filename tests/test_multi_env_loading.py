@@ -275,14 +275,14 @@ class TestMultiEnvLoading:
         assert "invalid-provider" in error_str.lower() or "ProviderID" in error_str
 
     def test_env_vars_case_insensitive_for_prefix(self, tmp_path: Path) -> None:
-        """Test that env vars are case-insensitive for the OPENCODE_PYTHON_ prefix."""
+        """Test that env vars are case-insensitive for DAWN_KESTREL_ prefix."""
         repo_env = tmp_path / "repo" / ".env"
         repo_env.parent.mkdir(parents=True)
         repo_env.write_text(
-            'opencode_python_ACCOUNTS__OPENAI_PROD__ACCOUNT_NAME="openai_prod"\n'
-            'opencode_python_ACCOUNTS__OPENAI_PROD__API_KEY="sk-mixed-case-key"\n'
-            'opencode_python_ACCOUNTS__OPENAI_PROD__PROVIDER_ID="openai"\n'
-            'opencode_python_ACCOUNTS__OPENAI_PROD__MODEL="gpt-4"\n'
+            'dawn_kestrel_ACCOUNTS__OPENAI_PROD__ACCOUNT_NAME="openai_prod"\n'
+            'dawn_kestrel_ACCOUNTS__OPENAI_PROD__API_KEY="sk-mixed-case-key"\n'
+            'dawn_kestrel_ACCOUNTS__OPENAI_PROD__PROVIDER_ID="openai"\n'
+            'dawn_kestrel_ACCOUNTS__OPENAI_PROD__MODEL="gpt-4"\n'
         )
 
         home_env = tmp_path / "nonexistent" / ".env"
@@ -291,7 +291,7 @@ class TestMultiEnvLoading:
             model_config = SettingsConfigDict(
                 env_file=(repo_env, home_env),
                 env_file_encoding="utf-8",
-                env_prefix="OPENCODE_PYTHON_",
+                env_prefix="DAWN_KESTREL_",
                 env_nested_delimiter="__",
                 case_sensitive=False,
                 extra="ignore",
@@ -306,14 +306,11 @@ class TestMultiEnvLoading:
         assert account.provider_id == ProviderID.OPENAI
         assert account.model == "gpt-4"
 
-    def test_new_prefix_takes_precedence_over_legacy_prefix_in_dotenv(self, tmp_path: Path) -> None:
-        """Test DAWN_KESTREL_* values override OPENCODE_PYTHON_* in .env loading."""
+    def test_dawn_kestrel_prefix_in_dotenv(self, tmp_path: Path) -> None:
+        """Test DAWN_KESTREL_* values are loaded from .env file."""
         repo_env = tmp_path / ".env"
         repo_env.write_text(
-            'DAWN_KESTREL_PROVIDER_DEFAULT="openai"\n'
-            'OPENCODE_PYTHON_PROVIDER_DEFAULT="anthropic"\n'
-            'DAWN_KESTREL_MODEL_DEFAULT="gpt-4.1"\n'
-            'OPENCODE_PYTHON_MODEL_DEFAULT="claude-3"\n'
+            'DAWN_KESTREL_PROVIDER_DEFAULT="openai"\nDAWN_KESTREL_MODEL_DEFAULT="gpt-4.1"\n'
         )
 
         class TestSettings(Settings):
