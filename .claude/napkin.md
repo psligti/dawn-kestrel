@@ -64,17 +64,17 @@
   - Tests updated with new agent names
   - Documentation updated with new names
   - All imports working correctly with `from dawn_kestrel.agents import bolt_merlin`
-  - Sisyphus (main orchestrator) - 654 lines
-  - Oracle (read-only consultant) - 257 lines
+  - Orchestrator (main orchestrator) - 654 lines
+  - Consultant (read-only consultant) - 257 lines
   - Librarian (codebase understanding) - 333 lines
   - Explore (codebase search) - 120 lines
   - Multimodal Looker (media analysis) - 71 lines
   - Frontend UI/UX (design skill) - 110 lines
-  - Hephaestus (autonomous worker) - 66 lines
-  - Metis (pre-planning analysis) - 251 lines
-  - Momus (plan validation) - 213 lines
-  - Prometheus (strategic planning) - 273 lines
-  - Atlas (master orchestrator) - 316 lines
+  - Autonomous Worker (autonomous worker) - 66 lines
+  - Pre-Planning (pre-planning analysis) - 251 lines
+  - Plan Validator (plan validation) - 213 lines
+  - Planner (strategic planning) - 273 lines
+  - Master Orchestrator (master orchestrator) - 316 lines
 - **Module structure**: All agents in `dawn_kestrel/agents/opencode/` with dedicated `__init__.py`
 - **Package exports**: All agents exported through `dawn_kestrel/agents/opencode/__init__.py`
 - **Test coverage**: Created `tests/test_opencode_agents.py` with 19 test cases (100% pass rate)
