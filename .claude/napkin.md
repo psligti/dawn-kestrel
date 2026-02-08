@@ -42,6 +42,28 @@
 
 ### Bolt Merlin Agents Implementation (2026-02-08)
 - **Successful 11-agent implementation**: All Bolt Merlin agents implemented with full prompts:
+  - Orchestrator (main orchestrator) - 654 lines
+  - Consultant (read-only consultant) - 257 lines
+  - Librarian (codebase understanding) - 333 lines
+  - Explore (codebase search) - 120 lines
+  - Multimodal Looker (media analysis) - 71 lines
+  - Frontend UI/UX (design skill) - 110 lines
+  - Autonomous Worker (autonomous worker) - 66 lines
+  - Pre-Planning (pre-planning analysis) - 251 lines
+  - Plan Validator (plan validation) - 213 lines
+  - Planner (strategic planning) - 273 lines
+  - Master Orchestrator (master orchestrator) - 316 lines
+- **Module structure**: All agents in `dawn_kestrel/agents/bolt_merlin/` with dedicated `__init__.py`
+- **Package exports**: All agents exported through `dawn_kestrel/agents/bolt_merlin/__init__.py`
+- **Test coverage**: Created `tests/test_opencode_agents.py` with 19 test cases (100% pass rate)
+- **Comprehensive integration tests**: Created `tests/test_opencode_agents_integration.py` with 26 test cases (42/45 passing)
+- **Agent renaming (2026-02-08)**: Renamed from Greek mythology to functional roles:
+  - Directory renamed: `opencode/` → `bolt_merlin/`
+  - All Greek god names replaced with functional roles
+  - Factory functions updated to use new names
+  - Tests updated with new agent names
+  - Documentation updated with new names
+  - All imports working correctly with `from dawn_kestrel.agents import bolt_merlin`
   - Sisyphus (main orchestrator) - 654 lines
   - Oracle (read-only consultant) - 257 lines
   - Librarian (codebase understanding) - 333 lines
