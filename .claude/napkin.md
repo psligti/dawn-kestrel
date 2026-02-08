@@ -88,7 +88,7 @@
   - Result completeness: All agents return complete AgentResult objects
 - **Verification**: All agents import, instantiate, and have correct structure/permissions
 - **Permissions**: Read-only agents (Consultant, Librarian, Explore, Pre-Planning, Plan Validator, Planner) deny write/edit
-- **Primary agents**: Sisyphus, Master Orchestrator, Autonomous Worker have broader permissions for orchestration
+- **Primary agents**: Orchestrator, Master Orchestrator, Autonomous Worker have broader permissions for orchestration
 - **Docstring necessity**: Module and function docstrings are necessary public API documentation
 
 ### Agent Verification Summary (2026-02-08)
