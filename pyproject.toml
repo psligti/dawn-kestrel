@@ -29,6 +29,7 @@ classifiers = [
     "aiohttp>=3.10",
     "asyncio-extras>=0.22.0",
     "click>=8.0",
+    "dependency-injector>=4.41",
     "gitpython>=3.1",
     "httpx>=0.28.1",
     "pendulum>=3.0",
@@ -39,7 +40,7 @@ classifiers = [
     "ripgrep>=14.0",
     "textual>=7.5.0",
     "tiktoken>=0.8.0",
- ]
+  ]
 
 [project.optional-dependencies]
 cli = ["click>=8.0", "rich>=13.0"]
