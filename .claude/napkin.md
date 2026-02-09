@@ -166,3 +166,49 @@
 ### Next Steps
 - Consider refactoring SessionManager to use repositories for complete migration
 - Remove storage parameter once all callers are migrated to repositories
+
+### Circuit Breaker Pattern Implementation (2026-02-09)
+- **Successful TDD implementation**: CircuitBreaker pattern for LLM fault tolerance
+  - 26 tests written first (RED phase) - module didn't exist yet
+  - CircuitBreaker protocol implemented with @runtime_checkable
+  - CircuitBreakerImpl class with configurable thresholds
+  - All tests passing (GREEN phase) with 84% coverage
+  - Clean code with comprehensive docstrings (REFACTOR phase)
+
+- **Circuit state management**: Three explicit states (CLOSED, OPEN, HALF_OPEN)
+  - Initial state: CLOSED
+  - Manual control: open() → OPEN, close() → CLOSED
+  - Query methods: is_open(), is_closed(), is_half_open(), get_state()
+  - State queries are idempotent (don't modify state)
+
+- **Failure tracking**: Per-provider tracking with timestamps
+  - Failures dict: `_failures: dict[str, int]` - counts per provider
+  - Last failure: `_last_failure_time: dict[str, datetime]` - timestamps
+  - Half-open expiry: `_half_open_until: dict[str, datetime]` - for recovery
+  - close() clears all tracking data
+
+- **Result pattern integration**: All methods return Result[None] or Result[str]
+  - open() returns Result[None] for explicit error handling
+  - close() returns Result[None] for explicit error handling
+  - No exceptions raised from public methods
+  - Err includes error code ("CIRCUIT_ERROR")
+
+- **Key learnings**:
+  1. **Simplified circuit breaker**: Manual control without automatic transitions
+     - Traditional circuit breaker has automatic state transitions
+     - This implementation requires explicit open()/close() calls
+     - Suitable for explicit fault tolerance control in LLM calls
+  2. **Protocol-based design enables flexibility**: Multiple implementations possible
+     - @runtime_checkable allows isinstance() checks
+     - CircuitBreakerImpl is default (in-memory, not thread-safe)
+     - Future: Thread-safe or database-backed implementations
+  3. **Type annotation matters**: Use `Any` from typing, not `any` (Python built-in)
+     - LSP error: "Function `any` is not valid in a type expression"
+     - Fixed by importing `Any` from typing module
+  4. **In-memory trade-offs**: Simple but not production-ready
+     - No persistence (circuit state lost on restart)
+     - Not thread-safe (documented limitation)
+     - Suitable for single-process use (LLM client)
+| 2026-02-09 | self | Successfully committed after task 27 (Bulkhead) | Workflow followed: Verified all tests pass (26/26) → Captured evidence → Committed immediately. TDD RED-GREEN-REFACTOR completed successfully. |
+| 2026-02-09 | self | Successfully unblocked Wave 2 plugin discovery | Root cause: Python 3.9 uses old entry_points API (dict with get()) vs new API (object with select()). Solution: Added compatibility check with hasattr(eps, 'select') and fallback mechanism that loads tools/providers/agents directly when entry_points not available. Tests pass: 16/16 (100%). Commit: b559027 |
+

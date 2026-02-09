@@ -285,7 +285,7 @@ Wave 6 (Cross-Cutting - After Wave 5):
 └── Task 25: Implement Strategy pattern for swappable algos
 
 Wave 7 (Reliability - After Wave 6):
-├── Task 26: Implement Circuit Breaker for LLM calls
+├── [x] Task 26: Implement Circuit Breaker for LLM calls
 ├── Task 27: Implement Bulkhead for resource isolation
 ├── Task 28: Implement Retry + Backoff for transient failures
 ├── Task 29: Implement Rate Limiter for API calls
@@ -366,7 +366,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ### Wave 1: Foundation
 
-- [ ] 1. Establish Baseline Test Coverage
+- [x] 1. Establish Baseline Test Coverage
 
   **What to do**:
   - Run full test suite with coverage
@@ -446,7 +446,7 @@ Parallel Speedup: ~40% faster than sequential
 
   **Commit**: NO (baseline only)
 
-- [ ] 2. Setup DI Container (dependency-injector)
+- [x] 2. Setup DI Container (dependency-injector)
 
   **What to do**:
   - Install dependency-injector library
@@ -560,7 +560,7 @@ print(f'Lazy init time: {end - start:.3f}s')
   - Files: dawn_kestrel/core/di_container.py, pyproject.toml
   - Pre-commit: `pytest tests/core/test_di_container.py -v`
 
-- [ ] 3. Replace Settings Singleton with Configuration Object
+- [x] 3. Replace Settings Singleton with Configuration Object
 
   **What to do**:
   - Create dawn_kestrel/core/config_object.py with Pydantic Settings model
@@ -682,7 +682,7 @@ except ValidationError as e:
   - Files: dawn_kestrel/core/config_object.py, all callers
   - Pre-commit: `pytest tests/core/test_config_object.py -v`
 
-- [ ] 4. Design Plugin Discovery System (entry_points)
+- [x] 4. Design Plugin Discovery System (entry_points)
 
   **What to do**:
   - Define entry_points groups in pyproject.toml (tools, providers, agents)
@@ -800,7 +800,7 @@ except Exception as e:
 
 ### Wave 2: Plugin System
 
-- [ ] 5. Implement Tool Plugin Discovery
+- [x] 5. Implement Tool Plugin Discovery
 
   **What to do**:
   - Migrate dawn_kestrel/tools/__init__.py hard-coded list to plugin-based
@@ -855,10 +855,10 @@ except Exception as e:
   > Every criterion MUST be verifiable by running a command or using a tool.
 
   **If TDD (tests enabled):**
-  - [ ] Test file created: tests/tools/test_tool_plugins.py
-  - [ ] Test covers: All 22 tools loaded via plugins
-  - [ ] Test covers: Backward compatibility with direct imports
-  - [ ] pytest tests/tools/test_tool_plugins.py -v → PASS (5 tests, 0 failures)
+  - [x] Test file created: tests/tools/test_tool_plugins.py
+  - [x] Test covers: All 22 tools loaded via plugins
+  - [x] Test covers: Backward compatibility with direct imports
+  - [x] pytest tests/tools/test_tool_plugins.py -v → PASS (6 tests, 0 failures)
 
   **Agent-Executed QA Scenarios (MANDATORY):**
 
@@ -919,7 +919,7 @@ print('Custom tool loaded')
   - Files: dawn_kestrel/tools/__init__.py, all tool modules, pyproject.toml
   - Pre-commit: `pytest tests/tools/test_tool_plugins.py -v`
 
-- [ ] 6. Implement Provider Plugin Discovery
+- [x] 6. Implement Provider Plugin Discovery
 
   **What to do**:
   - Migrate dawn_kestrel/providers/__init__.py PROVIDER_FACTORIES to plugin-based
@@ -975,10 +975,10 @@ print('Custom tool loaded')
   > Every criterion MUST be verifiable by running a command or using a tool.
 
   **If TDD (tests enabled):**
-  - [ ] Test file created: tests/providers/test_provider_plugins.py
-  - [ ] Test covers: All 4 providers loaded via plugins
-  - [ ] Test covers: Backward compatibility with get_provider()
-  - [ ] pytest tests/providers/test_provider_plugins.py -v → PASS (5 tests, 0 failures)
+  - [x] Test file created: tests/providers/test_provider_plugins.py
+  - [x] Test covers: All 4 providers loaded via plugins
+  - [x] Test covers: Backward compatibility with get_provider()
+  - [x] pytest tests/providers/test_provider_plugins.py -v → PASS (5 tests, 0 failures)
 
   **Agent-Executed QA Scenarios (MANDATORY):**
 
@@ -1025,7 +1025,7 @@ print('Custom provider loaded')
   - Files: dawn_kestrel/providers/__init__.py, all provider modules, pyproject.toml
   - Pre-commit: `pytest tests/providers/test_provider_plugins.py -v`
 
-- [ ] 7. Implement Agent Plugin Discovery
+- [x] 7. Implement Agent Plugin Discovery
 
   **What to do**:
   - Update dawn_kestrel/agents/registry.py to load from plugins
@@ -1076,10 +1076,10 @@ print('Custom provider loaded')
   > Every criterion MUST be verifiable by running a command or using a tool.
 
   **If TDD (tests enabled):**
-  - [ ] Test file created: tests/agents/test_agent_plugins.py
-  - [ ] Test covers: All built-in agents loaded via plugins
-  - [ ] Test covers: Backward compatibility with register_agent()
-  - [ ] pytest tests/agents/test_agent_plugins.py -v → PASS (5 tests, 0 failures)
+  - [x] Test file created: tests/agents/test_agent_plugins.py
+  - [x] Test covers: All built-in agents loaded via plugins
+  - [x] Test covers: Backward compatibility with register_agent()
+  - [x] pytest tests/agents/test_agent_plugins.py -v → PASS (5 tests, 0 failures)
 
   **Agent-Executed QA Scenarios (MANDATORY):**
 
@@ -1127,7 +1127,7 @@ print('Agent registered')
   - Files: dawn_kestrel/agents/registry.py, all agent modules, pyproject.toml
   - Pre-commit: `pytest tests/agents/test_agent_plugins.py -v`
 
-- [ ] 8. Register All Built-in Tools/Providers/Agents as Plugins
+- [x] 8. Register All Built-in Tools/Providers/Agents as Plugins
 
   **What to do**:
   - Update all tool modules to add entry point decorators
@@ -1241,9 +1241,9 @@ print(f'Entry points: {len(agents)}')
   ```
 
   **Evidence to Capture**:
-  - [ ] Entry point decorators added: grep output
-  - [ ] All components discoverable: entry_points counts match expected
-  - [ ] Backward imports still work: python -c test
+  - [x] Entry point decorators added: grep output (in pyproject.toml)
+  - [x] All components discoverable: entry_points counts match expected
+  - [x] Backward imports still work: python -c test
 
   **Commit**: YES
   - Message: `feat(all): add entry_point decorators to all built-in components`
@@ -1252,7 +1252,7 @@ print(f'Entry points: {len(agents)}')
 
 ### Wave 3: Error Handling
 
-- [ ] 9. Implement Result Pattern (Ok/Err/Pass)
+- [x] 9. Implement Result Pattern (Ok/Err/Pass)
 
   **What to do**:
   - Create dawn_kestrel/core/result.py with Result types (Ok, Err, Pass)
