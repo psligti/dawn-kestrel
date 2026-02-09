@@ -380,6 +380,31 @@ class RateLimiterImpl:
 # Public API
 # =============================================================================
 
+    async def reset(self, resource: str) -> Result[None]:
+        """Reset token bucket for resource.
+
+        Args:
+            resource: Resource identifier.
+
+        Returns:
+            Result[None]: Ok on success, Err on failure.
+        """
+        try:
+            if resource in self._buckets:
+                self._buckets[resource] = {
+                    "tokens": float(self._default_capacity),
+                    "last_refill": datetime.now(),
+                }
+            else:
+                self._buckets[resource] = {
+                    "tokens": float(self._default_capacity),
+                    "last_refill": datetime.now(),
+                }
+            return Ok(None)
+        except Exception as e:
+            logger.error(f"Failed to reset rate limiter for {resource}: {e}", exc_info=True)
+            return Err(f"Failed to reset rate limiter: {e}", code="RATE_LIMITER_ERROR")
+
 __all__ = [
     "RateLimiter",
     "TokenBucket",
