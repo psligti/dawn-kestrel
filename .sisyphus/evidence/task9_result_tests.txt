@@ -1,0 +1,201 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/parkersligting/develop/pt/worktrees/harness-agent-rework
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 37 items
+
+tests/core/test_result.py::TestResultTypeBasics::test_ok_result_creation PASSED [  2%]
+tests/core/test_result.py::TestResultTypeBasics::test_err_result_creation PASSED [  5%]
+tests/core/test_result.py::TestResultTypeBasics::test_err_result_with_code PASSED [  8%]
+tests/core/test_result.py::TestResultTypeBasics::test_err_result_with_retryable_flag PASSED [ 10%]
+tests/core/test_result.py::TestResultTypeBasics::test_err_result_default_retryable_is_false PASSED [ 13%]
+tests/core/test_result.py::TestResultTypeBasics::test_pass_result_creation PASSED [ 16%]
+tests/core/test_result.py::TestResultTypeBasics::test_pass_result_without_message PASSED [ 18%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_ok_unwrap_returns_value PASSED [ 21%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_ok_unwrap_or_returns_value PASSED [ 24%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_err_unwrap_raises_exception PASSED [ 27%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_err_unwrap_or_returns_default PASSED [ 29%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_pass_unwrap_raises_exception PASSED [ 32%]
+tests/core/test_result.py::TestResultUnwrapMethods::test_pass_unwrap_or_returns_default PASSED [ 35%]
+tests/core/test_result.py::TestResultBindComposition::test_bind_chains_ok_results PASSED [ 37%]
+tests/core/test_result.py::TestResultBindComposition::test_bind_stops_at_first_err PASSED [ 40%]
+tests/core/test_result.py::TestResultBindComposition::test_bind_passes_through_err PASSED [ 43%]
+tests/core/test_result.py::TestResultBindComposition::test_bind_with_multiple_chains PASSED [ 45%]
+tests/core/test_result.py::TestResultMap::test_map_transforms_ok_value PASSED [ 48%]
+tests/core/test_result.py::TestResultMap::test_map_passes_through_err PASSED [ 51%]
+tests/core/test_result.py::TestResultMap::test_map_passes_through_pass PASSED [ 54%]
+tests/core/test_result.py::TestResultFold::test_fold_with_ok_result PASSED [ 56%]
+tests/core/test_result.py::TestResultFold::test_fold_with_err_result PASSED [ 59%]
+tests/core/test_result.py::TestResultFold::test_fold_with_pass_result PASSED [ 62%]
+tests/core/test_result.py::TestResultJSONSerialization::test_ok_serializes_to_json PASSED [ 64%]
+tests/core/test_result.py::TestResultJSONSerialization::test_err_serializes_to_json_with_all_fields PASSED [ 67%]
+tests/core/test_result.py::TestResultJSONSerialization::test_pass_serializes_to_json PASSED [ 70%]
+tests/core/test_result.py::TestResultJSONSerialization::test_ok_from_json PASSED [ 72%]
+tests/core/test_result.py::TestResultJSONSerialization::test_err_from_json PASSED [ 75%]
+tests/core/test_result.py::TestResultJSONSerialization::test_pass_from_json PASSED [ 78%]
+tests/core/test_result.py::TestResultThreadSafety::test_multiple_threads_create_results_independently PASSED [ 81%]
+tests/core/test_result.py::TestResultThreadSafety::test_result_bind_is_thread_safe PASSED [ 83%]
+tests/core/test_result.py::TestResultTypeChecking::test_isinstance_checks_ok PASSED [ 86%]
+tests/core/test_result.py::TestResultTypeChecking::test_isinstance_checks_err PASSED [ 89%]
+tests/core/test_result.py::TestResultTypeChecking::test_isinstance_checks_pass PASSED [ 91%]
+tests/core/test_result.py::TestResultTypeChecking::test_ok_not_instance_of_err_or_pass PASSED [ 94%]
+tests/core/test_result.py::TestResultTypeChecking::test_err_not_instance_of_ok_or_pass PASSED [ 97%]
+tests/core/test_result.py::TestResultTypeChecking::test_pass_not_instance_of_ok_or_err PASSED [100%]<unknown>:13: DeprecationWarning: invalid escape sequence '\`'
+/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/agents/bolt_merlin/librarian/__init__.py:13: DeprecationWarning: invalid escape sequence '\`'
+  LIBRARIAN_PROMPT = """# THE LIBRARIAN
+
+
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.11.14-final-0 _______________
+
+Name                                                               Stmts   Miss  Cover   Missing
+------------------------------------------------------------------------------------------------
+dawn_kestrel/__init__.py                                              35     14    60%   25-26, 33-34, 40-41, 60-64, 69-73
+dawn_kestrel/agents/__init__.py                                      155    114    26%   32-33, 40-43, 47-67, 71-76, 82-86, 92-98, 105-120, 124, 128-142, 146, 150, 154-156, 161, 168-171, 191-223, 233-266, 283-293, 305-324, 335-342
+dawn_kestrel/agents/bolt_merlin/__init__.py                           13     13     0%   23-39
+dawn_kestrel/agents/bolt_merlin/autonomous_worker/__init__.py          6      6     0%   7-65
+dawn_kestrel/agents/bolt_merlin/consultant/__init__.py                 6      6     0%   7-160
+dawn_kestrel/agents/bolt_merlin/explore/__init__.py                    7      7     0%   8-119
+dawn_kestrel/agents/bolt_merlin/frontend_ui_engineer/__init__.py       7      7     0%   8-109
+dawn_kestrel/agents/bolt_merlin/librarian/__init__.py                  7      7     0%   8-332
+dawn_kestrel/agents/bolt_merlin/master_orchestrator/__init__.py        6      6     0%   8-340
+dawn_kestrel/agents/bolt_merlin/multimodal_looker/__init__.py          7      7     0%   7-70
+dawn_kestrel/agents/bolt_merlin/orchestrator/__init__.py               7      7     0%   8-653
+dawn_kestrel/agents/bolt_merlin/plan_validator/__init__.py             7      7     0%   9-212
+dawn_kestrel/agents/bolt_merlin/planner/__init__.py                    6      6     0%   8-262
+dawn_kestrel/agents/bolt_merlin/pre_planning/__init__.py               6      6     0%   8-259
+dawn_kestrel/agents/builtin.py                                        33      7    79%   110, 120-125
+dawn_kestrel/agents/memory_embedder.py                                95     95     0%   2-249
+dawn_kestrel/agents/memory_manager.py                                 50     50     0%   2-137
+dawn_kestrel/agents/memory_summarizer.py                             130    130     0%   2-395
+dawn_kestrel/agents/orchestrator.py                                  142    142     0%   7-483
+dawn_kestrel/agents/registry.py                                      116    116     0%   8-317
+dawn_kestrel/agents/review/__init__.py                                 5      5     0%   4-32
+dawn_kestrel/agents/review/agents/__init__.py                         12     12     0%   3-15
+dawn_kestrel/agents/review/agents/architecture.py                     19     19     0%   2-104
+dawn_kestrel/agents/review/agents/changelog.py                        19     19     0%   10-92
+dawn_kestrel/agents/review/agents/dependencies.py                     16     16     0%   2-86
+dawn_kestrel/agents/review/agents/diff_scoper.py                      17     17     0%   2-82
+dawn_kestrel/agents/review/agents/documentation.py                    17     17     0%   10-108
+dawn_kestrel/agents/review/agents/linting.py                          17     17     0%   2-96
+dawn_kestrel/agents/review/agents/performance.py                      17     17     0%   2-102
+dawn_kestrel/agents/review/agents/requirements.py                     18     18     0%   2-77
+dawn_kestrel/agents/review/agents/security.py                         48     48     0%   3-179
+dawn_kestrel/agents/review/agents/telemetry.py                        17     17     0%   2-98
+dawn_kestrel/agents/review/agents/unit_tests.py                       17     17     0%   2-89
+dawn_kestrel/agents/review/base.py                                   155    155     0%   2-423
+dawn_kestrel/agents/review/cli.py                                    195    195     0%   3-456
+dawn_kestrel/agents/review/context_builder.py                         32     32     0%   7-127
+dawn_kestrel/agents/review/contracts.py                              100    100     0%   2-193
+dawn_kestrel/agents/review/discovery.py                              268    268     0%   11-650
+dawn_kestrel/agents/review/doc_gen.py                                272    272     0%   6-847
+dawn_kestrel/agents/review/neighbors.py                               77     77     0%   3-130
+dawn_kestrel/agents/review/orchestrator.py                            95     95     0%   2-261
+dawn_kestrel/agents/review/pattern_learning.py                       205    205     0%   6-482
+dawn_kestrel/agents/review/pr_facts.py                                86     86     0%   8-215
+dawn_kestrel/agents/review/redaction.py                               27     27     0%   3-102
+dawn_kestrel/agents/review/registry.py                                66     66     0%   21-181
+dawn_kestrel/agents/review/streaming.py                              111    111     0%   2-238
+dawn_kestrel/agents/review/utils/__init__.py                           0      0   100%
+dawn_kestrel/agents/review/utils/config.py                           214    214     0%   6-404
+dawn_kestrel/agents/review/utils/executor.py                         174    174     0%   2-297
+dawn_kestrel/agents/review/utils/git.py                               63     63     0%   3-185
+dawn_kestrel/agents/review/verifier.py                                88     88     0%   2-237
+dawn_kestrel/agents/runtime.py                                       106    106     0%   4-309
+dawn_kestrel/agents/tool_execution_tracker.py                         91     74    19%   35-37, 63-88, 106-153, 171-194, 208-219, 227-237, 249
+dawn_kestrel/ai/tool_execution.py                                    113     97    14%   31-35, 47-183, 186, 203-320, 329-338, 342-344, 354
+dawn_kestrel/ai_session.py                                           152    128    16%   39-64, 67-74, 78-80, 86-173, 178-221, 235-291, 295-297, 301-315, 319-334
+dawn_kestrel/benchmarks/__init__.py                                   79     79     0%   13-240
+dawn_kestrel/benchmarks/agent_execution.py                            30     30     0%   10-96
+dawn_kestrel/benchmarks/context_build.py                              40     40     0%   10-148
+dawn_kestrel/benchmarks/memory_search.py                              40     40     0%   10-139
+dawn_kestrel/cli/__init__.py                                           2      2     0%   3-5
+dawn_kestrel/cli/ai_commands.py                                      164    164     0%   8-282
+dawn_kestrel/cli/handlers.py                                          76     76     0%   7-232
+dawn_kestrel/cli/main.py                                             150    150     0%   3-283
+dawn_kestrel/compaction.py                                            89     89     0%   8-178
+dawn_kestrel/context/__init__.py                                       2      2     0%   2-4
+dawn_kestrel/context/builder.py                                       84     84     0%   8-329
+dawn_kestrel/context/pipeline.py                                     102    102     0%   2-279
+dawn_kestrel/core/__init__.py                                          4      0   100%
+dawn_kestrel/core/agent_task.py                                       53     53     0%   7-136
+dawn_kestrel/core/agent_types.py                                      55     55     0%   7-161
+dawn_kestrel/core/config.py                                           15     15     0%   7-58
+dawn_kestrel/core/di_container.py                                     47     47     0%   21-194
+dawn_kestrel/core/event_bus.py                                        77     27    65%   52-60, 69-88, 92-96
+dawn_kestrel/core/exceptions.py                                        7      0   100%
+dawn_kestrel/core/harness/__init__.py                                  2      2     0%   2-8
+dawn_kestrel/core/harness/runner.py                                  135    135     0%   11-538
+dawn_kestrel/core/http_client.py                                     106     87    18%   26-29, 43-47, 57, 72, 88, 105-179, 193-234, 241-245, 249-263, 270, 278
+dawn_kestrel/core/models.py                                          172      1    99%   261
+dawn_kestrel/core/plugin_discovery.py                                 56     45    20%   37-83, 97, 111, 125, 144-150, 165-174
+dawn_kestrel/core/provider_config.py                                  34      6    82%   56-57, 66, 88, 109, 147
+dawn_kestrel/core/provider_settings.py                                46      7    85%   73, 92, 118, 128, 137-139
+dawn_kestrel/core/result.py                                          131     30    77%   36, 41, 46, 55, 67, 72, 118-120, 159, 162-164, 167, 213-215, 218-220, 227, 266-268, 271-273, 276, 298, 362
+dawn_kestrel/core/services/session_service.py                        100     74    26%   141-173, 187-216, 230-251, 267-295, 303-304, 315-316, 328-347, 362-381
+dawn_kestrel/core/session.py                                         144    109    24%   31-33, 38, 48-73, 77, 85-102, 106-119, 123-124, 135-152, 156-164, 168-178, 182, 186, 190-210, 214-227, 231-246, 251-266, 271-310, 315, 320, 325, 330-339
+dawn_kestrel/core/session_lifecycle.py                               218    175    20%   34, 42, 51, 60, 68, 76, 84, 107-114, 127-128, 141-142, 155-156, 169-170, 183-184, 197-198, 211-212, 227-231, 246-250, 265-269, 284-288, 303-307, 322-326, 341-345, 353-355, 363-365, 374-391, 400-417, 426-444, 453-468, 477-489, 498-510, 519-531, 535-543, 553
+dawn_kestrel/core/settings.py                                        152     71    53%   155, 168, 186-206, 216-224, 228-240, 251-255, 269-282, 300-310, 319, 328, 337, 346, 359, 371-373, 389, 399, 412, 425, 438
+dawn_kestrel/interfaces/io.py                                         67      8    88%   218, 221, 224, 227, 234, 237, 240, 247
+dawn_kestrel/llm/__init__.py                                           2      2     0%   6-17
+dawn_kestrel/llm/client.py                                           183    183     0%   7-536
+dawn_kestrel/permissions/__init__.py                                   0      0   100%
+dawn_kestrel/permissions/evaluate.py                                  28     14    50%   18-28, 51-60, 88
+dawn_kestrel/provider/__init__.py                                    103    103     0%   2-184
+dawn_kestrel/provider/handler.py                                      40     40     0%   2-84
+dawn_kestrel/provider/stream_types.py                                 67     67     0%   2-133
+dawn_kestrel/providers/__init__.py                                   143    109    24%   47-57, 71-91, 104, 132-133, 136-168, 177-264, 267, 275-281, 286-287, 290-310, 319-326, 329, 336-338, 358-364, 377-378, 390-393
+dawn_kestrel/providers/base.py                                        88     10    89%   40-43, 53-54, 64-65, 95, 99
+dawn_kestrel/providers/openai.py                                      72     72     0%   7-200
+dawn_kestrel/providers/registry.py                                    95     95     0%   7-297
+dawn_kestrel/providers/zai.py                                         11      3    73%   26-27, 30
+dawn_kestrel/providers/zai_base.py                                    82     66    20%   38-40, 45, 49-148, 152-153, 162-167
+dawn_kestrel/providers/zai_coding_plan.py                             11      3    73%   26-27, 30
+dawn_kestrel/review.py                                                48     48     0%   2-157
+dawn_kestrel/sdk/__init__.py                                           8      8     0%   1-11
+dawn_kestrel/sdk/client.py                                           174    174     0%   7-713
+dawn_kestrel/session/__init__.py                                       5      5     0%   2-8
+dawn_kestrel/session/compaction.py                                    96     96     0%   2-204
+dawn_kestrel/session/export_import.py                                 77     77     0%   2-177
+dawn_kestrel/session/fork_revert.py                                  116    116     0%   8-231
+dawn_kestrel/session/import_export.py                                 58     58     0%   7-120
+dawn_kestrel/session/processor.py                                    125    125     0%   2-293
+dawn_kestrel/session/revert.py                                        31     31     0%   2-96
+dawn_kestrel/snapshot.py                                             142    142     0%   8-219
+dawn_kestrel/snapshot/__init__.py                                      2      2     0%   3-5
+dawn_kestrel/snapshot/index.py                                        82     82     0%   2-226
+dawn_kestrel/storage/__init__.py                                       0      0   100%
+dawn_kestrel/storage/memory_storage.py                                25     25     0%   2-43
+dawn_kestrel/storage/store.py                                        118     86    27%   18-19, 23, 27, 31-38, 42-46, 50-53, 57-62, 66-74, 82-87, 91-99, 103-104, 108-110, 114-115, 123-126, 130-131, 135-143, 151-154, 158-159, 163-164, 168-174
+dawn_kestrel/tools/__init__.py                                        28     18    36%   38-52, 61-72, 81-96
+dawn_kestrel/tools/additional.py                                     854    711    17%   42, 50-122, 138-166, 177-206, 214-217, 220-223, 240-344, 362-449, 461-494, 519, 531-578, 590-652, 664-667, 671-675, 691-788, 803-805, 809-872, 878-907, 917-935, 970-979, 1003-1110, 1187, 1203-1204, 1216-1326, 1340-1353, 1358-1372, 1376, 1380, 1402-1450, 1468-1528, 1543-1544, 1559-1608, 1620-1706, 1714-1715, 1734-1797, 1827-1965, 1993-2000, 2023-2030, 2061-2139
+dawn_kestrel/tools/builtin.py                                        170    109    36%   34, 47-82, 113-161, 192-216, 247-283, 313-348, 379-435
+dawn_kestrel/tools/framework.py                                       60     23    62%   17-18, 22-25, 29, 33, 37, 64, 73, 81, 101, 124-155
+dawn_kestrel/tools/permission_filter.py                               77     77     0%   2-187
+dawn_kestrel/tools/prompts/__init__.py                                10      1    90%   11
+dawn_kestrel/tools/registry.py                                        47     47     0%   7-99
+dawn_kestrel/tui/__init__.py                                           2      0   100%
+dawn_kestrel/tui/app.py                                              134     88    34%   56-68, 107-145, 149-153, 157-162, 170-172, 177, 181-186, 190-195, 199-211, 215-217, 221-230, 234-263, 267, 271-272, 276-278
+dawn_kestrel/tui/dialogs/__init__.py                                 153    153     0%   3-394
+dawn_kestrel/tui/dialogs/command_palette_dialog.py                    66     66     0%   3-180
+dawn_kestrel/tui/dialogs/model_select_dialog.py                       69     69     0%   3-165
+dawn_kestrel/tui/dialogs/theme_select_dialog.py                       58     58     0%   3-135
+dawn_kestrel/tui/handlers.py                                          38     20    47%   34, 49, 61, 73-75, 87-89, 105, 113-123, 143-144, 153-154, 167, 175-176
+dawn_kestrel/tui/keybindings.py                                        4      4     0%   7-25
+dawn_kestrel/tui/message_view.py                                     114     93    18%   53-55, 58-135, 205-207, 210-240, 244-258, 262
+dawn_kestrel/tui/screens/__init__.py                                   2      0   100%
+dawn_kestrel/tui/screens/context_browser.py                          228    228     0%   12-508
+dawn_kestrel/tui/screens/diff_viewer.py                              225    225     0%   14-457
+dawn_kestrel/tui/screens/message_screen.py                           275    221    20%   151-158, 162-174, 178-181, 185-210, 214-217, 221-226, 230-232, 236-274, 278-367, 371-402, 406-410, 414-455, 459-507, 511-546, 550, 554, 558, 562, 566, 570, 574, 578, 582, 586, 590-621, 625-649, 653
+dawn_kestrel/tui/screens/session_list_screen.py                       58     58     0%   9-112
+dawn_kestrel/tui/widgets/__init__.py                                   3      0   100%
+dawn_kestrel/tui/widgets/footer.py                                    62     37    40%   68-78, 82-105, 109-110, 114-115, 119-120, 124-125, 131, 136, 141, 146
+dawn_kestrel/tui/widgets/header.py                                    46     25    46%   64-72, 76-93, 97-98, 104-105, 109-110, 116, 121, 126
+dawn_kestrel/utils/__init__.py                                         0      0   100%
+dawn_kestrel/utils/json_parser.py                                     18     18     0%   2-65
+------------------------------------------------------------------------------------------------
+TOTAL                                                              11082   9621    13%
+============================== 37 passed in 0.42s ==============================
