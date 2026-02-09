@@ -58,6 +58,47 @@ dev = [
 [project.scripts]
 dawn-kestrel = "dawn_kestrel.cli.main:cli"
 
+[project.entry-points."dawn_kestrel.tools"]
+bash = "dawn_kestrel.tools.builtin:BashTool"
+read = "dawn_kestrel.tools.builtin:ReadTool"
+write = "dawn_kestrel.tools.builtin:WriteTool"
+grep = "dawn_kestrel.tools.builtin:GrepTool"
+glob = "dawn_kestrel.tools.builtin:GlobTool"
+ast_grep_search = "dawn_kestrel.tools.builtin:ASTGrepTool"
+edit = "dawn_kestrel.tools.additional:EditTool"
+list = "dawn_kestrel.tools.additional:ListTool"
+task = "dawn_kestrel.tools.additional:TaskTool"
+question = "dawn_kestrel.tools.additional:QuestionTool"
+todoread = "dawn_kestrel.tools.additional:TodoTool"
+todowrite = "dawn_kestrel.tools.additional:TodowriteTool"
+webfetch = "dawn_kestrel.tools.additional:WebFetchTool"
+websearch = "dawn_kestrel.tools.additional:WebSearchTool"
+multiedit = "dawn_kestrel.tools.additional:MultiEditTool"
+codesearch = "dawn_kestrel.tools.additional:CodeSearchTool"
+lsp = "dawn_kestrel.tools.additional:LspTool"
+skill = "dawn_kestrel.tools.additional:SkillTool"
+externaldirectory = "dawn_kestrel.tools.additional:ExternalDirectoryTool"
+compact = "dawn_kestrel.tools.additional:CompactionTool"
+
+[project.entry-points."dawn_kestrel.providers"]
+anthropic = "dawn_kestrel.providers:AnthropicProvider"
+openai = "dawn_kestrel.providers:OpenAIProvider"
+zai = "dawn_kestrel.providers:ZAIProvider"
+zai_coding_plan = "dawn_kestrel.providers:ZAICodingPlanProvider"
+
+[project.entry-points."dawn_kestrel.agents"]
+orchestrator = "dawn_kestrel.agents.bolt_merlin:orchestrator"
+consultant = "dawn_kestrel.agents.bolt_merlin:consultant"
+librarian = "dawn_kestrel.agents.bolt_merlin:librarian"
+explore = "dawn_kestrel.agents.bolt_merlin:explore"
+multimodal_looker = "dawn_kestrel.agents.bolt_merlin:multimodal_looker"
+frontend_ui_ux = "dawn_kestrel.agents.bolt_merlin:frontend_ui_ux"
+autonomous_worker = "dawn_kestrel.agents.bolt_merlin:autonomous_worker"
+pre_planning = "dawn_kestrel.agents.bolt_merlin:pre_planning"
+plan_validator = "dawn_kestrel.agents.bolt_merlin:plan_validator"
+planner = "dawn_kestrel.agents.bolt_merlin:planner"
+master_orchestrator = "dawn_kestrel.agents.bolt_merlin:master_orchestrator"
+
 [dependency-groups]
 dev = [
     "pytest",
