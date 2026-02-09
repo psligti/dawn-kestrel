@@ -38,7 +38,11 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
 
     try:
         eps = entry_points()
-        plugin_entries = list(eps.select(group=group))
+
+        if hasattr(eps, "select"):
+            plugin_entries = list(eps.select(group=group))
+        else:
+            plugin_entries = list(eps.get(group, []))
 
         for ep in plugin_entries:
             try:
@@ -87,6 +91,8 @@ def load_tools() -> Dict[str, Any]:
     """
     Load tool plugins from dawn_kestrel.tools entry points.
 
+    Falls back to direct imports if entry points are not available.
+
     Returns:
         Dictionary mapping tool names to tool instances
 
@@ -94,12 +100,73 @@ def load_tools() -> Dict[str, Any]:
         >>> tools = load_tools()
         >>> bash_tool = tools.get('bash')
     """
-    return _load_plugins("dawn_kestrel.tools", "tool")
+    tools = _load_plugins("dawn_kestrel.tools", "tool")
+
+    if not tools:
+        logger.info("No tools found via entry points, using fallback direct imports")
+        tools = _load_tools_fallback()
+
+    return tools
+
+
+def _load_tools_fallback() -> Dict[str, Any]:
+    from dawn_kestrel.tools.builtin import (
+        BashTool,
+        ReadTool,
+        WriteTool,
+        GrepTool,
+        GlobTool,
+        ASTGrepTool,
+    )
+    from dawn_kestrel.tools.additional import (
+        EditTool,
+        ListTool,
+        TaskTool,
+        QuestionTool,
+        TodoTool,
+        TodowriteTool,
+        WebFetchTool,
+        WebSearchTool,
+        MultiEditTool,
+        CodeSearchTool,
+        LspTool,
+        SkillTool,
+        ExternalDirectoryTool,
+        CompactionTool,
+    )
+
+    tools = {
+        "bash": BashTool(),
+        "read": ReadTool(),
+        "write": WriteTool(),
+        "grep": GrepTool(),
+        "glob": GlobTool(),
+        "ast_grep_search": ASTGrepTool(),
+        "edit": EditTool(),
+        "list": ListTool(),
+        "task": TaskTool(),
+        "question": QuestionTool(),
+        "todoread": TodoTool(),
+        "todowrite": TodowriteTool(),
+        "webfetch": WebFetchTool(),
+        "websearch": WebSearchTool(),
+        "multiedit": MultiEditTool(),
+        "codesearch": CodeSearchTool(),
+        "lsp": LspTool(),
+        "skill": SkillTool(),
+        "externaldirectory": ExternalDirectoryTool(),
+        "compact": CompactionTool(),
+    }
+
+    logger.info(f"Loaded {len(tools)} tools via fallback")
+    return tools
 
 
 def load_providers() -> Dict[str, Any]:
     """
     Load provider plugins from dawn_kestrel.providers entry points.
+
+    Falls back to direct imports if entry points are not available.
 
     Returns:
         Dictionary mapping provider names to provider factories/classes
@@ -108,12 +175,36 @@ def load_providers() -> Dict[str, Any]:
         >>> providers = load_providers()
         >>> anthropic_provider = providers.get('anthropic')
     """
-    return _load_plugins("dawn_kestrel.providers", "provider")
+    providers = _load_plugins("dawn_kestrel.providers", "provider")
+
+    if not providers:
+        logger.info("No providers found via entry points, using fallback direct imports")
+        providers = _load_providers_fallback()
+
+    return providers
+
+
+def _load_providers_fallback() -> Dict[str, Any]:
+    from dawn_kestrel.providers import (
+        AnthropicProvider,
+        OpenAIProvider,
+        ZAIProvider,
+        ZAICodingPlanProvider,
+    )
+
+    return {
+        "anthropic": AnthropicProvider,
+        "openai": OpenAIProvider,
+        "zai": ZAIProvider,
+        "zai_coding_plan": ZAICodingPlanProvider,
+    }
 
 
 def load_agents() -> Dict[str, Any]:
     """
     Load agent plugins from dawn_kestrel.agents entry points.
+
+    Falls back to direct imports if entry points are not available.
 
     Returns:
         Dictionary mapping agent names to agent instances or factories
@@ -122,7 +213,47 @@ def load_agents() -> Dict[str, Any]:
         >>> agents = load_agents()
         >>> orchestrator = agents.get('orchestrator')
     """
-    return _load_plugins("dawn_kestrel.agents", "agent")
+    agents = _load_plugins("dawn_kestrel.agents", "agent")
+
+    if not agents:
+        logger.info("No agents found via entry points, using fallback direct imports")
+        agents = _load_agents_fallback()
+
+    return agents
+
+
+def _load_agents_fallback() -> Dict[str, Any]:
+    from dawn_kestrel.agents.builtin import (
+        BUILD_AGENT,
+        PLAN_AGENT,
+        GENERAL_AGENT,
+    )
+    from dawn_kestrel.agents.bolt_merlin.orchestrator import create_orchestrator_agent
+    from dawn_kestrel.agents.bolt_merlin.master_orchestrator import create_master_orchestrator_agent
+    from dawn_kestrel.agents.bolt_merlin.consultant import create_consultant_agent
+    from dawn_kestrel.agents.bolt_merlin.librarian import create_librarian_agent
+    from dawn_kestrel.agents.bolt_merlin.explore import create_explore_agent
+    from dawn_kestrel.agents.bolt_merlin.multimodal_looker import create_multimodal_looker_agent
+    from dawn_kestrel.agents.bolt_merlin.autonomous_worker import create_autonomous_worker_agent
+    from dawn_kestrel.agents.bolt_merlin.pre_planning import create_pre_planning_agent
+    from dawn_kestrel.agents.bolt_merlin.plan_validator import create_plan_validator_agent
+    from dawn_kestrel.agents.bolt_merlin.planner import create_planner_agent
+
+    return {
+        "build": BUILD_AGENT,
+        "plan": PLAN_AGENT,
+        "general": GENERAL_AGENT,
+        "orchestrator": create_orchestrator_agent,
+        "master_orchestrator": create_master_orchestrator_agent,
+        "consultant": create_consultant_agent,
+        "librarian": create_librarian_agent,
+        "explore": create_explore_agent,
+        "multimodal_looker": create_multimodal_looker_agent,
+        "autonomous_worker": create_autonomous_worker_agent,
+        "pre_planning": create_pre_planning_agent,
+        "plan_validator": create_plan_validator_agent,
+        "planner": create_planner_agent,
+    }
 
 
 def get_plugin_version(entry_point: EntryPoint) -> Optional[str]:
@@ -180,4 +311,7 @@ __all__ = [
     "load_agents",
     "get_plugin_version",
     "validate_plugin",
+    "_load_tools_fallback",
+    "_load_providers_fallback",
+    "_load_agents_fallback",
 ]

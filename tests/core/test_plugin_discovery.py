@@ -42,22 +42,21 @@ class TestLoadTools:
         mock_eps.select.assert_called_once_with(group="dawn_kestrel.tools")
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_tools_with_no_entry_points(self, mock_entry_points):
-        """Test that empty dict is returned when no tools found."""
-        # Setup mock with no entry points
+    @patch("dawn_kestrel.core.plugin_discovery._load_tools_fallback")
+    def test_load_tools_with_no_entry_points(self, mock_fallback, mock_entry_points):
+        """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
         mock_entry_points.return_value = mock_eps
+        mock_fallback.return_value = {}
 
-        # Import after mocking
         from dawn_kestrel.core.plugin_discovery import load_tools
 
-        # Test
         tools = load_tools()
 
-        # Assert
         assert isinstance(tools, dict)
         assert len(tools) == 0
+        mock_fallback.assert_called_once()
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
     def test_load_tools_handles_loading_errors(self, mock_entry_points):
@@ -110,22 +109,21 @@ class TestLoadProviders:
         mock_eps.select.assert_called_once_with(group="dawn_kestrel.providers")
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_providers_with_no_entry_points(self, mock_entry_points):
-        """Test that empty dict is returned when no providers found."""
-        # Setup mock with no entry points
+    @patch("dawn_kestrel.core.plugin_discovery._load_providers_fallback")
+    def test_load_providers_with_no_entry_points(self, mock_fallback, mock_entry_points):
+        """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
         mock_entry_points.return_value = mock_eps
+        mock_fallback.return_value = {}
 
-        # Import after mocking
         from dawn_kestrel.core.plugin_discovery import load_providers
 
-        # Test
         providers = load_providers()
 
-        # Assert
         assert isinstance(providers, dict)
         assert len(providers) == 0
+        mock_fallback.assert_called_once()
 
 
 class TestLoadAgents:
@@ -156,22 +154,21 @@ class TestLoadAgents:
         mock_eps.select.assert_called_once_with(group="dawn_kestrel.agents")
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_agents_with_no_entry_points(self, mock_entry_points):
-        """Test that empty dict is returned when no agents found."""
-        # Setup mock with no entry points
+    @patch("dawn_kestrel.core.plugin_discovery._load_agents_fallback")
+    def test_load_agents_with_no_entry_points(self, mock_fallback, mock_entry_points):
+        """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
         mock_entry_points.return_value = mock_eps
+        mock_fallback.return_value = {}
 
-        # Import after mocking
         from dawn_kestrel.core.plugin_discovery import load_agents
 
-        # Test
         agents = load_agents()
 
-        # Assert
         assert isinstance(agents, dict)
         assert len(agents) == 0
+        mock_fallback.assert_called_once()
 
 
 class TestPluginValidation:
