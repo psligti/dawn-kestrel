@@ -1411,3 +1411,93 @@ Invalid transitions (examples):
 - Add more rendering strategies (HTMLRendering, JSONRendering)
 - Future: Thread-safe StrategySelector (currently simple dict)
 - Future: Strategy persistence (save/load strategy configuration)
+
+## Metrics Decorator/Proxy Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 22 tests written covering all metrics functionality
+  - 3 protocol compliance tests
+  - 8 InMemoryMetricsStore tests (timing storage, counter increment, aggregation)
+  - 5 metrics_decorator tests (timing measurement, custom names, tags, exceptions, metadata)
+  - 5 MetricsProxy tests (wrapping, call counting, return values)
+  - 2 integration tests (collector/store, decorator/collector)
+- **GREEN Phase**: All 22 tests passing with 100% coverage for metrics.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Metrics Pattern Design
+- **MetricsCollector Protocol**: Interface for metrics collection
+  - `record_timing(name, duration_ms, tags) -> None`: Record execution duration
+  - `increment_counter(name, value, tags) -> None`: Increment counter metric
+  - `get_metric(name, tags) -> dict`: Get aggregated statistics
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on MetricsCollector
+
+- **InMemoryMetricsStore**: In-memory storage for timing and counter metrics
+  - Timing metrics: list of (name, duration_ms, tags, timestamp) tuples
+  - Counter metrics: defaultdict[tuple[str, str], int] for incremental values
+  - _tags_key() converts tags dict to string key for counter grouping
+  - get_metric() returns different stats based on data type:
+    - With timings: count=number_of_timings, sum/min/max/avg from durations
+    - With only counters: count=counter_value, other stats = 0
+
+- **metrics_decorator**: Decorator to measure function execution time
+  - Uses time.perf_counter() for precise timing
+  - Records timing in finally block (captures even on exceptions)
+  - Custom metric_name parameter overrides function name
+  - Tags parameter for grouping/filtering metrics
+  - @wraps preserves function metadata (__name__, __doc__)
+
+- **MethodMetricsProxy**: Proxy that counts method calls
+  - Records counter with "_calls" suffix (e.g., "function_name_calls")
+  - Includes method name in tags for filtering
+  - Wraps async functions for consistent API
+  - create_metrics_proxy() factory function simplifies creation
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 22 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on MetricsCollector
+   - Future: Database-backed metrics store, distributed metrics collection
+   - Type hints ensure all implementations match protocol
+
+3. **get_metric() dual behavior** - Handles both timing and counter metrics
+   - When timings exist: returns timing stats (count=sum, min/max/avg from durations)
+   - When only counters: returns counter value in count field
+   - Design allows unified API for different metric types
+   - Key insight: count field overloaded for both timing_count and counter_value
+
+4. **@wraps preserves metadata** - Function wrapping keeps __name__ and __doc__
+   - Used functools.wraps decorator on wrapper function
+   - Preserves __name__ for debugging/metrics naming
+   - Preserves __doc__ for documentation
+   - Important for decorators that are applied to user-facing functions
+
+5. **Tags for metric filtering** - Tags enable flexible grouping
+   - Tags are dict[str, str] for key-value pairs
+   - _tags_key() sorts items for consistent keys
+   - Same metric name with different tags = separate metrics
+   - Enables filtering by module, operation, user, etc.
+
+6. **Test coverage matters** - 100% coverage for metrics.py
+   - All public methods tested (record_timing, increment_counter, get_metric)
+   - Decorator tested with timing, custom names, tags, exceptions, metadata
+   - Proxy tested with wrapping, call counting, custom names, return values
+   - Integration tests verify end-to-end functionality
+
+7. **In-memory design trade-off** - Simple but not production-ready
+   - No persistence (metrics lost on restart)
+   - Not thread-safe (documented limitation)
+   - No aggregation beyond basic stats
+   - Suitable for single-process use and testing
+   - Future: Add persistence, thread safety, more aggregation
+
+### Next Steps
+- Consider adding metrics export functionality (JSON, Prometheus format)
+- Consider adding metrics reset/clear functionality
+- Future: Add thread-safe MetricsStore implementation
+- Future: Add database-backed MetricsStore with persistence
+- Future: Add percentiles (p50, p90, p99) to get_metric()
