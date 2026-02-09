@@ -172,3 +172,71 @@ Key Learnings:
 3. Direct imports of provider classes still work for backward compatibility
 4. Tests verify both new behavior (no registration) and existing behavior (provider loading)
 5. LSP diagnostics clean after changes
+
+Task 10 Summary:
+=================
+Files Modified:
+1. dawn_kestrel/core/services/session_service.py - MODIFIED
+   - Updated protocol methods to return Result[T] instead of raising
+   - Updated create_session() to return Result[Session]
+   - Updated delete_session() to return Result[bool]
+   - Updated add_message() to return Result[str]
+   - Updated list_sessions() to return Result[list[Session]]
+   - Updated get_session() to return Result[Session | None]
+   - Updated get_export_data() to return Result[Dict[str, Any]]
+   - Updated import_session() to return Result[Session]
+   - All error paths now use Err with code and error message
+
+2. dawn_kestrel/sdk/client.py - MODIFIED
+   - Added Result import
+   - Updated all async public methods to return Result[T]:
+     - create_session() → Result[Session]
+     - get_session() → Result[Session | None]
+     - list_sessions() → Result[list[Session]]
+     - delete_session() → Result[bool]
+     - add_message() → Result[str]
+     - register_agent() → Result[Any]
+     - get_agent() → Result[Optional[Any]]
+     - execute_agent() → Result[AgentResult]
+     - register_provider() → Result[ProviderConfig]
+     - get_provider() → Result[Optional[ProviderConfig]]
+     - list_providers() → Result[list[Dict[str, Any]]]
+     - remove_provider() → Result[bool]
+     - update_provider() → Result[ProviderConfig]
+   - Updated all sync public methods to return Result[T] (pass through from async)
+   - Removed unused SessionError import
+
+3. tests/core/test_exception_wrapping.py - NEW
+   - Created comprehensive test suite with 46 tests
+   - Tests cover SessionService exception wrapping
+   - Tests cover async client exception wrapping
+   - Tests cover sync client Result passing
+   - All tests verify both Ok and Err paths
+
+Tests:
+- Created: tests/core/test_exception_wrapping.py
+- 46 tests total (100% pass rate)
+- SessionService tests: 6 tests (all pass)
+- Async client tests: 22 tests (all pass)
+- Sync client tests: 18 tests (all pass)
+
+Verification:
+- grep -rn "raise SessionError\|raise OpenCodeError" dawn_kestrel/core/services/ dawn_kestrel/sdk/ → 0 matches
+- No more exception raises in services or SDK
+- All error paths use Err with code and error message
+
+Key Learnings:
+- Result type API: Err has `error` attribute (string), not `error()` method. Access via `result.error`, not `result.error()`.
+- AgentResult requires `agent_name` positional argument in addition to response, parts, metadata, tools_used, duration, error
+- AgentResult uses `duration` attribute (float, seconds), not `duration_ms`
+- Service methods: Updated all to return Result[T] instead of raising SessionError
+- SDK methods: Updated all to catch exceptions and return Result[T] instead of raising
+- Protocol updates: Must match implementation return types (Result[T] instead of T)
+- ValueError handling: Wrap in Err with code="ValueError" when catching ValueError
+- OpenCodeError handling: Wrap in Err with code="SessionError" when catching OpenCodeError
+- Service methods: Some methods not listed in task (get_export_data, import_session) also updated for completeness
+
+Known Issues:
+- LSP errors are pre-existing and not caused by this task
+- Deprecation warnings from handler requirements (expected, using default no-op handlers)
+

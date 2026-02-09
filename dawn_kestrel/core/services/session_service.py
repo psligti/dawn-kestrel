@@ -48,35 +48,30 @@ class SessionService(Protocol):
     use injected handlers for I/O, progress, and notifications.
     """
 
-    async def create_session(self, title: str) -> Session:
+    async def create_session(self, title: str) -> Result[Session]:
         """Create a new session.
 
         Args:
             title: The session title.
 
         Returns:
-            The created Session object.
-
-        Raises:
-            SessionError: If session creation fails.
+            Result with Session object on success, or Err on failure.
         """
         ...
 
-    async def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str) -> Result[bool]:
         """Delete a session by ID.
 
         Args:
             session_id: The session ID to delete.
 
         Returns:
-            True if deleted, False if not found.
-
-        Raises:
-            SessionError: If deletion fails.
+            Result with bool (True if deleted, False if not found) on success,
+            or Err on failure.
         """
         ...
 
-    async def add_message(self, session_id: str, role: str, text: str) -> str:
+    async def add_message(self, session_id: str, role: str, text: str) -> Result[str]:
         """Add a message to a session.
 
         Args:
@@ -85,29 +80,27 @@ class SessionService(Protocol):
             text: The message text.
 
         Returns:
-            The created message ID.
-
-        Raises:
-            SessionError: If adding message fails.
+            Result with message ID on success, or Err on failure.
         """
         ...
 
-    async def list_sessions(self) -> list[Session]:
+    async def list_sessions(self) -> Result[list[Session]]:
         """List all sessions.
 
         Returns:
-            List of Session objects.
+            Result with list of Session objects on success, or Err on failure.
         """
         ...
 
-    async def get_session(self, session_id: str) -> Session | None:
+    async def get_session(self, session_id: str) -> Result[Session | None]:
         """Get a session by ID.
 
         Args:
             session_id: The session ID.
 
         Returns:
-            Session object or None if not found.
+            Result with Session object or None if not found on success,
+            or Err on failure.
         """
         ...
 
@@ -216,17 +209,14 @@ class DefaultSessionService:
             # Note: This will be deprecated in future versions
             self._manager = None
 
-    async def create_session(self, title: str) -> Session:
+    async def create_session(self, title: str) -> Result[Session]:
         """Create a new session using injected handlers.
 
         Args:
             title: The session title.
 
         Returns:
-            The created Session object.
-
-        Raises:
-            SessionError: If session creation fails.
+            Result with Session object on success, or Err on failure.
         """
         try:
             if self._io_handler:
@@ -267,7 +257,7 @@ class DefaultSessionService:
 
             result = await self._session_repo.create(session)
             if result.is_err():
-                raise SessionError(f"Failed to create session: {result.error}")
+                return Err(f"Failed to create session: {result.error}", code="SessionError")
 
             session = result.unwrap()
 
@@ -283,10 +273,10 @@ class DefaultSessionService:
                     )
                 )
 
-            return session
+            return Ok(session)
 
         except Exception as e:
-            raise SessionError(f"Failed to create session: {e}") from e
+            return Err(f"Failed to create session: {e}", code="SessionError")
 
     async def create_session_result(self, title: str) -> Result[Session]:
         """Create a new session, returning Result.
@@ -357,17 +347,15 @@ class DefaultSessionService:
         except Exception as e:
             return Err(f"Failed to create session: {e}", code="SessionError")
 
-    async def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str) -> Result[bool]:
         """Delete a session using injected handlers.
 
         Args:
             session_id: The session ID to delete.
 
         Returns:
-            True if deleted, False if not found.
-
-        Raises:
-            SessionError: If deletion fails.
+            Result with bool (True if deleted, False if not found) on success,
+            or Err on failure.
         """
         try:
             if self._progress_handler:
@@ -376,7 +364,7 @@ class DefaultSessionService:
 
             result = await self._session_repo.delete(session_id)
             if result.is_err():
-                raise SessionError(f"Failed to delete session: {result.error}")
+                return Err(f"Failed to delete session: {result.error}", code="SessionError")
 
             deleted = result.unwrap()
 
@@ -393,10 +381,10 @@ class DefaultSessionService:
                         )
                     )
 
-            return deleted
+            return Ok(deleted)
 
         except Exception as e:
-            raise SessionError(f"Failed to delete session: {e}") from e
+            return Err(f"Failed to delete session: {e}", code="SessionError")
 
     async def delete_session_result(self, session_id: str) -> Result[bool]:
         """Delete a session by ID, returning Result.
@@ -437,7 +425,7 @@ class DefaultSessionService:
         except Exception as e:
             return Err(f"Failed to delete session: {e}", code="SessionError")
 
-    async def add_message(self, session_id: str, role: str, text: str) -> str:
+    async def add_message(self, session_id: str, role: str, text: str) -> Result[str]:
         """Add a message to a session using injected handlers.
 
         Args:
@@ -446,10 +434,7 @@ class DefaultSessionService:
             text: The message text.
 
         Returns:
-            The created message ID.
-
-        Raises:
-            SessionError: If adding message fails.
+            Result with message ID on success, or Err on failure.
         """
         try:
             if self._progress_handler:
@@ -475,7 +460,7 @@ class DefaultSessionService:
             # Use message repository
             result = await self._message_repo.create(message)
             if result.is_err():
-                raise SessionError(f"Failed to add message: {result.error}")
+                return Err(f"Failed to add message: {result.error}", code="SessionError")
 
             created_message = result.unwrap()
 
@@ -491,10 +476,10 @@ class DefaultSessionService:
                     )
                 )
 
-            return created_message.id
+            return Ok(created_message.id)
 
         except Exception as e:
-            raise SessionError(f"Failed to add message: {e}") from e
+            return Err(f"Failed to add message: {e}", code="SessionError")
 
     async def add_message_result(self, session_id: str, role: str, text: str) -> Result[str]:
         """Add a message to a session, returning Result.
@@ -552,51 +537,51 @@ class DefaultSessionService:
         except Exception as e:
             return Err(f"Failed to add message: {e}", code="SessionError")
 
-    async def list_sessions(self) -> list[Session]:
+    async def list_sessions(self) -> Result[list[Session]]:
         """List all sessions.
 
         Returns:
-            List of Session objects.
+            Result with list of Session objects on success, or Err on failure.
         """
         # Fall back to SessionManager if available (backward compatibility)
         if self._manager is not None:
             sessions = await self._manager.list_sessions()
+            return Ok(sessions)
         else:
             # Use repository
             result = await self._session_repo.list_by_project(self.project_dir.name)
             if result.is_err():
-                raise SessionError(f"Failed to list sessions: {result.error}")
-            sessions = result.unwrap()
-        return sessions
+                return Err(f"Failed to list sessions: {result.error}", code="SessionError")
+            return result
 
-    async def get_session(self, session_id: str) -> Session | None:
+    async def get_session(self, session_id: str) -> Result[Session | None]:
         """Get a session by ID.
 
         Args:
             session_id: The session ID.
 
         Returns:
-            Session object or None if not found.
+            Result with Session object or None if not found on success,
+            or Err on failure.
         """
         # Fall back to SessionManager if available (backward compatibility)
         if self._manager is not None:
             session = await self._manager.get_session(session_id)
+            return Ok(session)
         else:
             # Use repository
             result = await self._session_repo.get_by_id(session_id)
-            if result.is_err():
-                return None
-            session = result.unwrap()
-        return session
+            return result
 
-    async def get_export_data(self, session_id: str) -> Dict[str, Any]:
+    async def get_export_data(self, session_id: str) -> Result[Dict[str, Any]]:
         """Get session data for export.
 
         Args:
             session_id: The session ID.
 
         Returns:
-            Dictionary with session and messages data.
+            Result with dictionary containing session and messages data on success,
+            or Err on failure.
         """
         # Start progress
         self._progress_handler.start("Exporting session", 100)
@@ -605,18 +590,19 @@ class DefaultSessionService:
         # Fall back to SessionManager if available (backward compatibility)
         if self._manager is not None:
             export_data = await self._manager.get_export_data(session_id)
+            return Ok(export_data)
         else:
             # Use repositories
             # Get session
             session_result = await self._session_repo.get_by_id(session_id)
             if session_result.is_err():
-                raise SessionError(f"Session not found: {session_id}")
+                return Err(f"Session not found: {session_id}", code="SessionError")
             session = session_result.unwrap()
 
             # Get all messages
             messages_result = await self._message_repo.list_by_session(session_id, reverse=True)
             if messages_result.is_err():
-                raise SessionError(f"Failed to list messages: {messages_result.error}")
+                return Err(f"Failed to list messages: {messages_result.error}", code="SessionError")
             messages = messages_result.unwrap()
 
             # Build export data
@@ -624,6 +610,7 @@ class DefaultSessionService:
                 "session": session.model_dump(mode="json"),
                 "messages": [msg.model_dump(mode="json", exclude_none=True) for msg in messages],
             }
+            return Ok(export_data)
 
         # Complete progress
         self._progress_handler.update(100, "Export complete")
@@ -642,7 +629,7 @@ class DefaultSessionService:
 
     async def import_session(
         self, session_data: Dict[str, Any], project_id: str | None = None
-    ) -> Session:
+    ) -> Result[Session]:
         """Import session data.
 
         Args:
@@ -650,7 +637,7 @@ class DefaultSessionService:
             project_id: Optional project ID for multi-project repos.
 
         Returns:
-            The imported Session object.
+            Result with imported Session object on success, or Err on failure.
         """
         # Start progress
         self._progress_handler.start("Importing session", 100)
@@ -659,6 +646,7 @@ class DefaultSessionService:
         # Fall back to SessionManager if available (backward compatibility)
         if self._manager is not None:
             session = await self._manager.import_data(session_data, project_id)
+            return Ok(session)
         else:
             # Use repositories
             session_dict = session_data.get("session", {})
@@ -666,7 +654,7 @@ class DefaultSessionService:
 
             # Validate required fields
             if not session_dict.get("id") or not session_dict.get("title"):
-                raise ValueError("Session data missing required fields: id, title")
+                return Err("Session data missing required fields: id, title", code="ValueError")
 
             # Create or update session
             existing_result = await self._session_repo.get_by_id(session_dict["id"])
@@ -680,7 +668,7 @@ class DefaultSessionService:
                 session.time_updated = datetime.now().timestamp()
                 result = await self._session_repo.update(session)
                 if result.is_err():
-                    raise SessionError(f"Failed to update session: {result.error}")
+                    return Err(f"Failed to update session: {result.error}", code="SessionError")
                 session = result.unwrap()
             else:
                 # Create new session
@@ -706,7 +694,7 @@ class DefaultSessionService:
                 )
                 result = await self._session_repo.create(session)
                 if result.is_err():
-                    raise SessionError(f"Failed to create session: {result.error}")
+                    return Err(f"Failed to create session: {result.error}", code="SessionError")
                 session = result.unwrap()
 
             # Import messages
@@ -722,13 +710,4 @@ class DefaultSessionService:
         self._progress_handler.update(100, "Import complete")
         self._progress_handler.complete("Session imported successfully")
 
-        # Show notification
-        self._notification_handler.show(
-            Notification(
-                notification_type=NotificationType.SUCCESS,
-                message=f"Session {session.id} imported",
-                details={"title": session.title},
-            )
-        )
-
-        return session
+        return Ok(session)

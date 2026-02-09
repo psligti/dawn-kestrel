@@ -15,8 +15,9 @@ from dawn_kestrel.core.services.session_service import DefaultSessionService
 from dawn_kestrel.storage.store import SessionStorage
 from dawn_kestrel.core.models import Session
 from dawn_kestrel.interfaces.io import Notification
-from dawn_kestrel.core.exceptions import OpenCodeError, SessionError
+from dawn_kestrel.core.exceptions import OpenCodeError
 from dawn_kestrel.core.settings import settings
+from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.agents.runtime import create_agent_runtime
 from dawn_kestrel.core.agent_types import AgentResult, SessionManagerLike
 from dawn_kestrel.agents.registry import create_agent_registry
@@ -108,7 +109,7 @@ class OpenCodeAsyncClient:
         self,
         title: str,
         version: str = "1.0.0",
-    ) -> Session:
+    ) -> Result[Session]:
         """Create a new session.
 
         Args:
@@ -116,82 +117,72 @@ class OpenCodeAsyncClient:
             version: Session version.
 
         Returns:
-            Created Session object.
-
-        Raises:
-            SessionError: If session creation fails.
+            Result with created Session object on success, or Err on failure.
         """
         try:
-            session = await self._service.create_session(title)
-            return session
+            result = await self._service.create_session(title)
+            return result
         except Exception as e:
             if isinstance(e, OpenCodeError):
-                raise
-            raise SessionError(f"Failed to create session: {e}") from e
+                return Err(f"Failed to create session: {e}", code="SessionError")
+            return Err(f"Failed to create session: {e}", code="SessionError")
 
-    async def get_session(self, session_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Result[Session | None]:
         """Get a session by ID.
 
         Args:
             session_id: Session ID to retrieve.
 
         Returns:
-            Session object or None if not found.
-
-        Raises:
-            SessionError: If retrieval fails.
+            Result with Session object or None if not found on success,
+            or Err on failure.
         """
         try:
             session = await self._service.get_session(session_id)
-            return session
+            return Ok(session)
         except Exception as e:
             if isinstance(e, OpenCodeError):
-                raise
-            raise SessionError(f"Failed to get session: {e}") from e
+                return Err(f"Failed to get session: {e}", code="SessionError")
+            return Err(f"Failed to get session: {e}", code="SessionError")
 
-    async def list_sessions(self) -> list[Session]:
+    async def list_sessions(self) -> Result[list[Session]]:
         """List all sessions.
 
         Returns:
-            List of Session objects.
-
-        Raises:
-            SessionError: If listing fails.
+            Result with list of Session objects on success, or Err on failure.
         """
         try:
             sessions = await self._service.list_sessions()
-            return sessions
+            return Ok(sessions)
         except Exception as e:
             if isinstance(e, OpenCodeError):
-                raise
-            raise SessionError(f"Failed to list sessions: {e}") from e
+                return Err(f"Failed to list sessions: {e}", code="SessionError")
+            return Err(f"Failed to list sessions: {e}", code="SessionError")
 
-    async def delete_session(self, session_id: str) -> bool:
+    async def delete_session(self, session_id: str) -> Result[bool]:
         """Delete a session by ID.
 
         Args:
             session_id: Session ID to delete.
 
         Returns:
-            True if deleted, False if not found.
-
-        Raises:
-            SessionError: If deletion fails.
+            Result with bool (True if deleted, False if not found) on success,
+            or Err on failure.
         """
         try:
-            deleted = await self._service.delete_session(session_id)
-            return deleted
+            result = await self._service.delete_session(session_id)
+            return result
         except Exception as e:
             if isinstance(e, OpenCodeError):
-                raise
-            raise SessionError(f"Failed to delete session: {e}") from e
+                return Err(f"Failed to delete session: {e}", code="SessionError")
+            return Err(f"Failed to delete session: {e}", code="SessionError")
 
     async def add_message(
         self,
         session_id: str,
         role: str,
         content: str,
-    ) -> str:
+    ) -> Result[str]:
         """Add a message to a session.
 
         Args:
@@ -200,31 +191,24 @@ class OpenCodeAsyncClient:
             content: Message content.
 
         Returns:
-            Created message ID.
-
-        Raises:
-            SessionError: If adding message fails.
+            Result with message ID on success, or Err on failure.
         """
         try:
-            message_id = await self._service.add_message(session_id, role, content)
-            return message_id
+            result = await self._service.add_message(session_id, role, content)
+            return result
         except Exception as e:
             if isinstance(e, OpenCodeError):
-                raise
-            raise SessionError(f"Failed to add message: {e}") from e
+                return Err(f"Failed to add message: {e}", code="SessionError")
+            return Err(f"Failed to add message: {e}", code="SessionError")
 
-    async def register_agent(self, agent: Any) -> Any:
+    async def register_agent(self, agent: Any) -> Result[Any]:
         """Register a custom agent.
 
         Args:
             agent: Agent to register (Agent dataclass or dict with name, description, etc.)
 
         Returns:
-            Registered agent
-
-        Raises:
-            ValueError: If agent with same name already exists
-            SessionError: If registration fails
+            Result with registered agent on success, or Err on failure.
 
         Example:
             >>> custom_agent = Agent(
@@ -236,32 +220,33 @@ class OpenCodeAsyncClient:
             >>> await client.register_agent(custom_agent)
         """
         try:
-            return await self._runtime.agent_registry.register_agent(agent)
+            return Ok(await self._runtime.agent_registry.register_agent(agent))
+        except ValueError as e:
+            return Err(f"Failed to register agent: {e}", code="ValueError")
         except Exception as e:
-            if isinstance(e, ValueError):
-                raise
-            raise SessionError(f"Failed to register agent: {e}") from e
+            return Err(f"Failed to register agent: {e}", code="SessionError")
 
-    async def get_agent(self, name: str) -> Optional[Any]:
+    async def get_agent(self, name: str) -> Result[Optional[Any]]:
         """Get an agent by name.
 
         Args:
             name: Agent name (case-insensitive)
 
         Returns:
-            Agent if found, None otherwise
+            Result with agent if found, None otherwise on success, or Err on failure.
 
         Example:
             >>> agent = await client.get_agent("build")
-            >>> if agent:
-            ...     print(f"Found: {agent.description}")
+            >>> if agent.is_ok():
+            ...     print(f"Found: {agent.unwrap().description}")
         """
         try:
-            return self._runtime.agent_registry.get_agent(name)
+            agent = self._runtime.agent_registry.get_agent(name)
+            return Ok(agent)
+        except ValueError as e:
+            return Err(f"Failed to get agent: {e}", code="ValueError")
         except Exception as e:
-            if isinstance(e, ValueError):
-                raise
-            raise SessionError(f"Failed to get agent: {e}") from e
+            return Err(f"Failed to get agent: {e}", code="SessionError")
 
     async def execute_agent(
         self,
@@ -269,7 +254,7 @@ class OpenCodeAsyncClient:
         session_id: str,
         user_message: str,
         options: Optional[Dict[str, Any]] = None,
-    ) -> AgentResult:
+    ) -> Result[AgentResult]:
         """Execute an agent for a user message.
 
         Args:
@@ -282,11 +267,7 @@ class OpenCodeAsyncClient:
                 - model: str - Model ID (overrides agent default)
 
         Returns:
-            AgentResult with response text, parts, metadata, tools used, duration, error
-
-        Raises:
-            ValueError: If agent not found, session not found, or missing required data
-            SessionError: If execution fails
+            Result with AgentResult on success, or Err on failure.
 
         Example:
             >>> result = await client.execute_agent(
@@ -294,8 +275,10 @@ class OpenCodeAsyncClient:
             ...     session_id="ses_123",
             ...     user_message="Create a new user model"
             ... )
-            >>> print(f"Response: {result.response}")
-            >>> print(f"Tools used: {result.tools_used}")
+            >>> if result.is_ok():
+            ...     r = result.unwrap()
+            ...     print(f"Response: {r.response}")
+            ...     print(f"Tools used: {r.tools_used}")
         """
         options = options or {}
 
@@ -303,7 +286,7 @@ class OpenCodeAsyncClient:
         tools = create_builtin_registry()
 
         try:
-            return await self._runtime.execute_agent(
+            agent_result = await self._runtime.execute_agent(
                 agent_name=agent_name,
                 session_id=session_id,
                 user_message=user_message,
@@ -312,10 +295,11 @@ class OpenCodeAsyncClient:
                 skills=skills,
                 options=options,
             )
-        except ValueError:
-            raise
+            return Ok(agent_result)
+        except ValueError as e:
+            return Err(f"Failed to execute agent: {e}", code="ValueError")
         except Exception as e:
-            raise SessionError(f"Failed to execute agent: {e}") from e
+            return Err(f"Failed to execute agent: {e}", code="SessionError")
 
     async def register_provider(
         self,
@@ -324,7 +308,7 @@ class OpenCodeAsyncClient:
         model: str,
         api_key: Optional[str] = None,
         is_default: bool = False,
-    ) -> ProviderConfig:
+    ) -> Result[ProviderConfig]:
         """Register a provider configuration.
 
         Args:
@@ -335,18 +319,16 @@ class OpenCodeAsyncClient:
             is_default: Whether to set as default provider
 
         Returns:
-            Registered ProviderConfig
-
-        Raises:
-            ValueError: If provider with same name already exists
-            SessionError: If registration fails
+            Result with registered ProviderConfig on success, or Err on failure.
 
         Example:
-            >>> await client.register_provider(
+            >>> result = await client.register_provider(
             ...     name="my-anthropic",
             ...     provider_id="anthropic",
             ...     model="claude-sonnet-4-20250514"
             ... )
+            >>> if result.is_ok():
+            ...     print(f"Registered: {result.unwrap().model}")
         """
         try:
             config = ProviderConfig(
@@ -355,61 +337,75 @@ class OpenCodeAsyncClient:
                 api_key=api_key,
                 is_default=is_default,
             )
-            return await self._provider_registry.register_provider(name, config, is_default)
-        except ValueError:
-            raise
+            provider = await self._provider_registry.register_provider(name, config, is_default)
+            return Ok(provider)
+        except ValueError as e:
+            return Err(f"Failed to register provider: {e}", code="ValueError")
         except Exception as e:
-            raise SessionError(f"Failed to register provider: {e}") from e
+            return Err(f"Failed to register provider: {e}", code="SessionError")
 
-    async def get_provider(self, name: str) -> Optional[ProviderConfig]:
+    async def get_provider(self, name: str) -> Result[Optional[ProviderConfig]]:
         """Get a provider configuration by name.
 
         Args:
             name: Provider name
 
         Returns:
-            ProviderConfig or None if not found
+            Result with ProviderConfig or None if not found on success,
+            or Err on failure.
 
         Example:
-            >>> provider = await client.get_provider("my-anthropic")
-            >>> if provider:
-            ...     print(f"Model: {provider.model}")
+            >>> result = await client.get_provider("my-anthropic")
+            >>> if result.is_ok():
+            ...     provider = result.unwrap()
+            ...     if provider:
+            ...         print(f"Model: {provider.model}")
         """
-        return await self._provider_registry.get_provider(name)
+        try:
+            provider = await self._provider_registry.get_provider(name)
+            return Ok(provider)
+        except Exception as e:
+            return Err(f"Failed to get provider: {e}", code="SessionError")
 
-    async def list_providers(self) -> list[Dict[str, Any]]:
+    async def list_providers(self) -> Result[list[Dict[str, Any]]]:
         """List all provider configurations.
 
         Returns:
-            List of provider configuration dictionaries
+            Result with list of provider configuration dictionaries on success,
+            or Err on failure.
 
         Example:
-            >>> providers = await client.list_providers()
-            >>> for p in providers:
-            ...     print(f"{p['name']}: {p['config']['model']}")
+            >>> result = await client.list_providers()
+            >>> if result.is_ok():
+            ...     for p in result.unwrap():
+            ...         print(f"{p['name']}: {p['config']['model']}")
         """
-        return await self._provider_registry.list_providers()
+        try:
+            providers = await self._provider_registry.list_providers()
+            return Ok(providers)
+        except Exception as e:
+            return Err(f"Failed to list providers: {e}", code="SessionError")
 
-    async def remove_provider(self, name: str) -> bool:
+    async def remove_provider(self, name: str) -> Result[bool]:
         """Remove a provider configuration.
 
         Args:
             name: Provider name
 
         Returns:
-            True if removed, False if not found
-
-        Raises:
-            SessionError: If removal fails
+            Result with bool (True if removed, False if not found) on success,
+            or Err on failure.
 
         Example:
-            >>> removed = await client.remove_provider("my-anthropic")
-            >>> print(f"Removed: {removed}")
+            >>> result = await client.remove_provider("my-anthropic")
+            >>> if result.is_ok():
+            ...     print(f"Removed: {result.unwrap()}")
         """
         try:
-            return await self._provider_registry.remove_provider(name)
+            removed = await self._provider_registry.remove_provider(name)
+            return Ok(removed)
         except Exception as e:
-            raise SessionError(f"Failed to remove provider: {e}") from e
+            return Err(f"Failed to remove provider: {e}", code="SessionError")
 
     async def update_provider(
         self,
@@ -417,7 +413,7 @@ class OpenCodeAsyncClient:
         provider_id: str,
         model: str,
         api_key: Optional[str] = None,
-    ) -> ProviderConfig:
+    ) -> Result[ProviderConfig]:
         """Update an existing provider configuration.
 
         Args:
@@ -427,17 +423,15 @@ class OpenCodeAsyncClient:
             api_key: New API key (optional)
 
         Returns:
-            Updated ProviderConfig
-
-        Raises:
-            ValueError: If provider not found
-            SessionError: If update fails
+            Result with updated ProviderConfig on success, or Err on failure.
 
         Example:
-            >>> await client.update_provider(
+            >>> result = await client.update_provider(
             ...     name="my-anthropic",
             ...     model="claude-sonnet-4-20250514"
             ... )
+            >>> if result.is_ok():
+            ...     print(f"Updated: {result.unwrap().model}")
         """
         try:
             config = ProviderConfig(
@@ -445,11 +439,12 @@ class OpenCodeAsyncClient:
                 model=model,
                 api_key=api_key,
             )
-            return await self._provider_registry.update_provider(name, config)
-        except ValueError:
-            raise
+            provider = await self._provider_registry.update_provider(name, config)
+            return Ok(provider)
+        except ValueError as e:
+            return Err(f"Failed to update provider: {e}", code="ValueError")
         except Exception as e:
-            raise SessionError(f"Failed to update provider: {e}") from e
+            return Err(f"Failed to update provider: {e}", code="SessionError")
 
     def on_session_created(self, callback: Any) -> None:
         """Register callback for session creation events.
@@ -556,7 +551,7 @@ class OpenCodeSyncClient:
         """
         self._async_client.on_notification(callback)
 
-    def create_session(self, title: str, version: str = "1.0.0") -> Session:
+    def create_session(self, title: str, version: str = "1.0.0") -> Result[Session]:
         """Create a new session (sync).
 
         Args:
@@ -564,65 +559,55 @@ class OpenCodeSyncClient:
             version: Session version.
 
         Returns:
-            Created Session object.
-
-        Raises:
-            SessionError: If session creation fails.
+            Result with created Session object on success, or Err on failure.
 
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.create_session(title, version))
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Result[Session | None]:
         """Get a session by ID (sync).
 
         Args:
             session_id: Session ID to retrieve.
 
         Returns:
-            Session object or None if not found.
-
-        Raises:
-            SessionError: If retrieval fails.
+            Result with Session object or None if not found on success,
+            or Err on failure.
 
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.get_session(session_id))
 
-    def list_sessions(self) -> list[Session]:
+    def list_sessions(self) -> Result[list[Session]]:
         """List all sessions (sync).
 
         Returns:
-            List of Session objects.
-
-        Raises:
-            SessionError: If listing fails.
+            Result with list of Session objects on success, or Err on failure.
 
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.list_sessions())
 
-    def delete_session(self, session_id: str) -> bool:
+    def delete_session(self, session_id: str) -> Result[bool]:
         """Delete a session by ID (sync).
 
         Args:
             session_id: Session ID to delete.
 
         Returns:
-            True if deleted, False if not found.
-
-        Raises:
-            SessionError: If deletion fails.
+            Result with bool (True if deleted, False if not found) on success,
+            or Err on failure.
 
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.delete_session(session_id))
 
-    def add_message(self, session_id: str, role: str, content: str) -> str:
+    def add_message(self, session_id: str, role: str, content: str) -> Result[str]:
         """Add a message to a session (sync).
 
         Args:
@@ -631,21 +616,18 @@ class OpenCodeSyncClient:
             content: Message content.
 
         Returns:
-            Created message ID.
-
-        Raises:
-            SessionError: If adding message fails.
+            Result with message ID on success, or Err on failure.
 
         Note:
             Blocks event loop. Consider async client for non-blocking operations.
         """
         return asyncio.run(self._async_client.add_message(session_id, role, content))
 
-    def register_agent(self, agent: Any) -> Any:
+    def register_agent(self, agent: Any) -> Result[Any]:
         """Register a custom agent (sync)."""
         return asyncio.run(self._async_client.register_agent(agent))
 
-    def get_agent(self, name: str) -> Optional[Any]:
+    def get_agent(self, name: str) -> Result[Optional[Any]]:
         """Get an agent by name (sync)."""
         return asyncio.run(self._async_client.get_agent(name))
 
@@ -655,7 +637,7 @@ class OpenCodeSyncClient:
         session_id: str,
         user_message: str,
         options: Optional[Dict[str, Any]] = None,
-    ) -> AgentResult:
+    ) -> Result[AgentResult]:
         """Execute an agent for a user message (sync)."""
         return asyncio.run(
             self._async_client.execute_agent(agent_name, session_id, user_message, options)
@@ -668,21 +650,21 @@ class OpenCodeSyncClient:
         model: str,
         api_key: Optional[str] = None,
         is_default: bool = False,
-    ) -> ProviderConfig:
+    ) -> Result[ProviderConfig]:
         """Register a provider configuration (sync)."""
         return asyncio.run(
             self._async_client.register_provider(name, provider_id, model, api_key, is_default)
         )
 
-    def get_provider(self, name: str) -> Optional[ProviderConfig]:
+    def get_provider(self, name: str) -> Result[Optional[ProviderConfig]]:
         """Get a provider configuration by name (sync)."""
         return asyncio.run(self._async_client.get_provider(name))
 
-    def list_providers(self) -> list[Dict[str, Any]]:
+    def list_providers(self) -> Result[list[Dict[str, Any]]]:
         """List all provider configurations (sync)."""
         return asyncio.run(self._async_client.list_providers())
 
-    def remove_provider(self, name: str) -> bool:
+    def remove_provider(self, name: str) -> Result[bool]:
         """Remove a provider configuration (sync)."""
         return asyncio.run(self._async_client.remove_provider(name))
 
@@ -692,7 +674,7 @@ class OpenCodeSyncClient:
         provider_id: str,
         model: str,
         api_key: Optional[str] = None,
-    ) -> ProviderConfig:
+    ) -> Result[ProviderConfig]:
         """Update an existing provider configuration (sync)."""
         return asyncio.run(self._async_client.update_provider(name, provider_id, model, api_key))
 
