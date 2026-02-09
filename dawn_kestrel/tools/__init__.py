@@ -1,21 +1,14 @@
 """
-Complete tool registry with compaction tool.
+Tool registry with plugin-based loading.
 
-Includes all 23 tools (5 builtin + 18 additional) with session compaction.
+Includes all 20 tools (6 builtin + 14 additional) loaded via entry points.
 """
 
-from typing import Dict, Type, cast
+from typing import Dict
 import logging
 
 from .framework import ToolRegistry, Tool
-from .builtin import (
-    BashTool,
-    ReadTool,
-    WriteTool,
-    GrepTool,
-    GlobTool,
-    ASTGrepTool
-)
+from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
 from .additional import (
     EditTool,
     ListTool,
@@ -33,51 +26,30 @@ from .additional import (
     CompactionTool,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
-async def create_complete_registry() -> ToolRegistry:
-    """Create tool registry with all 23 tools"""
-    registry = ToolRegistry()
-
-    builtin_tools = [
-        {"id": "bash", "tool": BashTool()},
-        {"id": "read", "tool": ReadTool()},
-        {"id": "write", "tool": WriteTool()},
-        {"id": "grep", "tool": GrepTool()},
-        {"id": "glob", "tool": GlobTool()},
-        {"id": "ast_grep_search", "tool": ASTGrepTool()},
-        {"id": "edit", "tool": EditTool()},
-        {"id": "list", "tool": ListTool()},
-        {"id": "task", "tool": TaskTool()},
-        {"id": "question", "tool": QuestionTool()},
-        {"id": "todoread", "tool": TodoTool()},
-        {"id": "todowrite", "tool": TodowriteTool()},
-        {"id": "webfetch", "tool": WebFetchTool()},
-        {"id": "websearch", "tool": WebSearchTool()},
-        {"id": "multiedit", "tool": MultiEditTool()},
-        {"id": "codesearch", "tool": CodeSearchTool()},
-        {"id": "lsp", "tool": LspTool()},
-        {"id": "skill", "tool": SkillTool()},
-        {"id": "externaldirectory", "tool": ExternalDirectoryTool()},
-        {"id": "compact", "tool": CompactionTool()},
-    ]
-
-    for tool_info in builtin_tools:
-        tool = cast(Tool, tool_info["tool"])
-        tool_id = cast(str, tool_info["id"])
-        await registry.register(tool, tool_id)
-
-    logger.info(f"Registered {len(builtin_tools)} tools (including compaction)")
-
-    return registry
-
-
 async def get_all_tools() -> Dict[str, "Tool"]:
-    """Get all available tools"""
-    registry = await create_complete_registry()
-    return await registry.get_all()
+    """Get all available tools via plugin discovery
+
+    Returns:
+        Dictionary of tool instances keyed by tool ID
+    """
+    from dawn_kestrel.core.plugin_discovery import load_tools
+
+    tool_classes = load_tools()
+
+    tools = {}
+    for tool_id, tool_class in tool_classes.items():
+        # Entry points can return classes or instances
+        if isinstance(tool_class, type):
+            tools[tool_id] = tool_class()
+        else:
+            tools[tool_id] = tool_class
+
+    logger.info(f"Loaded {len(tools)} tools from plugin discovery")
+
+    return tools
 
 
 async def get_builtin_tools() -> Dict[str, "Tool"]:
@@ -151,7 +123,6 @@ __all__ = [
     "ExternalDirectoryTool",
     "CompactionTool",
     # Factory functions
-    "create_complete_registry",
     "create_builtin_registry",
     "get_all_tools",
     "get_builtin_tools",
