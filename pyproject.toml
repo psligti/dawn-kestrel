@@ -87,17 +87,22 @@ zai = "dawn_kestrel.providers:ZAIProvider"
 zai_coding_plan = "dawn_kestrel.providers:ZAICodingPlanProvider"
 
 [project.entry-points."dawn_kestrel.agents"]
-orchestrator = "dawn_kestrel.agents.bolt_merlin:orchestrator"
-consultant = "dawn_kestrel.agents.bolt_merlin:consultant"
-librarian = "dawn_kestrel.agents.bolt_merlin:librarian"
-explore = "dawn_kestrel.agents.bolt_merlin:explore"
-multimodal_looker = "dawn_kestrel.agents.bolt_merlin:multimodal_looker"
-frontend_ui_ux = "dawn_kestrel.agents.bolt_merlin:frontend_ui_ux"
-autonomous_worker = "dawn_kestrel.agents.bolt_merlin:autonomous_worker"
-pre_planning = "dawn_kestrel.agents.bolt_merlin:pre_planning"
-plan_validator = "dawn_kestrel.agents.bolt_merlin:plan_validator"
-planner = "dawn_kestrel.agents.bolt_merlin:planner"
-master_orchestrator = "dawn_kestrel.agents.bolt_merlin:master_orchestrator"
+# Built-in agents from dawn_kestrel/agents/builtin.py
+build = "dawn_kestrel.agents.builtin:BUILD_AGENT"
+plan = "dawn_kestrel.agents.builtin:PLAN_AGENT"
+general = "dawn_kestrel.agents.builtin:GENERAL_AGENT"
+
+# Bolt Merlin agents
+orchestrator = "dawn_kestrel.agents.bolt_merlin.orchestrator:create_orchestrator_agent"
+master_orchestrator = "dawn_kestrel.agents.bolt_merlin.master_orchestrator:create_master_orchestrator_agent"
+consultant = "dawn_kestrel.agents.bolt_merlin.consultant:create_consultant_agent"
+librarian = "dawn_kestrel.agents.bolt_merlin.librarian:create_librarian_agent"
+explore = "dawn_kestrel.agents.bolt_merlin.explore:create_explore_agent"
+multimodal_looker = "dawn_kestrel.agents.bolt_merlin.multimodal_looker:create_multimodal_looker_agent"
+autonomous_worker = "dawn_kestrel.agents.bolt_merlin.autonomous_worker:create_autonomous_worker_agent"
+pre_planning = "dawn_kestrel.agents.bolt_merlin.pre_planning:create_pre_planning_agent"
+plan_validator = "dawn_kestrel.agents.bolt_merlin.plan_validator:create_plan_validator_agent"
+planner = "dawn_kestrel.agents.bolt_merlin.planner:create_planner_agent"
 
 [dependency-groups]
 dev = [

@@ -50,9 +50,21 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
                     )
                     continue
 
-                # Instantiate if it's a class (type), otherwise use as-is
-                if isinstance(plugin, type):
-                    instance = plugin()
+                # For provider plugins, always return class (factory) not instance
+                # Provider classes require api_key argument for instantiation
+                # For other plugins (tools), try to instantiate if possible
+                if group == "dawn_kestrel.providers":
+                    # Always use class for providers (they require api_key)
+                    instance = plugin
+                elif isinstance(plugin, type):
+                    try:
+                        instance = plugin()
+                    except (TypeError, ValueError):
+                        # Can't instantiate without arguments, use the class itself
+                        instance = plugin
+                        logger.debug(
+                            f"Using {plugin_type} class '{ep.name}' as factory (requires constructor arguments)"
+                        )
                 else:
                     instance = plugin
 
