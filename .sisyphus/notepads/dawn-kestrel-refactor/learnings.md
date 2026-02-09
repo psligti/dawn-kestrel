@@ -103,3 +103,54 @@
 - Need explicit mapping between ProviderID values and entry point names
 - Provider plugins must be treated differently from tool plugins due to constructor requirements
 - Entry point loading returns class objects, not instances, for provider group
+
+## Agent Plugin Discovery Implementation (2026-02-08)
+
+### Entry Points for Agents
+- Entry points defined in pyproject.toml under `[project.entry-points."dawn_kestrel.agents"]`
+- Entry points can reference Agent instances directly (builtin agents) or factory functions (bolt_merlin agents)
+- Format: `agent_name = "module.path:factory_function"` or `agent_name = "module.path:AGENT_INSTANCE"`
+- Built-in agents: build, plan, general, explore (4 agents from builtin.py)
+- Bolt Merlin agents: orchestrator, master_orchestrator, consultant, librarian, explore, multimodal_looker, autonomous_worker, pre_planning, plan_validator, planner (10 agents)
+
+### Agent Loading Pattern
+- Entry points can return:
+  1. Agent instances directly (e.g., builtin.BUILD_AGENT)
+  2. Factory functions that return Agent when called (e.g., bolt_merlin.orchestrator.create_orchestrator_agent)
+- Registry and AgentManager must handle both patterns: `if callable(plugin): agent = plugin(); else: agent = plugin`
+- Validate that loaded objects are Agent instances before registering
+
+### Name Collision Handling
+- Both builtin.EXPLORE_AGENT and bolt_merlin.explore have name "explore"
+- Last loaded agent wins (bolt_merlin.explore overrides builtin.EXPLORE_AGENT)
+- Total unique agents: 13 (4 builtin + 10 bolt_merlin - 1 duplicate)
+- This is acceptable behavior for backward compatibility
+
+### Registry Changes
+- Removed static seeding from `get_all_agents()` call in registry.py
+- Updated `_seed_builtin_agents()` to use `plugin_discovery.load_agents()`
+- Added `_load_agent_from_plugin()` method to handle both Agent instances and factories
+- Graceful error handling: log warnings for invalid plugins, continue processing
+
+### AgentManager Changes
+- Updated `get_all_agents()` to use `plugin_discovery.load_agents()`
+- Handles both Agent instances and factory functions from plugins
+- Returns List[Agent] after validating and instantiating factory functions
+
+### Backward Compatibility
+- Direct imports from builtin still work: `from dawn_kestrel.agents.builtin import BUILD_AGENT, get_all_agents`
+- `get_all_agents()` in builtin.py still returns 4 builtin agents
+- Direct imports from bolt_merlin still work: `from dawn_kestrel.agents.bolt_merlin import create_orchestrator_agent`
+- Registry CRUD operations unchanged: register_agent(), get_agent(), list_agents(), remove_agent()
+
+### Test Coverage
+- Created tests/agents/test_agent_plugins.py with 16 test cases (all passing)
+- Tests verify: plugin discovery (13 agents), builtin agents (4), bolt_merlin agents (10), agent validation, registry loading, backward compatibility, agent permissions
+- 100% pass rate: all 16 tests pass
+
+### Key Learnings
+- Agent entry points are more complex than tools/providers - support both instances and factory functions
+- Frontend UI/UX is a skill, NOT an agent - correctly excluded from agents entry points
+- Duplicate agent names handled by last-one-wins semantics (acceptable for migration)
+- Static seeding completely removed from registry, replaced with plugin discovery
+- TDD workflow worked perfectly: RED (4 test failures) → GREEN (16 tests pass) after implementation
