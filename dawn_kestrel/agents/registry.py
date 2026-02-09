@@ -4,6 +4,7 @@ OpenCode Python - Agent Registry
 Provides CRUD operations for agent registration and retrieval,
 with optional JSON persistence under storage/agent/.
 """
+
 from __future__ import annotations
 
 from typing import Optional, List, Dict
@@ -12,7 +13,8 @@ import json
 import logging
 import aiofiles
 
-from .builtin import Agent, get_all_agents
+from .builtin import Agent
+from dawn_kestrel.core.plugin_discovery import load_agents
 
 
 logger = logging.getLogger(__name__)
@@ -55,10 +57,45 @@ class AgentRegistry:
             self._initialize_persistence()
 
     def _seed_builtin_agents(self) -> None:
-        """Seed registry with built-in agents from agents/builtin.py"""
-        for agent in get_all_agents():
-            self._register_internal(agent)
-        logger.debug(f"Seeded registry with {len(self._agents)} built-in agents")
+        """Seed registry with built-in agents from plugin discovery"""
+        plugins = load_agents()
+
+        for name, agent_plugin in plugins.items():
+            agent = self._load_agent_from_plugin(name, agent_plugin)
+            if agent:
+                self._register_internal(agent)
+
+        logger.debug(f"Seeded registry with {len(self._agents)} built-in agents from plugins")
+
+    def _load_agent_from_plugin(self, name: str, agent_plugin) -> Optional[Agent]:
+        """
+        Load an Agent instance from a plugin entry point.
+
+        The plugin can be:
+        - An Agent instance (direct)
+        - A factory function that returns Agent when called
+
+        Args:
+            name: Plugin name
+            agent_plugin: The loaded plugin (Agent instance or factory function)
+
+        Returns:
+            Agent instance if valid, None otherwise
+        """
+        try:
+            if callable(agent_plugin):
+                agent = agent_plugin()
+            else:
+                agent = agent_plugin
+
+            if isinstance(agent, Agent):
+                return agent
+            else:
+                logger.warning(f"Plugin '{name}' did not return Agent instance, skipping")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to load agent plugin '{name}': {e}")
+            return None
 
     def _normalize_name(self, name: str) -> str:
         """Normalize agent name for case-insensitive lookup"""
@@ -109,18 +146,14 @@ class AgentRegistry:
                 if self._normalize_name(agent.name) in self._agents:
                     existing = self.get_agent(agent.name)
                     if existing and existing.native:
-                        logger.debug(
-                            f"Skipping built-in agent override: {agent.name}"
-                        )
+                        logger.debug(f"Skipping built-in agent override: {agent.name}")
                         continue
 
                 self._register_internal(agent)
                 logger.debug(f"Loaded custom agent from file: {agent_file.name}")
 
             except Exception as e:
-                logger.error(
-                    f"Failed to load agent from {agent_file}: {e}"
-                )
+                logger.error(f"Failed to load agent from {agent_file}: {e}")
 
     async def register_agent(self, agent: Agent) -> Agent:
         """
@@ -141,9 +174,7 @@ class AgentRegistry:
             existing = self._agents[normalized_name]
             # Allow overwriting non-native agents
             if existing.native:
-                raise ValueError(
-                    f"Cannot overwrite built-in agent: {agent.name}"
-                )
+                raise ValueError(f"Cannot overwrite built-in agent: {agent.name}")
 
         # Register in memory
         self._register_internal(agent)
@@ -241,9 +272,7 @@ class AgentRegistry:
         agent = self._agents[normalized_name]
 
         if agent.native:
-            raise ValueError(
-                f"Cannot remove built-in agent: {name}"
-            )
+            raise ValueError(f"Cannot remove built-in agent: {name}")
 
         # Remove from memory
         del self._agents[normalized_name]

@@ -1,11 +1,13 @@
 """OpenCode Python - Agent management and lifecycle"""
+
 from __future__ import annotations
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 import asyncio
 import logging
 
-from .builtin import Agent, get_all_agents, get_agent_by_name
+from .builtin import Agent, get_agent_by_name
+from dawn_kestrel.core.plugin_discovery import load_agents
 from dawn_kestrel.core.event_bus import Events, bus
 from dawn_kestrel.core.models import Session
 
@@ -40,11 +42,7 @@ class AgentManager:
         self._active_sessions: Dict[str, AgentState] = {}
         self._agent_states: Dict[str, AgentState] = {}
 
-    async def initialize_agent(
-        self,
-        agent: Agent,
-        session: Session
-    ) -> AgentState:
+    async def initialize_agent(self, agent: Agent, session: Session) -> AgentState:
         """Initialize an agent for a session"""
         agent_state = AgentState(
             session_id=session.id,
@@ -54,16 +52,15 @@ class AgentManager:
             time_finished=None,
             error=None,
             messages_count=0,
-            tools_used=[]
+            tools_used=[],
         )
 
         self._agent_states[session.id] = agent_state
 
-        await bus.publish(Events.AGENT_INITIALIZED, {
-            "session_id": session.id,
-            "agent_name": agent.name,
-            "agent_mode": agent.mode
-        })
+        await bus.publish(
+            Events.AGENT_INITIALIZED,
+            {"session_id": session.id, "agent_name": agent.name, "agent_mode": agent.mode},
+        )
 
         logger.info(f"Agent {agent.name} initialized for session {session.id}")
 
@@ -76,10 +73,9 @@ class AgentManager:
             state.status = "ready"
             state.time_started = state.time_started or self._now()
 
-            await bus.publish(Events.AGENT_READY, {
-                "session_id": session_id,
-                "agent_name": state.agent_name
-            })
+            await bus.publish(
+                Events.AGENT_READY, {"session_id": session_id, "agent_name": state.agent_name}
+            )
 
     async def set_agent_executing(self, session_id: str) -> None:
         """Mark agent as executing"""
@@ -87,10 +83,9 @@ class AgentManager:
             state = self._agent_states[session_id]
             state.status = "executing"
 
-            await bus.publish(Events.AGENT_EXECUTING, {
-                "session_id": session_id,
-                "agent_name": state.agent_name
-            })
+            await bus.publish(
+                Events.AGENT_EXECUTING, {"session_id": session_id, "agent_name": state.agent_name}
+            )
 
     async def set_agent_error(self, session_id: str, error: str) -> None:
         """Mark agent as having error"""
@@ -100,11 +95,10 @@ class AgentManager:
             state.error = error
             state.time_finished = self._now()
 
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": state.agent_name,
-                "error": error
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {"session_id": session_id, "agent_name": state.agent_name, "error": error},
+            )
 
     async def cleanup_agent(self, session_id: str) -> None:
         """Cleanup agent state"""
@@ -113,12 +107,15 @@ class AgentManager:
             state.status = "cleanup"
             state.time_finished = self._now()
 
-            await bus.publish(Events.AGENT_CLEANUP, {
-                "session_id": session_id,
-                "agent_name": state.agent_name,
-                "messages_count": state.messages_count,
-                "tools_used": state.tools_used
-            })
+            await bus.publish(
+                Events.AGENT_CLEANUP,
+                {
+                    "session_id": session_id,
+                    "agent_name": state.agent_name,
+                    "messages_count": state.messages_count,
+                    "tools_used": state.tools_used,
+                },
+            )
 
             del self._agent_states[session_id]
 
@@ -127,8 +124,22 @@ class AgentManager:
         return self._agent_states.get(session_id)
 
     async def get_all_agents(self) -> List[Agent]:
-        """Get all available agents"""
-        return get_all_agents()
+        """Get all available agents from plugin discovery"""
+        plugins = load_agents()
+        agents = []
+
+        for name, agent_plugin in plugins.items():
+            if callable(agent_plugin):
+                agent = agent_plugin()
+            else:
+                agent = agent_plugin
+
+            if isinstance(agent, Agent):
+                agents.append(agent)
+            else:
+                logger.warning(f"Plugin '{name}' did not return Agent instance, skipping")
+
+        return agents
 
     async def get_agent_by_name(self, name: str) -> Optional[Agent]:
         """Get an agent by name"""
@@ -141,6 +152,7 @@ class AgentManager:
     def _now(self) -> float:
         """Get current timestamp"""
         import time
+
         return time.time()
 
 
@@ -152,12 +164,7 @@ def create_agent_manager(session_storage=None, config=None) -> AgentManager:
 class AgentExecutor:
     """Agent execution engine"""
 
-    def __init__(
-        self,
-        agent_manager: AgentManager,
-        tool_manager,
-        session_manager=None
-    ):
+    def __init__(self, agent_manager: AgentManager, tool_manager, session_manager=None):
         self.agent_manager = agent_manager
         self.tool_manager = tool_manager
         self.session_manager = session_manager
@@ -168,7 +175,7 @@ class AgentExecutor:
         agent_name: str,
         user_message: str,
         session_id: str,
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Execute an agent for a user message
 
@@ -194,8 +201,7 @@ class AgentExecutor:
         session = await self.session_manager.get_session(session_id)
         if not session:
             raise ValueError(
-                f"Session not found: {session_id}. "
-                "Ensure the session exists and is accessible."
+                f"Session not found: {session_id}. Ensure the session exists and is accessible."
             )
 
         if not session.project_id:
@@ -217,11 +223,7 @@ class AgentExecutor:
         return result
 
     async def _run_agent_logic(
-        self,
-        agent,
-        user_message: str,
-        session: Session,
-        options: Optional[Dict[str, Any]]
+        self, agent, user_message: str, session: Session, options: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Run the core agent logic
 
@@ -238,16 +240,15 @@ class AgentExecutor:
             ai_session = AISession(
                 session=session,
                 provider_id=options.get("provider", "anthropic") if options else "anthropic",
-                model=options.get("model", "claude-sonnet-4-20250514") if options else "claude-sonnet-4-20250514",
-                session_manager=self.session_manager
+                model=options.get("model", "claude-sonnet-4-20250514")
+                if options
+                else "claude-sonnet-4-20250514",
+                session_manager=self.session_manager,
             )
 
             response = await ai_session.process_message(
                 user_message=user_message,
-                options={
-                    "temperature": agent.temperature,
-                    "top_p": agent.top_p
-                }
+                options={"temperature": agent.temperature, "top_p": agent.top_p},
             )
 
             return {
@@ -255,7 +256,7 @@ class AgentExecutor:
                 "parts": response.parts or [],
                 "agent": agent.name,
                 "status": "completed",
-                "metadata": response.metadata or {}
+                "metadata": response.metadata or {},
             }
 
         except Exception as e:
@@ -267,7 +268,7 @@ class AgentExecutor:
                 "parts": [],
                 "agent": agent.name,
                 "status": "error",
-                "metadata": {"error": str(e)}
+                "metadata": {"error": str(e)},
             }
 
     def _filter_tools_for_agent(self, agent) -> List[str]:
