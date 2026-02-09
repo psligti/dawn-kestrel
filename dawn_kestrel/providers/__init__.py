@@ -1,4 +1,12 @@
-from .base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID, StreamEvent, TokenUsage
+from .base import (
+    ModelInfo,
+    ModelCapabilities,
+    ModelCost,
+    ModelLimits,
+    ProviderID,
+    StreamEvent,
+    TokenUsage,
+)
 from .zai_base import ZAIBaseProvider
 from .zai import ZAIProvider
 from .zai_coding_plan import ZAICodingPlanProvider
@@ -7,17 +15,93 @@ from decimal import Decimal
 import httpx
 import json
 import logging
+from ..core.plugin_discovery import load_providers
 
 
 logger = logging.getLogger(__name__)
 
 
-ProviderFactory = Callable[[str], Union[
-    "AnthropicProvider",
-    "OpenAIProvider",
-    "ZAIProvider",
-    "ZAICodingPlanProvider",
-]]
+ProviderFactory = Callable[
+    [str],
+    Union[
+        "AnthropicProvider",
+        "OpenAIProvider",
+        "ZAIProvider",
+        "ZAICodingPlanProvider",
+    ],
+]
+
+
+def _get_provider_name(provider_id: ProviderID) -> str:
+    """Map ProviderID enum to entry point name.
+
+    Entry points use underscores, ProviderID uses hyphens for some values.
+
+    Args:
+        provider_id: ProviderID enum value
+
+    Returns:
+        Entry point name for the provider
+    """
+    # Direct mappings (most common)
+    if provider_id == ProviderID.ANTHROPIC:
+        return "anthropic"
+    elif provider_id == ProviderID.OPENAI:
+        return "openai"
+    elif provider_id == ProviderID.Z_AI:
+        return "zai"
+    elif provider_id == ProviderID.Z_AI_CODING_PLAN:
+        return "zai_coding_plan"
+    else:
+        # For custom providers, use the enum value as-is
+        return provider_id.value
+
+
+def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
+    """Get provider factories from plugin discovery and custom registrations.
+
+    Combines:
+    1. Built-in providers from entry points (plugin discovery)
+    2. Custom providers registered via register_provider_factory()
+
+    Returns:
+        Dictionary mapping ProviderID to provider factory functions/classes
+    """
+    # Load built-in providers from entry points
+    providers = load_providers()
+
+    # Map entry point names to ProviderID enum values
+    factories: Dict[ProviderID, ProviderFactory] = {}
+
+    # Built-in providers from entry points
+    name_to_id: Dict[str, ProviderID] = {
+        "anthropic": ProviderID.ANTHROPIC,
+        "openai": ProviderID.OPENAI,
+        "zai": ProviderID.Z_AI,
+        "zai_coding_plan": ProviderID.Z_AI_CODING_PLAN,
+    }
+
+    for name, provider_class in providers.items():
+        if name in name_to_id:
+            factories[name_to_id[name]] = provider_class
+
+    # Add custom providers from PROVIDER_FACTORIES (if any registered)
+    factories.update(PROVIDER_FACTORIES)
+
+    return factories
+
+
+# Cached provider factories (updated when custom providers are registered)
+_provider_factories_cache: Optional[Dict[ProviderID, ProviderFactory]] = None
+
+
+def _clear_provider_cache() -> None:
+    """Clear the provider factories cache.
+
+    Should be called when custom providers are registered.
+    """
+    global _provider_factories_cache
+    _provider_factories_cache = None
 
 
 __all__ = [
@@ -43,7 +127,6 @@ __all__ = [
 ]
 
 
-
 class AnthropicProvider:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
@@ -52,38 +135,36 @@ class AnthropicProvider:
     async def get_models(self) -> List[ModelInfo]:
         models = []
         if self.api_key:
-            models.append(ModelInfo(
-                id="claude-sonnet-4-20250514",
-                provider_id=ProviderID.ANTHROPIC,
-                api_id="claude-sonnet-4-20250514",
-                api_url=self.base_url,
-                name="Claude Sonnet 4",
-                family="sonnet",
-                capabilities=ModelCapabilities(
-                    temperature=True,
-                    reasoning=True,
-                    attachment=True,
-                    toolcall=True,
-                    input={"text": True, "image": True}
-                ),
-                cost=ModelCost(
-                    input=Decimal("3.00"),
-                    output=Decimal("15.00"),
-                    cache={"read": Decimal("0.30"), "write": Decimal("3.75")}
-                ),
-                limit=ModelLimits(
-                    context=200000,
-                    input=200000,
-                    output=8192
-                ),
-                status="active",
-                options={},
-                headers={},
-                variants={
-                    "high": {"thinking": {"type": "enabled", "budget_tokens": 16000}},
-                    "max": {"thinking": {"type": "enabled", "budget_tokens": 32000}}
-                }
-            ))
+            models.append(
+                ModelInfo(
+                    id="claude-sonnet-4-20250514",
+                    provider_id=ProviderID.ANTHROPIC,
+                    api_id="claude-sonnet-4-20250514",
+                    api_url=self.base_url,
+                    name="Claude Sonnet 4",
+                    family="sonnet",
+                    capabilities=ModelCapabilities(
+                        temperature=True,
+                        reasoning=True,
+                        attachment=True,
+                        toolcall=True,
+                        input={"text": True, "image": True},
+                    ),
+                    cost=ModelCost(
+                        input=Decimal("3.00"),
+                        output=Decimal("15.00"),
+                        cache={"read": Decimal("0.30"), "write": Decimal("3.75")},
+                    ),
+                    limit=ModelLimits(context=200000, input=200000, output=8192),
+                    status="active",
+                    options={},
+                    headers={},
+                    variants={
+                        "high": {"thinking": {"type": "enabled", "budget_tokens": 16000}},
+                        "max": {"thinking": {"type": "enabled", "budget_tokens": 32000}},
+                    },
+                )
+            )
         return models
 
     async def stream(
@@ -91,12 +172,12 @@ class AnthropicProvider:
         model: ModelInfo,
         messages: List[Dict[str, Any]],
         tools: Dict[str, Any],
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[StreamEvent]:
         headers = {
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         if options:
@@ -111,7 +192,7 @@ class AnthropicProvider:
                 "model": model.api_id,
                 "max_tokens": 8192,
                 "messages": messages,
-                "stream": True
+                "stream": True,
             }
 
             if tools:
@@ -123,11 +204,7 @@ class AnthropicProvider:
                 if "top_p" in options:
                     payload["top_p"] = options["top_p"]
 
-            yield StreamEvent(
-                event_type="start",
-                data={"model": model.id},
-                timestamp=0
-            )
+            yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)
 
             async with client.stream("POST", url=url, json=payload, headers=headers) as response:
                 response.raise_for_status()
@@ -147,11 +224,7 @@ class AnthropicProvider:
                             event_type = chunk.get("type")
 
                             if event_type == "message_start":
-                                yield StreamEvent(
-                                    event_type="start",
-                                    data={},
-                                    timestamp=0
-                                )
+                                yield StreamEvent(event_type="start", data={}, timestamp=0)
 
                             elif event_type == "content_block_start":
                                 block_type = chunk.get("content_block", {}).get("type")
@@ -164,7 +237,7 @@ class AnthropicProvider:
                                         yield StreamEvent(
                                             event_type="text-delta",
                                             data={"delta": text},
-                                            timestamp=0
+                                            timestamp=0,
                                         )
 
                             elif event_type == "content_block_stop":
@@ -177,15 +250,13 @@ class AnthropicProvider:
                                     yield StreamEvent(
                                         event_type="finish",
                                         data={"finish_reason": stop_reason},
-                                        timestamp=0
+                                        timestamp=0,
                                     )
                                     break
 
                             elif event_type == "message_stop":
                                 yield StreamEvent(
-                                    event_type="finish",
-                                    data={"finish_reason": "stop"},
-                                    timestamp=0
+                                    event_type="finish", data={"finish_reason": "stop"}, timestamp=0
                                 )
                                 break
 
@@ -197,7 +268,7 @@ class AnthropicProvider:
             input=response.get("input_tokens", 0),
             output=response.get("output_tokens", 0),
             cache_read=response.get("cache_read_input_tokens", 0),
-            cache_write=response.get("cache_creation_input_tokens", 0)
+            cache_write=response.get("cache_creation_input_tokens", 0),
         )
 
     def calculate_cost(self, usage: TokenUsage, model: ModelInfo) -> Decimal:
@@ -218,33 +289,24 @@ class OpenAIProvider:
     async def get_models(self) -> List[ModelInfo]:
         models = []
         if self.api_key:
-            models.append(ModelInfo(
-                id="gpt-5",
-                provider_id=ProviderID.OPENAI,
-                api_id="gpt-5",
-                api_url=self.base_url,
-                name="GPT-5",
-                family="gpt",
-                capabilities=ModelCapabilities(
-                    temperature=True,
-                    reasoning=True,
-                    toolcall=True,
-                    input={"text": True}
-                ),
-                cost=ModelCost(
-                    input=Decimal("15.00"),
-                    output=Decimal("150.00"),
-                    cache={}
-                ),
-                limit=ModelLimits(
-                    context=1000000,
-                    input=1000000,
-                    output=100000
-                ),
-                status="active",
-                options={},
-                headers={}
-            ))
+            models.append(
+                ModelInfo(
+                    id="gpt-5",
+                    provider_id=ProviderID.OPENAI,
+                    api_id="gpt-5",
+                    api_url=self.base_url,
+                    name="GPT-5",
+                    family="gpt",
+                    capabilities=ModelCapabilities(
+                        temperature=True, reasoning=True, toolcall=True, input={"text": True}
+                    ),
+                    cost=ModelCost(input=Decimal("15.00"), output=Decimal("150.00"), cache={}),
+                    limit=ModelLimits(context=1000000, input=1000000, output=100000),
+                    status="active",
+                    options={},
+                    headers={},
+                )
+            )
         return models
 
     async def stream(
@@ -252,34 +314,22 @@ class OpenAIProvider:
         model: ModelInfo,
         messages: List[Dict[str, Any]],
         tools: Dict[str, Any],
-        options: Optional[Dict[str, Any]] = None
+        options: Optional[Dict[str, Any]] = None,
     ) -> AsyncIterator[StreamEvent]:
-        yield StreamEvent(
-            event_type="start",
-            data={"model": model.id},
-            timestamp=0
-        )
+        yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)
         yield StreamEvent(
             event_type="text-delta",
             data={"delta": "Hello, this is a test stream from OpenAI."},
-            timestamp=1
+            timestamp=1,
         )
-        yield StreamEvent(
-            event_type="text-end",
-            data={},
-            timestamp=2
-        )
-        yield StreamEvent(
-            event_type="finish",
-            data={"finish_reason": "stop"},
-            timestamp=3
-        )
+        yield StreamEvent(event_type="text-end", data={}, timestamp=2)
+        yield StreamEvent(event_type="finish", data={"finish_reason": "stop"}, timestamp=3)
 
     def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
         return TokenUsage(
             input=response.get("prompt_tokens", 0),
             output=response.get("completion_tokens", 0),
-            cache_read=response.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+            cache_read=response.get("prompt_tokens_details", {}).get("cached_tokens", 0),
         )
 
     def calculate_cost(self, usage: TokenUsage, model: ModelInfo) -> Decimal:
@@ -288,28 +338,53 @@ class OpenAIProvider:
         return cost
 
 
-def get_provider(provider_id: ProviderID, api_key: str) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
-    factory = PROVIDER_FACTORIES.get(provider_id)
+def get_provider(
+    provider_id: ProviderID, api_key: str
+) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
+    """Get a provider instance by ID.
+
+    Uses plugin discovery for built-in providers and custom registrations.
+
+    Args:
+        provider_id: ProviderID enum value
+        api_key: API key for the provider
+
+    Returns:
+        Provider instance or None if not found
+    """
+    global _provider_factories_cache
+
+    # Load factories (with caching)
+    if _provider_factories_cache is None:
+        _provider_factories_cache = _get_provider_factories()
+
+    factory = _provider_factories_cache.get(provider_id)
     if factory is None:
         return None
     return factory(api_key)
 
 
 def register_provider_factory(provider_id: ProviderID, factory: ProviderFactory) -> None:
-    """Register a provider factory.
+    """Register a custom provider factory.
 
     This creates an extension seam so new provider implementations can be
     registered without editing `get_provider`.
+
+    Args:
+        provider_id: ProviderID enum value
+        factory: Provider factory function or class
     """
     PROVIDER_FACTORIES[provider_id] = factory
+    _clear_provider_cache()
 
 
-PROVIDER_FACTORIES: Dict[ProviderID, ProviderFactory] = {
-    ProviderID.ANTHROPIC: AnthropicProvider,
-    ProviderID.OPENAI: OpenAIProvider,
-    ProviderID.Z_AI: ZAIProvider,
-    ProviderID.Z_AI_CODING_PLAN: ZAICodingPlanProvider,
-}
+PROVIDER_FACTORIES: Dict[ProviderID, ProviderFactory] = {}
+"""Custom provider factories registered at runtime.
+
+Built-in providers are loaded from entry points via plugin discovery.
+This dict only contains custom providers registered via register_provider_factory().
+"""
+
 
 async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
     provider = get_provider(provider_id, api_key)
