@@ -1,4 +1,5 @@
 """OpenCode Python - Main TUI Application"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +33,7 @@ from dawn_kestrel.core.models import Message, TextPart
 from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.services.session_service import DefaultSessionService
 from dawn_kestrel.storage.store import SessionStorage
-from dawn_kestrel.core.settings import get_storage_dir
+from dawn_kestrel.core.settings import settings
 from dawn_kestrel.tui.handlers import (
     TUIIOHandler,
     TUIProgressHandler,
@@ -54,7 +55,7 @@ class OpenCodeTUI(App[None]):
         """
         super().__init__()
 
-        storage_dir = get_storage_dir()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
 
         if session_service is None:
@@ -103,11 +104,7 @@ class OpenCodeTUI(App[None]):
     def compose(self) -> ComposeResult:
         """Build TUI UI"""
         # Custom footer with keyboard hints and status
-        yield SessionFooter(
-            status="Ready",
-            tokens="0 tokens",
-            model="gpt-4"
-        )
+        yield SessionFooter(status="Ready", tokens="0 tokens", model="gpt-4")
 
         with Container(id="main-container"):
             # Sidebar with session list and context
@@ -123,10 +120,7 @@ class OpenCodeTUI(App[None]):
             # Main content area
             with Vertical(id="content"):
                 # Session header with context info
-                yield SessionHeader(
-                    session_title=self._get_session_title(),
-                    model="gpt-4"
-                )
+                yield SessionHeader(session_title=self._get_session_title(), model="gpt-4")
 
                 # Tabs for different views
                 yield Tabs(
@@ -154,7 +148,7 @@ class OpenCodeTUI(App[None]):
         """Called when TUI starts"""
         self.app.title = "OpenCode Python"
         logger.info("TUI mounted")
-        
+
         # Load sessions
         asyncio.create_task(self._load_sessions())
 
@@ -193,7 +187,7 @@ class OpenCodeTUI(App[None]):
 
     def on_data_table_row_selected(self, event: Any) -> None:
         """Handle session row selection"""
-        if not hasattr(event, 'row_key'):
+        if not hasattr(event, "row_key"):
             return
         row_key = event.row_key
         if row_key is not None:
@@ -228,7 +222,7 @@ class OpenCodeTUI(App[None]):
             # Get from input widget
             input_widget = self.query_one(Input)
             final_command = input_widget.value if input_widget else command
-            
+
             self.notify(f"[cyan]Would run:[/cyan] {final_command}")
         else:
             input_widget = self.query_one(Input)
@@ -260,8 +254,12 @@ class OpenCodeTUI(App[None]):
 
         self.messages = self.messages + [message]
 
-        text_part_dict = text_part.model_dump() if hasattr(text_part, 'model_dump') else dict(text_part)
-        message_view = MessageView(message_data={"role": role, "time": message.time, "parts": [text_part_dict]})
+        text_part_dict = (
+            text_part.model_dump() if hasattr(text_part, "model_dump") else dict(text_part)
+        )
+        message_view = MessageView(
+            message_data={"role": role, "time": message.time, "parts": [text_part_dict]}
+        )
         await self.messages_container.mount(message_view)
 
     def _now(self) -> int:

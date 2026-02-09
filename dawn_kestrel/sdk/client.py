@@ -16,7 +16,7 @@ from dawn_kestrel.storage.store import SessionStorage
 from dawn_kestrel.core.models import Session
 from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.core.exceptions import OpenCodeError, SessionError
-from dawn_kestrel.core.settings import get_storage_dir
+from dawn_kestrel.core.settings import settings
 from dawn_kestrel.agents.runtime import create_agent_runtime
 from dawn_kestrel.core.agent_types import AgentResult, SessionManagerLike
 from dawn_kestrel.agents.registry import create_agent_registry
@@ -61,7 +61,7 @@ class OpenCodeAsyncClient:
         self._on_progress: Optional[Callable[[int, Optional[str]], None]] = None
         self._on_notification: Optional[Callable[[Notification], None]] = None
 
-        storage_dir = self.config.storage_path or get_storage_dir()
+        storage_dir = self.config.storage_path or settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = self.config.project_dir or Path.cwd()
 

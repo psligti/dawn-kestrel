@@ -31,7 +31,7 @@ from dawn_kestrel.providers.registry import ProviderRegistry, create_provider_re
 from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
 from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle, create_session_lifecycle
-from dawn_kestrel.core.settings import get_storage_dir
+from dawn_kestrel.core.settings import settings
 
 
 class Container(containers.DeclarativeContainer):
@@ -47,7 +47,7 @@ class Container(containers.DeclarativeContainer):
 
     # Storage directory
     storage_dir = providers.Factory(
-        lambda: container.config.storage_path() or get_storage_dir(),
+        lambda: container.config.storage_path() or str(settings.storage_dir_path()),
     )
 
     # Project directory
