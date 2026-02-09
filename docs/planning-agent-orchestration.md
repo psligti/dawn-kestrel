@@ -468,7 +468,7 @@ Runtime context assembly follows:
 
 ## References
 
-- Integration map: `.sisyphus/integration-map.md`
-- Original plan: `.sisyphus/plans/planning-agent-initial-conversation-orchestration.md`
+- Integration map: `.orchestrator/integration-map.md`
+- Original plan: `.orchestrator/plans/planning-agent-initial-conversation-orchestration.md`
 - Review agent orchestration: `dawn_kestrel/agents/review/README.md`
 - Agent PRD: `AGENTIC_REVIEW_PRD.md`

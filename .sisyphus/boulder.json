@@ -1,13 +1,6 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/dawn-kestrel-flatten-rename.md",
-  "started_at": "2026-02-06T21:54:58.155Z",
-  "session_ids": [
-    "ses_3cb0c841dffemk40hKfFWZpVIG",
-    "ses_3caab9d46ffe6ppmZEnFojPSgM",
-    "ses_3c5eff96effeasiBcjMBWpP037",
-    "ses_3cbefe2e6ffeCyYMo9aRdZgiCh",
-    "ses_3cbefe2e6ffeCyYMo9aRdZgiCh",
-    "ses_3c5d26456ffewbeEtQUbmZ7W3d"
-  ],
-  "plan_name": "dawn-kestrel-flatten-rename"
+  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/dawn-kestrel-refactor.md",
+  "started_at": "2026-02-09T04:52:51.346Z",
+  "session_ids": ["ses_3bf4135f9ffejxmIKIlqWYKTOo"],
+  "plan_name": "dawn-kestrel-refactor"
 }
