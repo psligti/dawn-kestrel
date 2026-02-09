@@ -125,16 +125,20 @@ class TestProviderBackwardCompatibility:
         assert provider.api_key == "test-key"
         assert provider.base_url == "https://api.z.ai/api/coding/paas/v4"
 
-    def test_register_provider_factory_still_works(self):
-        """register_provider_factory should still work for custom providers."""
-        from dawn_kestrel.providers import register_provider_factory
+    def test_custom_provider_must_use_entry_points(self):
+        """Custom providers should be added via entry points, not register_provider_factory.
 
-        class CustomProvider:
-            def __init__(self, api_key: str):
-                self.api_key = api_key
+        register_provider_factory has been removed to match tools pattern.
+        Custom providers should be registered in pyproject.toml entry points.
+        """
+        # Verify register_provider_factory is not available
+        try:
+            from dawn_kestrel.providers import register_provider_factory
 
-        register_provider_factory(ProviderID.GOOGLE, CustomProvider)
+            assert False, "register_provider_factory should not be available"
+        except ImportError:
+            assert True, "register_provider_factory correctly removed"
+
+        # Verify unknown providers return None
         provider = get_provider(ProviderID.GOOGLE, "custom-key")
-        assert provider is not None
-        assert isinstance(provider, CustomProvider)
-        assert provider.api_key == "custom-key"
+        assert provider is None, "Unknown providers should return None"
