@@ -987,3 +987,315 @@ Invalid transitions (examples):
 - Task 23: Add command history and audit logging
 - Future: Consider thread-safe CommandQueue for concurrent access
 - Future: Consider command serialization for persistence
+
+## Decorator/Proxy Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 23 tests written covering all decorator/proxy functionality
+  - 3 LoggingConfig tests (defaults, custom level, disabled)
+  - 8 log_function decorator tests (wrapping, entry logging, result logging, exception logging, log level, prefix, disabled, async)
+  - 8 FunctionProxy tests (wrapping, call logging, result logging, exception logging, log level, prefix, disabled, factory)
+  - 4 Configuration tests (DEBUG logs everything, WARNING filters INFO, ERROR logs only errors, per-instance configuration)
+- **GREEN Phase**: All 23 tests passing with 93% coverage for decorators.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Decorator Pattern Design
+- **LoggingConfig**: Configuration class for logging behavior
+  - level: Logging level (DEBUG, INFO, WARNING, ERROR)
+  - enabled: Enable/disable logging toggle
+  - prefix: Prefix for all log messages
+  - include_args: Include function arguments in logs
+  - include_result: Include function return value in logs
+  - include_timestamp: Include timestamp in log messages
+  - Centralized configuration enables fine-grained control
+
+- **log_function**: Decorator to add logging to async functions
+  - Wraps any async function with configurable logging
+  - Logs function entry with arguments (if include_args=True)
+  - Logs function result (if include_result=True)
+  - Logs exceptions with error message
+  - Uses @wraps to preserve function metadata
+  - Logger created from func.__module__ for module-specific logging
+  - Args truncated to 100 characters for readability
+
+### Proxy Pattern Design
+- **LoggingProxy Protocol**: Interface for logging proxies
+  - async __call__(*args, **kwargs) -> Any: Proxy method call with logging
+  - Protocol-based design enables runtime type checking with @runtime_checkable
+
+- **FunctionProxy**: Proxy that wraps callables with logging
+  - Wraps both sync and async functions (uses asyncio.iscoroutinefunction)
+  - Logs function entry and result
+  - Logs exceptions with error message
+  - Enabled flag allows runtime toggling without code changes
+  - Logger created from func.__module__ for module-specific logging
+
+- **create_logging_proxy**: Factory function to create proxies
+  - Creates FunctionProxy with specified configuration
+  - Simplifies proxy creation with default parameters
+  - Returns FunctionProxy instance
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 23 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Comprehensive docstrings and type hints (REFACTOR)
+
+2. **Async function support** - Decorator/proxy must handle async functions
+   - @wraps preserves function metadata (name, module, docstring)
+   - Async wrapper must be async def
+   - FunctionProxy checks asyncio.iscoroutinefunction to handle both sync and async
+
+3. **Python logging integration** - Standard logging module provides flexibility
+   - Logger per module: logging.getLogger(func.__module__)
+   - Log levels: DEBUG, INFO, WARNING, ERROR
+   - Custom logging handlers can be configured via Python's logging module
+   - Configurable output (console, file, silent) via logging.basicConfig
+
+4. **Decorator pattern benefits** - Clean separation of concerns
+   - Functions unchanged (no logging code added to business logic)
+   - Configurable logging per function (level, prefix, args, result, timestamp)
+   - Can be enabled/disabled at runtime
+   - Consistent logging across codebase
+
+5. **Proxy pattern benefits** - Runtime wrapping without modification
+   - Callables can be wrapped without changing source code
+   - Proxies can be applied conditionally at runtime
+   - Same logging behavior as decorator but applied dynamically
+   - Useful for third-party code that cannot be decorated
+
+6. **Test coverage matters** - 93% coverage for decorators.py
+   - All public methods tested (log_function, FunctionProxy.__call__, create_logging_proxy)
+   - All configuration options tested (level, enabled, prefix, include_args, include_result, include_timestamp)
+   - Error conditions tested (exceptions, disabled logging, log level filtering)
+   - Protocol compliance tested with isinstance() on LoggingProxy
+
+### Test Coverage
+- 93% coverage for decorators.py (86 statements, 6 missed)
+- 100% pass rate: all 23 tests pass
+- Test categories:
+  - LoggingConfig initialization and configuration
+  - log_function decorator wrapping and logging behavior
+  - FunctionProxy wrapping and logging behavior
+  - Configuration per instance
+  - Log level filtering (DEBUG, INFO, WARNING, ERROR)
+
+### Next Steps
+- Consider adding sync function support to log_function (currently async only)
+- Consider adding correlation_id for tracking requests across logs
+- Consider adding structured logging (JSON output)
+- Consider adding metrics/timing logging
+- Future: Thread-safe logging configuration (currently no locks)
+
+
+## Observer Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 18 tests written covering all observer functionality
+  - 4 protocol compliance tests
+  - 8 ObservableImpl tests (initialization, registration, unregistration, notification)
+  - 4 StateChangeObserver tests (records notifications, callable)
+  - 4 MetricsObserver tests (counts metrics, callable, get counts)
+  - 2 integration tests (multiple observers, mediator integration)
+- **GREEN Phase**: All 18 tests passing with 97% coverage for observer.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Observer Pattern Design
+- **Observer Protocol**: Interface for objects that receive notifications
+  - `on_notify(observable, event) -> None`: Handle notification from observable
+  - Protocol-based design enables runtime type checking
+  - @runtime_checkable decorator allows isinstance() checks on Observer
+
+- **Observable Protocol**: Interface for objects that maintain observer lists
+  - `register_observer(observer) -> None`: Register observer for notifications
+  - `unregister_observer(observer) -> None`: Unregister observer
+  - `notify_observers(event) -> None`: Notify all observers of change
+  - Protocol-based design enables multiple implementations
+
+- **ObservableImpl**: In-memory observable implementation
+  - Maintains set of observers (hash-based for uniqueness)
+  - Observer exceptions caught and logged, don't fail other observers
+  - Optional EventMediator integration for lifecycle events
+  - Thread-safety: NOT thread-safe (documented limitation)
+
+### Concrete Observers
+- **StateChangeObserver**: Records all notifications received
+  - Stores notifications with observer name, observable name, event, timestamp
+  - `get_notifications()` returns copy (prevents external modification)
+  - `clear_notifications()` clears recorded notifications
+
+- **MetricsObserver**: Aggregates metric counts from events
+  - Events should contain 'metric_name' and 'count' fields
+  - `get_metric_counts()` returns copy (prevents external modification)
+  - `clear_metrics()` clears aggregated metrics
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 18 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Dataclass hashability issue** - Mutable fields make dataclasses unhashable
+   - StateChangeObserver had `_notifications: list` field
+   - MetricsObserver had `_metric_counts: dict` field
+   - Solution: Use `@dataclass(unsafe_hash=True)` with `field(compare=False, hash=False)` for mutable fields
+   - This excludes mutable fields from hash calculation while keeping functionality
+
+3. **Observer vs Mediator patterns** - Different but complementary
+   - Observer: Object-to-many notification (one observable, many observers)
+   - Mediator: Event-based publish/subscribe (many publishers, many subscribers)
+   - Observer focuses on specific object relationships, Mediator is event-centric
+   - Can use both: Observable publishes lifecycle events via EventMediator
+
+4. **Observer error handling** - Fault tolerance prevents cascading failures
+   - `notify_observers()` catches exceptions and logs them
+   - One faulty observer doesn't break notifications to others
+   - Simple `print()` for logging (production should use proper logger)
+
+5. **Test coverage matters** - 97% coverage for observer.py
+   - All public methods tested
+   - Error conditions tested (observer failures, unregistration of non-existent observers)
+   - Integration tests verify multiple observers and mediator interaction
+   - Manual QA scenario confirmed expected behavior
+
+### Test Coverage
+- 97% coverage for observer.py (61 statements, 2 missed)
+- 100% pass rate: all 18 tests pass
+- All public methods tested (register_observer, unregister_observer, notify_observers)
+- All concrete observers tested (StateChangeObserver, MetricsObserver)
+- Error conditions tested (observer exceptions, unregistration)
+- Integration tests verify multiple observers and mediator publishing
+
+### Next Steps
+- Consider integrating Observer pattern into AgentRuntime for lifecycle notifications
+- Consider replacing print() logging with proper logger module
+- Future: Thread-safe Observable implementation with locks
+- Future: Database-backed Observable for distributed systems
+
+## Null Object Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 22 tests written covering all null object functionality
+  - 7 NullIOHandler tests (prompt, confirm, select, multi_select)
+  - 3 NullProgressHandler tests (start, update, complete)
+  - 1 NullNotificationHandler test (show)
+  - 7 get_null_handler factory tests (returns existing, returns null, unknown type)
+  - 3 protocol compliance tests (implements protocols)
+  - 1 integration test (works with existing code)
+- **GREEN Phase**: All 22 tests passing with 100% coverage for null_object.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Null Object Pattern Design
+- **NullIOHandler**: Null implementation for IOHandler protocol
+  - prompt(message, default) returns default or empty string
+  - confirm(message, default) returns default (True/False)
+  - select(message, options) returns first option or empty string
+  - multi_select(message, options) returns empty list
+  - All methods are no-ops that return safe defaults
+
+- **NullProgressHandler**: Null implementation for ProgressHandler protocol
+  - start(operation, total) is a no-op
+  - update(current, message) is a no-op
+  - complete(message) is a no-op
+  - All methods return None (void)
+
+- **NullNotificationHandler**: Null implementation for NotificationHandler protocol
+  - show(notification) is a no-op
+  - Accepts any notification type (Notification or Any)
+  - Returns None (void)
+
+- **get_null_handler**: Factory function for null handler creation
+  - Returns existing handler if not None
+  - Creates appropriate null handler based on type string ("io", "progress", "notification")
+  - Raises ValueError for unknown handler types
+  - Eliminates null checks in client code
+
+### Key Design Principles
+1. **No-op methods**: All null methods do nothing and return safe defaults
+2. **Protocol compliance**: Implement IOHandler, ProgressHandler, NotificationHandler
+3. **Runtime type checking**: isinstance() works on null handlers (protocols are @runtime_checkable)
+4. **Factory pattern**: get_null_handler() simplifies null handler creation
+5. **No side effects**: Null handlers never modify state or throw exceptions
+
+### Handler Protocol Mismatch Resolution
+- Initial confusion: Task description mentioned "input" and "notify" methods
+- Actual protocol uses: prompt (not input), confirm, select, multi_select
+- No "notify" method in IOHandler - it's a separate protocol (NotificationHandler)
+- Solution: Implemented null handlers matching actual protocol definitions
+
+### @runtime_checkable Decorator Mistake
+- **Critical error**: Applied @runtime_checkable to implementation classes
+- **Error**: `TypeError: @runtime_checkable can be only applied to protocol classes`
+- **Fix**: Removed decorator from NullIOHandler, NullProgressHandler, NullNotificationHandler
+- **Lesson**: @runtime_checkable is for Protocol definitions, not implementations
+- **Best practice**: Protocols use @runtime_checkable, implementations don't
+
+### Protocol vs Implementation
+- **Protocols** (in interfaces/io.py): Define the interface with @runtime_checkable
+- **Implementations** (in core/null_object.py): Provide concrete implementation without decorator
+- isinstance() works on implementations because protocols are @runtime_checkable
+- Type checking works because implementations match protocol structure
+
+### Integration with Existing Code
+- session_service.py uses handlers: confirm(), start(), update(), complete(), show()
+- Null handlers work seamlessly with existing code patterns
+- Eliminates need for `if handler:` checks in session_service.py
+- Can use get_null_handler("io", io_handler) to safely handle None
+
+### Test Coverage
+- 100% coverage for null_object.py (31 statements, 0 missed)
+- 100% pass rate: all 22 tests pass
+- Test categories:
+  - NullIOHandler: 7 tests (prompt, confirm, select, multi_select)
+  - NullProgressHandler: 3 tests (start, update, complete)
+  - NullNotificationHandler: 1 test (show)
+  - get_null_handler: 7 tests (returns existing, returns null, unknown type)
+  - Protocol compliance: 3 tests (isinstance() checks)
+  - Integration: 1 test (existing code patterns)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 22 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Null Object pattern eliminates null checks** - Safe defaults for optional dependencies
+   - Instead of `if handler: handler.method()`, use `get_null_handler("type", handler)`
+   - Returns null handler if None, existing handler if not None
+   - Client code never needs to check for None
+
+3. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - Protocols define interface (@runtime_checkable)
+   - Implementations provide behavior (no decorator needed)
+   - isinstance() works on implementations
+   - Future: Database-backed handlers, logging handlers, etc.
+
+4. **No-op methods provide safe defaults** - Deterministic behavior
+   - IO: prompt returns default/empty, confirm returns default, select returns first option
+   - Progress: All methods are no-ops (no-op for start/update/complete)
+   - Notification: show is a no-op (no-op for notifications)
+   - Never throws exceptions, always returns safe value
+
+5. **Factory pattern simplifies usage** - get_null_handler() handles all types
+   - One function for all handler types
+   - Returns existing handler if not None
+   - Creates appropriate null handler based on type string
+   - Reduces boilerplate in client code
+
+6. **@runtime_checkable decorator is for protocols only** - Not for implementations
+   - Protocols (IOHandler, ProgressHandler, NotificationHandler) use @runtime_checkable
+   - Implementations (NullIOHandler, etc.) don't use @runtime_checkable
+   - isinstance() works because protocols are runtime-checkable
+   - Applying to implementations causes TypeError
+
+7. **Test coverage matters** - 100% coverage for null_object.py
+   - All public methods tested (prompt, confirm, select, multi_select, start, update, complete, show, get_null_handler)
+   - All protocol compliance tested (isinstance() checks)
+   - All return values tested (defaults, empty values)
+   - Integration test verifies compatibility with existing code
+
+### Next Steps
+- Task 24: Update session_service.py to use get_null_handler for all handlers
+- Consider adding logging to null handlers (optional debug logging)
+- Consider adding metrics tracking (how often null handlers are used)
+- Future: Thread-safe null handlers (currently all methods are pure)
