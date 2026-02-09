@@ -1501,3 +1501,249 @@ Invalid transitions (examples):
 - Future: Add thread-safe MetricsStore implementation
 - Future: Add database-backed MetricsStore with persistence
 - Future: Add percentiles (p50, p90, p99) to get_metric()
+
+
+## Circuit Breaker Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 26 tests written covering all circuit breaker functionality
+  - 4 circuit state tests (initial state, failures, times)
+  - 4 circuit operations tests (open, close)
+  - 3 circuit breaker logic tests (closed, open, half-open)
+  - 4 failure tracking tests (increment, count, time, multiple providers)
+  - 8 protocol compliance tests (runtime_checkable, methods, state queries)
+  - 3 Result type tests (open/close returns Result, state returns string)
+- **GREEN Phase**: All 26 tests passing with 84% coverage for circuit_breaker.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### CircuitBreaker Pattern Design
+- **CircuitBreaker Protocol**: Interface for circuit breaker
+  - `is_open() -> bool`: Check if circuit allows calls (OPEN or HALF_OPEN)
+  - `is_closed() -> bool`: Check if circuit blocks calls (CLOSED only)
+  - `is_half_open() -> bool`: Check if circuit is in recovery state
+  - `get_state() -> str`: Get current state ("closed", "open", "half_open")
+  - `open() -> Result[None]`: Open circuit for calls (changes state to OPEN)
+  - `close() -> Result[None]`: Close circuit manually (clears failures)
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on CircuitBreaker
+
+- **CircuitState Enum**: Three explicit circuit states
+  - CLOSED: Circuit is closed (blocks calls) - initial state
+  - OPEN: Circuit is open (allows calls) - opened manually via open()
+  - HALF_OPEN: Limited calls for recovery testing - after timeout
+
+- **CircuitBreakerImpl**: In-memory circuit breaker implementation
+  - Wraps provider adapter with circuit breaker logic
+  - Tracks failures per provider: `_failures: dict[str, int]`
+  - Tracks last failure time: `_last_failure_time: dict[str, datetime]`
+  - Tracks half-open expiration: `_half_open_until: dict[str, datetime]`
+  - Configurable thresholds: failure_threshold, half_open_threshold, timeout_seconds, reset_timeout_seconds
+  - Thread-safety: NOT thread-safe (documented limitation)
+  - Simple in-memory tracking suitable for single-process use
+
+### Circuit Breaker Logic
+- **State management**: 
+  - Initial state: CLOSED
+  - Manual control: open() changes to OPEN, close() changes to CLOSED
+  - Query methods: is_open(), is_closed(), is_half_open() check current state
+  - State queries don't modify state (idempotent)
+
+- **Failure tracking**:
+  - Per-provider tracking: Each provider has separate failure count
+  - Incremental tracking: Failures increment one at a time
+  - Last failure time: Timestamp updated on each failure
+  - Close clears all: close() resets failures, times, and expirations
+
+- **Result pattern integration**:
+  - All methods return Result types (Ok/Err)
+  - open() returns Ok(None) on success, Err on failure
+  - close() returns Ok(None) on success, Err on failure
+  - No exceptions raised from public methods (violates pattern if raised)
+  - Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 84% coverage for circuit_breaker.py (61 statements, 10 missed)
+- 100% pass rate: all 26 tests pass
+- All public methods tested (is_open, is_closed, is_half_open, get_state, open, close)
+- State transitions tested (initial state, open, close, half-open)
+- Failure tracking tested (increment, count, timestamps, multiple providers)
+- Protocol compliance tested (runtime_checkable, isinstance checks)
+- Result types tested (Ok returns, Err returns, state strings)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 26 failing tests (RED) - module didn't exist
+   - Implemented protocol and class to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings and type hints (REFACTOR)
+
+2. **Circuit breaker pattern provides fault tolerance** - Explicit state management
+   - States are explicit (CLOSED, OPEN, HALF_OPEN) - no implicit transitions
+   - Manual control via open()/close() methods
+   - Query methods check state without modifying it (idempotent)
+   - Provider-specific failure tracking enables fine-grained control
+
+3. **Result pattern integration** - Explicit error handling without exceptions
+   - open() and close() return Result[None] for explicit error handling
+   - No exceptions raised from public methods
+   - Err includes error message and code ("CIRCUIT_ERROR")
+   - Caller can handle errors explicitly (no try/except needed)
+   - Consistent with Result pattern learned in Task 10
+
+4. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on CircuitBreaker
+   - CircuitBreakerImpl is default implementation (in-memory)
+   - Future: Thread-safe CircuitBreaker with locks or UnitOfWork integration
+   - Future: Database-backed CircuitBreaker with persistence
+   - Type hints ensure all implementations match protocol
+
+5. **In-memory implementation trade-offs** - Simple but not production-ready
+   - No persistence (circuit state lost on restart)
+   - Not thread-safe (documented limitation)
+   - Per-provider tracking in simple dicts (suitable for few providers)
+   - Suitable for single-process use (LLM client use case)
+   - Future: Add thread safety with locks or async primitives
+   - Future: Add persistence for circuit state across restarts
+
+6. **Test coverage matters** - 84% coverage for circuit_breaker.py
+   - All public methods tested (is_open, is_closed, is_half_open, get_state, open, close)
+   - All circuit states tested (CLOSED, OPEN, HALF_OPEN)
+   - Failure tracking tested with multiple providers
+   - Protocol compliance tested with isinstance() checks
+   - Result type usage tested (Ok/Err returns)
+   - 10 missed lines in private methods (_get_provider_name, open, close)
+
+7. **Simplified circuit breaker** - Manual control without automatic transitions
+   - Unlike traditional circuit breaker, this implementation requires manual open()/close()
+   - No automatic state transitions based on failure counts
+   - Suitable for explicit fault tolerance control in LLM calls
+   - Future: Add automatic transitions (CLOSED -> OPEN on threshold, HALF_OPEN -> CLOSED on success)
+
+8. **Provider adapter integration** - Wraps provider without modification
+   - ProviderAdapter interface used (has get_provider_name() method)
+   - No direct modification to provider code
+   - Adapter pattern enables clean separation (providers from circuit breaking)
+   - Consistent with Adapter pattern learned in Task 16
+
+### Next Steps
+- Consider adding automatic circuit transitions (CLOSED -> OPEN on threshold breach)
+- Consider adding HALF_OPEN state management (timeout expiration)
+- Consider adding thread-safe CircuitBreaker implementation for concurrent access
+- Consider adding persistence for circuit state across restarts
+- Future: Integrate with Strategy pattern (Task 24) for provider selection
+- Future: Add circuit breaker to LLM client for automatic fault tolerance
+
+## Bulkhead Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 27 tests written covering all bulkhead functionality
+  - 4 protocol compliance tests (methods defined, runtime_checkable, implementation)
+  - 7 semaphore management tests (acquire, release, timeout, error handling)
+  - 5 configuration tests (limits, timeouts, multiple resources)
+  - 9 try_execute tests (execution, timeout, release, concurrent limiting)
+  - 2 active count tests (increment, decrement, concurrent operations)
+- **GREEN Phase**: All 27 tests passing with high coverage for bulkhead.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Bulkhead Pattern Design
+- **Bulkhead Protocol**: Interface for resource isolation
+  - `try_acquire(resource) -> Result[Semaphore]`: Acquire semaphore with timeout
+  - `release(semaphore) -> Result[None]`: Release semaphore after operation
+  - `try_execute(resource, func, max_concurrent) -> Result[Any]`: Execute with limiting
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on Bulkhead
+
+- **BulkheadImpl**: In-memory bulkhead with per-resource semaphores
+  - Per-resource semaphores: `_semaphores: dict[str, asyncio.Semaphore]`
+  - Per-resource limits: `_limits: dict[str, int]` (default: 1)
+  - Per-resource timeouts: `_timeouts: dict[str, float]` (default: 30.0s)
+  - Active counts: `_active_counts: dict[str, int]` for tracking operations
+  - Managed semaphores: `_managed_semaphores: set[asyncio.Semaphore]` for validation
+
+### Resource Isolation Mechanism
+- **Per-resource semaphores**: Each resource (provider, API endpoint) has its own semaphore
+  - Semaphore created on first acquire: `asyncio.Semaphore(limit)`
+  - Same semaphore reused for subsequent acquires
+  - Different resources have independent limits and semaphores
+  - Prevents resource-specific exhaustion (e.g., openai limited to 5 concurrent calls)
+
+- **Semaphore acquisition with timeout**: `asyncio.wait_for(semaphore.acquire(), timeout)`
+  - Waits for semaphore with configurable timeout
+  - Returns `Ok[Semaphore]` on success
+  - Returns `Err` with "ACQUISITION_TIMEOUT" code on timeout
+  - Returns `Err` with "BULKHEAD_ERROR" code on exception
+
+- **Semaphore release validation**: Tracks ownership to prevent errors
+  - Only release semaphores acquired via try_acquire()
+  - Validates semaphore in `_managed_semaphores` set before releasing
+  - Prevents releasing external semaphores not managed by this bulkhead
+  - Removes from managed set after release
+  - Returns `Err` if semaphore not managed
+
+### try_execute Behavior
+- **Acquire-execute-release pattern**: Guarantees semaphore cleanup
+  - Acquires semaphore via try_acquire()
+  - Executes function with timeout protection
+  - Releases semaphore in finally block (even on exception)
+  - Ensures no semaphore leaks from failed operations
+
+- **Custom max_concurrent parameter**: Overrides configured limit per-execution
+  - Temporarily sets limit via set_limit()
+  - Restores original limit after execution
+  - Allows flexible concurrency control without modifying configuration
+
+- **Execution timeout protection**: `asyncio.wait_for(func(), timeout)`
+  - Times out long-running functions
+  - Returns `Err` with "EXECUTION_TIMEOUT" code
+  - Prevents hung operations from blocking semaphore forever
+
+### Result Pattern Integration
+- All bulkhead methods return Result types (Ok/Err)
+- Errors wrapped with explicit error codes ("ACQUISITION_TIMEOUT", "EXECUTION_TIMEOUT", "BULKHEAD_ERROR")
+- Exceptions caught and converted to Err (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 27 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on Bulkhead
+   - BulkheadImpl is default (in-memory, not thread-safe)
+   - Future: Thread-safe or database-backed implementations
+
+3. **Managed semaphore tracking** - Prevents releasing non-managed semaphores
+   - Added `_managed_semaphores: set[asyncio.Semaphore]` for tracking
+   - Validates ownership in release() method
+   - Prevents releasing semaphores acquired elsewhere
+   - Improves security and prevents double-release errors
+
+4. **Active count tracking** - Monitors concurrent operations per resource
+   - Increments on acquire, decrements on release
+   - Tracked in `_active_counts: dict[str, int]`
+   - Useful for debugging and monitoring
+   - Not used for limiting (semaphore handles that)
+
+5. **finally block cleanup** - Ensures semaphore release even on exceptions
+   - try_execute uses finally to release semaphore
+   - Guarantees no semaphore leaks from failed operations
+   - Critical for resource management (semaphores limited resource)
+
+6. **Custom max_concurrent parameter** - Flexible per-execution control
+   - Overrides configured limit without modifying configuration
+   - Temporary limit restored after execution
+   - Enables one-off high-concurrency operations
+
+7. **Test coverage matters** - 27 tests, all passing
+   - Protocol compliance tested (4 tests)
+   - Semaphore management tested (7 tests)
+   - Configuration tested (5 tests)
+   - try_execute tested (9 tests)
+   - Active count tested (2 tests)
+
+### Next Steps
+- Consider adding thread-safe Bulkhead implementation for concurrent access
+- Consider adding semaphore statistics (wait times, queue depth)
+- Consider adding timeout policies (exponential backoff, adaptive timeout)
+- Consider integrating with CircuitBreaker (Task 26) for fault tolerance
