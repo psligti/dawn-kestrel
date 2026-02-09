@@ -47,7 +47,7 @@ class Container(containers.DeclarativeContainer):
 
     # Storage directory
     storage_dir = providers.Factory(
-        lambda: container.config.storage_path() or str(settings.storage_dir_path()),
+        lambda: container.config.storage_path() or settings.storage_dir_path(),
     )
 
     # Project directory
