@@ -74,7 +74,13 @@ def list_sessions(directory: str | None) -> None:
             notification_handler=notification_handler,
         )
 
-        sessions = await service.list_sessions()
+        result = await service.list_sessions()
+
+        if result.is_err():
+            console.print(f"[red]Error: {result.error}[/red]")
+            sys.exit(1)
+
+        sessions = result.unwrap()
 
         table = Table()
         table.add_column("ID", style="cyan")
@@ -150,7 +156,13 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
             notification_handler=notification_handler,
         )
 
-        session = await service.get_session(session_id)
+        result = await service.get_session(session_id)
+
+        if result.is_err():
+            console.print(f"[red]Error: {result.error}[/red]")
+            sys.exit(1)
+
+        session = result.unwrap()
         if not session:
             console.print(f"[red]Session not found: {session_id}[/red]")
             return

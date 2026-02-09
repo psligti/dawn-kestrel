@@ -240,3 +240,50 @@ Known Issues:
 - LSP errors are pre-existing and not caused by this task
 - Deprecation warnings from handler requirements (expected, using default no-op handlers)
 
+
+
+Task 11 Summary (TUI Result Handling):
+=====================================
+Files Modified:
+1. dawn_kestrel/tui/app.py - MODIFIED
+   - Updated _load_sessions() to handle Result[list[Session]]
+   - Updated _open_message_screen() to handle Result[Session | None]
+   - Removed try/except blocks in favor of Result pattern
+   - Used self.notify() to display errors to users
+
+Pattern Applied:
+- Check result.is_err() for error cases
+- Display error via self.notify(f"[red]Error: {result.error}[/red]")
+- Use result.unwrap() to get values on success
+- Handle None case for get_session() explicitly
+
+Key Implementation Details:
+1. _load_sessions() (line 157-172):
+   - Before: sessions = await self.session_service.list_sessions()
+   - After: result = await self.session_service.list_sessions()
+            if result.is_err(): notify and return
+            sessions = result.unwrap()
+
+2. _open_message_screen() (line 204-221):
+   - Before: try/except wrapper around session_service.get_session()
+   - After: result = asyncio.run(self.session_service.get_session(...))
+            if result.is_err(): notify and return
+            session = result.unwrap()
+            if session: push screen else notify not found
+
+LSP Warnings (Expected):
+- LSP doesn't understand type narrowing after is_err() check
+- Code is correct - warnings are false positives
+- Err class has error attribute accessible after is_err() returns True
+
+Tests:
+- tests/tui/test_app.py::test_app_can_be_instantiated PASSED
+- 1 passed, 0 failures
+- No specific tests exist for _load_sessions or _open_message_screen methods
+
+Key Learnings:
+1. Result pattern in TUI: Use self.notify() for user-facing error messages
+2. Type narrowing limitation: LSP warnings on result.error are expected false positives
+3. Error handling: Remove try/except blocks when using Result pattern
+4. None handling: Result[Session | None] requires explicit None check after unwrap()
+5. TUI error display: Use [red]...[/red] formatting for error messages in notify()

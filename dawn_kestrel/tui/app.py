@@ -154,7 +154,13 @@ class OpenCodeTUI(App[None]):
 
     async def _load_sessions(self) -> None:
         """Load sessions into table"""
-        sessions = await self.session_service.list_sessions()
+        result = await self.session_service.list_sessions()
+
+        if result.is_err():
+            self.notify(f"[red]Error loading sessions: {result.error}[/red]")
+            return
+
+        sessions = result.unwrap()
 
         self.session_table.clear()
 
@@ -200,15 +206,18 @@ class OpenCodeTUI(App[None]):
             self.notify("[yellow]No session selected[/yellow]")
             return
 
-        try:
-            session = asyncio.run(self.session_service.get_session(self.current_session_id))
-            if session:
-                self.push_screen(MessageScreen(session, session_service=self.session_service))
-            else:
-                self.notify(f"[red]Session not found: {self.current_session_id}[/red]")
-        except Exception as e:
-            logger.error(f"Error opening message screen: {e}")
-            self.notify(f"[red]Error: {e}[/red]")
+        result = asyncio.run(self.session_service.get_session(self.current_session_id))
+
+        if result.is_err():
+            self.notify(f"[red]Error loading session: {result.error}[/red]")
+            return
+
+        session = result.unwrap()
+
+        if session:
+            self.push_screen(MessageScreen(session, session_service=self.session_service))
+        else:
+            self.notify(f"[red]Session not found: {self.current_session_id}[/red]")
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle command input"""

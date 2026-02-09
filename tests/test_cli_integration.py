@@ -40,7 +40,7 @@ class TestListSessionsCommand:
 
     @patch("dawn_kestrel.cli.main.get_storage_dir")
     @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_list_sessions_uses_session_service(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
@@ -70,7 +70,7 @@ class TestListSessionsCommand:
 
     @patch("dawn_kestrel.cli.main.get_storage_dir")
     @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_list_sessions_displays_sessions(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
@@ -99,7 +99,9 @@ class TestListSessionsCommand:
             time_created=1234567900,
             version="1.0.0",
         )
-        mock_service.list_sessions = AsyncMock(return_value=[session1, session2])
+        from dawn_kestrel.core.result import Ok
+
+        mock_service.list_sessions = AsyncMock(return_value=Ok([session1, session2]))
         mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
@@ -178,6 +180,7 @@ class TestExportSessionCommand:
             CLIProgressHandler,
             CLINotificationHandler,
         )
+
         assert isinstance(call_kwargs["io_handler"], CLIIOHandler)
         assert isinstance(call_kwargs["progress_handler"], CLIProgressHandler)
         assert isinstance(call_kwargs["notification_handler"], CLINotificationHandler)
@@ -207,6 +210,8 @@ class TestExportSessionCommand:
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
 
+        from dawn_kestrel.core.result import Ok
+
         mock_service = Mock()
         session = Session(
             id="ses_001",
@@ -217,7 +222,7 @@ class TestExportSessionCommand:
             time_created=1234567890,
             version="1.0.0",
         )
-        mock_service.get_session = AsyncMock(return_value=session)
+        mock_service.get_session = AsyncMock(return_value=Ok(session))
         mock_service_cls.return_value = mock_service
 
         mock_manager = Mock()
@@ -396,7 +401,9 @@ class TestBackwardCompatibility:
             time_created=1234567890,
             version="1.0.0",
         )
-        mock_service.list_sessions = AsyncMock(return_value=[session])
+        from dawn_kestrel.core.result import Ok
+
+        mock_service.get_session = AsyncMock(return_value=Ok(session))
         mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
