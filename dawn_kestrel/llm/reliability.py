@@ -158,7 +158,7 @@ class LLMReliabilityImpl:
             circuit_breaker: Optional circuit breaker for fault tolerance.
             retry_executor: Optional retry executor for transient failures.
         """
-        self._rate_limiter = rate_limiter() if rate_limiter is not None else None
+        self._rate_limiter = rate_limiter if rate_limiter is not None else None
         self._circuit_breaker = circuit_breaker
         self._retry_executor = retry_executor
 

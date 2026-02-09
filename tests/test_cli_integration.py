@@ -38,26 +38,26 @@ def mock_storage(temp_dir):
 class TestListSessionsCommand:
     """Tests for list-sessions command."""
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
     @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_list_sessions_uses_session_service(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
         """Test that list-sessions uses SessionService."""
-        # Setup
         mock_get_dir.return_value = temp_dir
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
 
+        from dawn_kestrel.core.result import Ok
+
         mock_service = Mock()
-        mock_service.list_sessions = AsyncMock(return_value=[])
+        mock_service.list_sessions = AsyncMock(return_value=Ok([]))
         mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
         result = runner.invoke(cli, ["list-sessions"])
 
-        # Verify SessionService was created with handlers
         assert mock_service_cls.called
         call_kwargs = mock_service_cls.call_args[1]
         assert "storage" in call_kwargs
@@ -65,11 +65,10 @@ class TestListSessionsCommand:
         assert "progress_handler" in call_kwargs
         assert "notification_handler" in call_kwargs
 
-        # Verify list_sessions was called
         mock_service.list_sessions.assert_called_once()
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
     @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_list_sessions_displays_sessions(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
@@ -118,12 +117,12 @@ class TestListSessionsCommand:
 class TestExportSessionCommand:
     """Tests for export-session command."""
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
-    @patch("dawn_kestrel.cli.main.ExportImportManager")
-    @patch("dawn_kestrel.cli.main.SessionManager")
-    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
+    @patch("dawn_kestrel.session.export_import.ExportImportManager")
+    @patch("dawn_kestrel.core.session.SessionManager")
+    @patch("dawn_kestrel.snapshot.index.GitSnapshot")
     def test_export_session_uses_session_service(
         self,
         mock_git_snapshot_cls,
@@ -188,12 +187,12 @@ class TestExportSessionCommand:
         # Verify get_session was called
         mock_service.get_session.assert_called_once_with("ses_001")
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
-    @patch("dawn_kestrel.cli.main.ExportImportManager")
-    @patch("dawn_kestrel.cli.main.SessionManager")
-    @patch("dawn_kestrel.cli.main.GitSnapshot")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
+    @patch("dawn_kestrel.session.export_import.ExportImportManager")
+    @patch("dawn_kestrel.core.session.SessionManager")
+    @patch("dawn_kestrel.snapshot.index.GitSnapshot")
     def test_export_session_uses_progress_handler(
         self,
         mock_git_snapshot_cls,
@@ -247,13 +246,13 @@ class TestExportSessionCommand:
 class TestImportSessionCommand:
     """Tests for import-session command."""
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
-    @patch("dawn_kestrel.cli.main.ExportImportManager")
-    @patch("dawn_kestrel.cli.main.SessionManager")
-    @patch("dawn_kestrel.cli.main.GitSnapshot")
-    @patch("dawn_kestrel.cli.main.MessageStorage")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
+    @patch("dawn_kestrel.session.export_import.ExportImportManager")
+    @patch("dawn_kestrel.core.session.SessionManager")
+    @patch("dawn_kestrel.snapshot.index.GitSnapshot")
+    @patch("dawn_kestrel.storage.store.MessageStorage")
     def test_import_session_uses_session_service(
         self,
         mock_message_storage_cls,
@@ -301,13 +300,13 @@ class TestImportSessionCommand:
         # Verify import was called
         mock_manager.import_session.assert_called_once()
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
-    @patch("dawn_kestrel.cli.main.ExportImportManager")
-    @patch("dawn_kestrel.cli.main.SessionManager")
-    @patch("dawn_kestrel.cli.main.GitSnapshot")
-    @patch("dawn_kestrel.cli.main.MessageStorage")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
+    @patch("dawn_kestrel.session.export_import.ExportImportManager")
+    @patch("dawn_kestrel.core.session.SessionManager")
+    @patch("dawn_kestrel.snapshot.index.GitSnapshot")
+    @patch("dawn_kestrel.storage.store.MessageStorage")
     def test_import_session_uses_notification_handler(
         self,
         mock_message_storage_cls,
@@ -353,9 +352,9 @@ class TestImportSessionCommand:
 class TestDeprecationWarnings:
     """Tests for deprecation warnings."""
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_tui_command_shows_deprecation_warning(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
@@ -379,9 +378,9 @@ class TestDeprecationWarnings:
 class TestBackwardCompatibility:
     """Tests for backward compatibility."""
 
-    @patch("dawn_kestrel.cli.main.get_storage_dir")
-    @patch("dawn_kestrel.cli.main.SessionStorage")
-    @patch("dawn_kestrel.cli.main.DefaultSessionService")
+    @patch("dawn_kestrel.core.settings.get_storage_dir")
+    @patch("dawn_kestrel.storage.store.SessionStorage")
+    @patch("dawn_kestrel.core.services.session_service.DefaultSessionService")
     def test_list_sessions_output_unchanged(
         self, mock_service_cls, mock_storage_cls, mock_get_dir, temp_dir
     ):
@@ -403,7 +402,7 @@ class TestBackwardCompatibility:
         )
         from dawn_kestrel.core.result import Ok
 
-        mock_service.get_session = AsyncMock(return_value=Ok(session))
+        mock_service.list_sessions = AsyncMock(return_value=Ok([session]))
         mock_service_cls.return_value = mock_service
 
         runner = CliRunner()
