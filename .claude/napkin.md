@@ -130,3 +130,39 @@
 - **TDD workflow followed**: RED (19 tests written) → GREEN (implemented methods) → tests pass
 - **Backward compatibility**: Global functions still work, delegate to instance methods
 - **Thread safety**: Pydantic models are immutable by default, thread-safe
+
+## SessionService Repository Pattern Refactoring (2026-02-09)
+
+### SessionService Refactoring to Use Repositories
+- **Successful migration**: Replaced direct SessionStorage usage with Repository pattern in SessionService
+- **Implementation details**:
+  - Changed `__init__` to accept `session_repo: SessionRepository, message_repo: MessageRepository, part_repo: Optional[PartRepository]`
+  - Kept `storage: SessionStorage` parameter for backward compatibility (auto-creates repositories from storage)
+  - Updated all data access methods to use repositories directly instead of SessionManager
+  - Methods updated: `create_session`, `create_session_result`, `delete_session`, `delete_session_result`, `add_message`, `add_message_result`, `list_sessions`, `get_session`, `get_export_data`, `import_session`
+
+- **Result pattern integration**: Repository methods return Result types, properly unwrapped/handled in SessionService
+  - Used `result.is_err()` to check for errors
+  - Used `result.unwrap()` to get values on success
+  - Wrapped repository errors in new Err with context ("Failed to create session: {error}")
+
+- **Backward compatibility**: Maintained through storage parameter
+  - When `storage` is passed, repositories are auto-created: `SessionRepositoryImpl(storage)`, `MessageRepositoryImpl(MessageStorage(storage.base_dir))`, `PartRepositoryImpl(PartStorage(storage.base_dir))`
+  - Deprecated storage parameter with warnings
+  - SessionManager still available for backward compatibility when storage is passed
+
+- **Test coverage**: Created 25 tests, all passing
+  - Updated existing tests to use repository mocks instead of storage mocks
+  - Added new repository integration tests: `test_create_session_uses_session_repository`, `test_delete_session_uses_session_repository`, `test_repository_error_propagates_to_session_service`, `test_repository_ok_returns_session`
+  - Tests verify proper delegation to repositories and Result type handling
+
+- **Key learnings**:
+  1. **Result type API**: `Err` has `error` attribute (string), not `error()` method. Access via `result.error`, not `result.error()`.
+  2. **Repository pattern wraps storage**: No changes to storage layer, just added repository abstraction
+  3. **SessionManager still exists**: For full migration, SessionManager should also be refactored to use repositories
+  4. **Deprecation strategy**: Gradual migration path - new code uses repositories, old code can still pass storage
+  5. **Test mock patterns**: Use `AsyncMock(return_value=Ok(...))` for repository mocks, not direct values
+
+### Next Steps
+- Consider refactoring SessionManager to use repositories for complete migration
+- Remove storage parameter once all callers are migrated to repositories
