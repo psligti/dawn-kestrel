@@ -184,7 +184,7 @@ class MessageScreen(Screen):
         """Load existing messages for session"""
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from pathlib import Path
 
         try:
@@ -192,7 +192,7 @@ class MessageScreen(Screen):
                 messages = await self.session_service.get_session(self.session.id)
                 self.messages = messages.messages if messages else []
             else:
-                storage_dir = get_storage_dir()
+                storage_dir = settings.storage_dir_path()
                 storage = SessionStorage(storage_dir)
                 work_dir = Path.cwd()
                 manager = SessionManager(storage, work_dir)
@@ -235,7 +235,7 @@ class MessageScreen(Screen):
         """Create a user message"""
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from pathlib import Path
         import uuid
 
@@ -260,7 +260,7 @@ class MessageScreen(Screen):
             parts=[text_part],
         )
 
-        storage_dir = get_storage_dir()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         work_dir = Path.cwd()
         manager = SessionManager(storage, work_dir)
@@ -624,13 +624,13 @@ class MessageScreen(Screen):
         """Save assistant message to storage"""
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from pathlib import Path
 
         assert self._current_assistant_message is not None, "Current assistant message must be set"
 
         try:
-            storage_dir = get_storage_dir()
+            storage_dir = settings.storage_dir_path()
             storage = SessionStorage(storage_dir)
             work_dir = Path.cwd()
             manager = SessionManager(storage, work_dir)

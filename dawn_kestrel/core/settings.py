@@ -32,7 +32,7 @@ class Settings(pydantic_settings.BaseSettings):
     """Application settings with type-safe validation"""
 
     # Application settings
-    app_name: str = Field(default="dawn-kestrel", alias="APP_NAME")
+    app_name: str = Field(default="dawn-kestrel", alias="APP_NAME", min_length=1)
     debug: bool = Field(default=False, alias="DEBUG")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
@@ -309,6 +309,33 @@ class Settings(pydantic_settings.BaseSettings):
 
         return self._get_api_key_from_env(provider_enum)
 
+    def storage_dir_path(self) -> Path:
+        """
+        Get the storage directory path as a Path object.
+
+        Returns:
+            The storage directory path as a Path object with ~ expanded.
+        """
+        return Path(self.storage_dir).expanduser()
+
+    def config_dir_path(self) -> Path:
+        """
+        Get the config directory path as a Path object.
+
+        Returns:
+            The config directory path as a Path object with ~ expanded.
+        """
+        return Path(self.config_dir).expanduser()
+
+    def cache_dir_path(self) -> Path:
+        """
+        Get the cache directory path as a Path object.
+
+        Returns:
+            The cache directory path as a Path object with ~ expanded.
+        """
+        return Path(self.cache_dir).expanduser()
+
 
 APP_DIR_NAME = "dawn-kestrel"
 
@@ -374,29 +401,38 @@ def reload_settings() -> Settings:
 
 def get_storage_dir() -> Path:
     """
-    Get the storage directory path from settings.
+    Get the storage directory path from global settings instance.
+
+    Deprecated: Use Settings().storage_dir_path() instead.
+    This function provides backward compatibility with existing code.
 
     Returns:
         The storage directory path as a Path object with ~ expanded.
     """
-    return Path(settings.storage_dir).expanduser()
+    return settings.storage_dir_path()
 
 
 def get_config_dir() -> Path:
     """
-    Get the config directory path from settings.
+    Get the config directory path from global settings instance.
+
+    Deprecated: Use Settings().config_dir_path() instead.
+    This function provides backward compatibility with existing code.
 
     Returns:
         The config directory path as a Path object with ~ expanded.
     """
-    return Path(settings.config_dir).expanduser()
+    return settings.config_dir_path()
 
 
 def get_cache_dir() -> Path:
     """
-    Get the cache directory path from settings.
+    Get the cache directory path from global settings instance.
+
+    Deprecated: Use Settings().cache_dir_path() instead.
+    This function provides backward compatibility with existing code.
 
     Returns:
         The cache directory path as a Path object with ~ expanded.
     """
-    return Path(settings.cache_dir).expanduser()
+    return settings.cache_dir_path()

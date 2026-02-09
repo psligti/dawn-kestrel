@@ -55,10 +55,10 @@ def list_sessions(directory: str | None) -> None:
             CLIProgressHandler,
         )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage_dir = get_storage_dir()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
 
         work_dir = Path(directory).expanduser() if directory else Path.cwd()
@@ -130,12 +130,12 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
         )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
         from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from dawn_kestrel.session.export_import import ExportImportManager
         from dawn_kestrel.snapshot.index import GitSnapshot
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage_dir = get_storage_dir()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         work_dir = Path.cwd()
 
@@ -187,12 +187,12 @@ def import_session(import_path: str, project_id: str | None) -> None:
         )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
         from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.core.settings import settings
         from dawn_kestrel.session.export_import import ExportImportManager
         from dawn_kestrel.snapshot.index import GitSnapshot
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage_dir = get_storage_dir()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         work_dir = Path.cwd()
 

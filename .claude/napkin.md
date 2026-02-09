@@ -111,3 +111,22 @@
     3. Tool filtering assertion (empty registry due to test setup with mock agent)
   - All agent execution tests pass
 - **Key insight**: All agents work correctly with AgentRuntime.execute_agent() - no issues found with agent functionality
+
+### Configuration Object Refactoring (2026-02-08)
+- **Successful migration**: Replaced Settings singleton global functions with Configuration Object pattern
+- **Implementation details**:
+  - Added instance methods to Settings class: storage_dir_path(), config_dir_path(), cache_dir_path()
+  - Methods return Path objects with expanduser() called
+  - Global singleton functions kept for backward compatibility, now delegate to instance methods
+  - Added min_length=1 validation to app_name field
+- **Updated files**:
+  1. dawn_kestrel/core/settings.py - Added instance methods, updated global functions
+  2. dawn_kestrel/sdk/client.py - Changed get_storage_dir() to settings.storage_dir_path()
+  3. dawn_kestrel/cli/main.py - Updated 3 occurrences
+  4. dawn_kestrel/tui/app.py - Updated import and usage
+  5. dawn_kestrel/core/di_container.py - Updated lambda function
+  6. dawn_kestrel/tui/screens/message_screen.py - Updated 3 occurrences
+- **Test coverage**: Created tests/core/test_config_object.py with 17 test cases (100% pass rate)
+- **TDD workflow followed**: RED (19 tests written) → GREEN (implemented methods) → tests pass
+- **Backward compatibility**: Global functions still work, delegate to instance methods
+- **Thread safety**: Pydantic models are immutable by default, thread-safe
