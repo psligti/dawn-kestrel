@@ -113,3 +113,62 @@ Test Results:
 - RetryExecutor tests: 8/8 pass
 - Integration tests: 4/4 pass
 
+
+Task 6 Summary (Provider Plugin Discovery Migration):
+=================================================
+Goal: Remove PROVIDER_FACTORIES static map and migrate to plugin-based loading pattern (matching tools).
+
+Changes Made:
+1. dawn_kestrel/providers/__init__.py - MODIFIED
+   - Removed PROVIDER_FACTORIES static dict (line 381)
+   - Removed PROVIDER_FACTORIES.update() call from _get_provider_factories() (line 89)
+   - Removed register_provider_factory() function (lines 367-378)
+   - Removed _get_provider_name() function (unused, lines 35-57)
+   - Removed _clear_provider_cache() function (no longer needed, lines 69-75)
+   - Removed "register_provider_factory" from __all__ exports
+   - Updated _get_provider_factories() docstring to reflect pure plugin discovery
+   - Updated get_provider() docstring to remove reference to custom registrations
+
+2. tests/providers/test_provider_plugins.py - MODIFIED
+   - Removed test_register_provider_factory_still_works() (function no longer exists)
+   - Added test_custom_provider_must_use_entry_points() to verify:
+     * register_provider_factory is no longer available
+     * Unknown providers return None
+     * Custom providers must use entry points
+
+Pattern Matched:
+- Providers now use same pattern as tools: pure plugin discovery via entry_points
+- _get_provider_factories() calls load_providers() from plugin_discovery
+- No static registration maps or runtime registration functions
+- Custom providers registered in pyproject.toml entry points only
+
+Tests:
+- All 11 tests pass (11/11 = 100%)
+- Load providers: load_providers() returns 4 providers
+- Get provider: get_provider() works for all 4 built-in providers
+- Direct imports: AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider all importable
+- Backward compatibility: get_provider() function unchanged, just uses plugin discovery internally
+
+Breaking Changes:
+- register_provider_factory() function removed (no longer available)
+- PROVIDER_FACTORIES static dict removed
+- Custom providers must now use entry points in pyproject.toml (not runtime registration)
+
+Entry Points (unchanged):
+[project.entry-points."dawn_kestrel.providers"]
+anthropic = "dawn_kestrel.providers:AnthropicProvider"
+openai = "dawn_kestrel.providers:OpenAIProvider"
+zai = "dawn_kestrel.providers:ZAIProvider"
+zai_coding_plan = "dawn_kestrel.providers:ZAICodingPlanProvider"
+
+Verification Commands:
+- .venv/bin/python -c "from dawn_kestrel.core.plugin_discovery import load_providers; print(len(load_providers()))" → 4
+- .venv/bin/python -c "from dawn_kestrel.providers import get_provider; from dawn_kestrel.providers.base import ProviderID; print(get_provider(ProviderID.ANTHROPIC, 'test'))" → AnthropicProvider instance
+- .venv/bin/python -m pytest tests/providers/test_provider_plugins.py -v → 11 passed
+
+Key Learnings:
+1. Plugin discovery pattern matches tools module exactly
+2. Backward compatibility maintained for get_provider() - same API, just internal implementation changed
+3. Direct imports of provider classes still work for backward compatibility
+4. Tests verify both new behavior (no registration) and existing behavior (provider loading)
+5. LSP diagnostics clean after changes

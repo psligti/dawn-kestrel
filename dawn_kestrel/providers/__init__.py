@@ -32,37 +32,11 @@ ProviderFactory = Callable[
 ]
 
 
-def _get_provider_name(provider_id: ProviderID) -> str:
-    """Map ProviderID enum to entry point name.
-
-    Entry points use underscores, ProviderID uses hyphens for some values.
-
-    Args:
-        provider_id: ProviderID enum value
-
-    Returns:
-        Entry point name for the provider
-    """
-    # Direct mappings (most common)
-    if provider_id == ProviderID.ANTHROPIC:
-        return "anthropic"
-    elif provider_id == ProviderID.OPENAI:
-        return "openai"
-    elif provider_id == ProviderID.Z_AI:
-        return "zai"
-    elif provider_id == ProviderID.Z_AI_CODING_PLAN:
-        return "zai_coding_plan"
-    else:
-        # For custom providers, use the enum value as-is
-        return provider_id.value
-
-
 def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
-    """Get provider factories from plugin discovery and custom registrations.
+    """Get provider factories from plugin discovery.
 
-    Combines:
-    1. Built-in providers from entry points (plugin discovery)
-    2. Custom providers registered via register_provider_factory()
+    Built-in providers are loaded from entry points via load_providers().
+    Custom providers should be registered via entry points in pyproject.toml.
 
     Returns:
         Dictionary mapping ProviderID to provider factory functions/classes
@@ -85,23 +59,10 @@ def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
         if name in name_to_id:
             factories[name_to_id[name]] = provider_class
 
-    # Add custom providers from PROVIDER_FACTORIES (if any registered)
-    factories.update(PROVIDER_FACTORIES)
-
     return factories
 
 
-# Cached provider factories (updated when custom providers are registered)
 _provider_factories_cache: Optional[Dict[ProviderID, ProviderFactory]] = None
-
-
-def _clear_provider_cache() -> None:
-    """Clear the provider factories cache.
-
-    Should be called when custom providers are registered.
-    """
-    global _provider_factories_cache
-    _provider_factories_cache = None
 
 
 __all__ = [
@@ -122,7 +83,6 @@ __all__ = [
     "ZAICodingPlanProvider",
     # Provider functions
     "get_provider",
-    "register_provider_factory",
     "get_available_models",
 ]
 
@@ -343,7 +303,7 @@ def get_provider(
 ) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
     """Get a provider instance by ID.
 
-    Uses plugin discovery for built-in providers and custom registrations.
+    Uses plugin discovery for built-in providers.
 
     Args:
         provider_id: ProviderID enum value
@@ -362,28 +322,6 @@ def get_provider(
     if factory is None:
         return None
     return factory(api_key)
-
-
-def register_provider_factory(provider_id: ProviderID, factory: ProviderFactory) -> None:
-    """Register a custom provider factory.
-
-    This creates an extension seam so new provider implementations can be
-    registered without editing `get_provider`.
-
-    Args:
-        provider_id: ProviderID enum value
-        factory: Provider factory function or class
-    """
-    PROVIDER_FACTORIES[provider_id] = factory
-    _clear_provider_cache()
-
-
-PROVIDER_FACTORIES: Dict[ProviderID, ProviderFactory] = {}
-"""Custom provider factories registered at runtime.
-
-Built-in providers are loaded from entry points via plugin discovery.
-This dict only contains custom providers registered via register_provider_factory().
-"""
 
 
 async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
