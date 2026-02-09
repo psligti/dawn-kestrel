@@ -2,7 +2,7 @@
 
 **Related Documents:**
 - Canonical spec: `docs/planning-agent-orchestration.md`
-- Integration map: `.sisyphus/integration-map.md`
+- Integration map: `.orchestrator/integration-map.md`
 
 ---
 
@@ -941,5 +941,5 @@ export PLAN_AGENT_LOG_LEVEL=debug
 ## References
 
 - Canonical spec: `docs/planning-agent-orchestration.md`
-- Integration map: `.sisyphus/integration-map.md`
-- Original plan: `.sisyphus/plans/planning-agent-initial-conversation-orchestration.md`
+- Integration map: `.orchestrator/integration-map.md`
+- Original plan: `.orchestrator/plans/planning-agent-initial-conversation-orchestration.md`

@@ -240,7 +240,7 @@ DAWN_KESTREL_ZAI_API_KEY=your-key
 | Add utility script | `scripts/` | `scripts/my_utility.py` |
 | Add benchmark | `dawn_kestrel/benchmarks/` | `dawn_kestrel/benchmarks/my_benchmark.py` |
 | Add TUI screen | `dawn_kestrel/tui/` | `dawn_kestrel/tui/screens/my_screen.py` |
-| Add skill | `.sisyphus/skills/` or project directory | `project/.sisyphus/skills/my_skill.md` |
+| Add skill | `.orchestrator/skills/` or project directory | `project/.orchestrator/skills/my_skill.md` |
 | Add reviewer | `dawn_kestrel/agents/review/agents/` | `dawn_kestrel/agents/review/agents/my_reviewer.py` |
 
 ## Summary

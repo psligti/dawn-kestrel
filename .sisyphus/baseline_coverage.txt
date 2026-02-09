@@ -1,0 +1,5 @@
+dawn_kestrel/tui/widgets/header.py                                    46     25    46%   64-72, 76-93, 97-98, 104-105, 109-110, 116, 121, 126
+dawn_kestrel/utils/__init__.py                                         0      0   100%
+dawn_kestrel/utils/json_parser.py                                     18      2    89%   53, 65
+TOTAL                                                              10900   5015    54%
+=========================== short test summary info ============================
