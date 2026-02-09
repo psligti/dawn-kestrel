@@ -13,6 +13,30 @@ from .client import (
     with_timeout,
     with_logging,
 )
+from .rate_limiter import (
+    RateLimiter,
+    RateLimiterImpl,
+    TokenBucket,
+)
+from .circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerImpl,
+    CircuitState,
+)
+from .retry import (
+    RetryExecutor,
+    RetryExecutorImpl,
+    BackoffStrategy,
+    ExponentialBackoff,
+)
+from .reliability import (
+    LLMReliability,
+    LLMReliabilityImpl,
+)
+from .bulkhead import (
+    Bulkhead,
+    BulkheadImpl,
+)
 
 __all__ = [
     "LLMClient",
@@ -23,4 +47,18 @@ __all__ = [
     "with_retry",
     "with_timeout",
     "with_logging",
+    "RateLimiter",
+    "RateLimiterImpl",
+    "TokenBucket",
+    "CircuitBreaker",
+    "CircuitBreakerImpl",
+    "CircuitState",
+    "RetryExecutor",
+    "RetryExecutorImpl",
+    "BackoffStrategy",
+    "ExponentialBackoff",
+    "LLMReliability",
+    "LLMReliabilityImpl",
+    "Bulkhead",
+    "BulkheadImpl",
 ]

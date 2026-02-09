@@ -1747,3 +1747,226 @@ Invalid transitions (examples):
 - Consider adding semaphore statistics (wait times, queue depth)
 - Consider adding timeout policies (exponential backoff, adaptive timeout)
 - Consider integrating with CircuitBreaker (Task 26) for fault tolerance
+
+
+## Bulkhead Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 26 tests written covering all bulkhead functionality
+  - 4 protocol compliance tests (try_acquire, release, try_execute methods)
+  - 6 semaphore management tests (create, existing, timeout, release)
+  - 5 configuration tests (limit, timeout defaults, updates, multiple resources)
+  - 8 try_execute tests (custom max_concurrent, acquire, timeout, release, result, unlimited, concurrent limiting)
+  - 3 active count tests (increment, decrement, concurrent operations)
+- **GREEN Phase**: All 26 tests passing with 88% coverage for bulkhead.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Bulkhead Pattern Design
+- **Bulkhead Protocol**: Interface for bulkhead resource isolation
+  - `try_acquire(resource: str) -> Result[Semaphore]`: Acquire semaphore for resource
+  - `release(semaphore: Semaphore) -> Result[None]`: Release semaphore after operation
+  - `try_execute(resource, func, max_concurrent) -> Result[Any]`: Execute function with concurrent limiting
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on Bulkhead
+
+- **BulkheadImpl**: Bulkhead implementation with per-resource semaphores
+  - Per-resource semaphore tracking: `_semaphores: dict[str, asyncio.Semaphore]`
+  - Per-resource limit configuration: `_limits: dict[str, int]`
+  - Per-resource timeout configuration: `_timeouts: dict[str, float]`
+  - Active operation counting: `_active_counts: dict[str, int]`
+  - Semaphore ownership tracking: `_managed_semaphores: set[asyncio.Semaphore]`
+  - Default limit: 1 concurrent operation per resource
+  - Default timeout: 30 seconds
+
+### Resource Isolation Mechanism
+- **Semaphore-based limiting**: Each resource has its own semaphore
+  - Creates semaphore on first acquisition for resource
+  - Limits concurrent operations per resource
+  - Prevents resource exhaustion from too many concurrent requests
+  - Queue semantics: Operations beyond limit wait for semaphore release
+
+### Configuration Management
+- **set_limit(resource, limit)**: Set concurrent limit for resource
+  - Override per-resource limit
+  - Persisted until changed again
+- **set_timeout(resource, timeout)**: Set acquisition timeout for resource
+  - Prevents indefinite waiting on semaphore acquisition
+  - Default: 30 seconds, configurable per resource
+- **get_limit(resource)**: Get current limit (default 1)
+- **get_timeout(resource)**: Get current timeout (default 30.0)
+- **Multiple resources**: Each resource has independent configuration
+
+### try_execute Method Features
+- **Acquire-Execute-Release pattern**: Acquires semaphore before execution, releases in finally block
+  - Ensures semaphore is always released even on exception
+- **Custom max_concurrent**: Override per-resource limit for specific execution
+  - Temporary override via set_limit(), restored after execution
+- **Execution timeout**: Uses resource timeout for function execution
+  - Returns EXECUTION_TIMEOUT error if function takes too long
+- **Exception handling**: Catches all exceptions, returns EXECUTION_ERROR
+
+### Thread Safety and Limitations
+- **Not thread-safe**: Suitable for single-process async use only
+  - In-memory state tracking without locks
+  - Documented limitation in class docstring
+  - Future: Thread-safe implementation with locks or database backing
+
+### Result Pattern Integration
+- All methods return Result types (Ok/Err)
+- Explicit error codes:
+  - ACQUISITION_TIMEOUT: Semaphore acquisition timeout
+  - EXECUTION_TIMEOUT: Function execution timeout
+  - EXECUTION_ERROR: Function execution exception
+  - BULKHEAD_ERROR: General bulkhead error (non-acquired semaphore)
+- No exceptions raised from public methods (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 88% coverage for bulkhead.py (81 statements, 10 missed)
+- 100% pass rate: all 26 tests pass
+- All public methods tested (try_acquire, release, try_execute, set_limit, set_timeout, get_limit, get_timeout)
+- All error conditions tested (timeout, non-acquired semaphore, function exception)
+- Concurrent operation limiting verified with semaphore queue semantics
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 26 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Semaphore ownership tracking important** - Prevents releasing non-acquired semaphores
+   - `_managed_semaphores` set tracks which semaphores were acquired via try_acquire
+   - release() validates semaphore is in set before releasing
+   - Returns BULKHEAD_ERROR for non-managed semaphores
+
+3. **Finally block ensures cleanup** - Semaphore release in finally block
+   - try_execute releases semaphore even if function raises exception
+   - Prevents resource leaks from failed operations
+   - Always releases, even on EXECUTION_ERROR or EXECUTION_TIMEOUT
+
+4. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on Bulkhead
+   - BulkheadImpl is default implementation (in-memory, not thread-safe)
+   - Future: Thread-safe or database-backed bulkhead implementations
+
+5. **Type annotations use modern syntax** - `int | None` for optional parameters
+   - Python 3.10+ union types for better type safety
+   - MyPy/TypeScript can verify type correctness
+
+6. **Per-resource isolation prevents cascade failures** - Separate semaphores per resource
+   - One resource hitting limit doesn't block other resources
+   - Each provider (openai, zai, etc.) has independent limit
+   - Suitable for multi-provider LLM clients
+
+7. **Test coverage matters** - 88% coverage for bulkhead.py, 100% pass rate
+   - All bulkhead functionality covered by tests
+   - Error paths and success paths both tested
+   - Concurrent operation behavior verified
+
+### Next Steps
+- Consider integrating Bulkhead with CircuitBreaker (Task 26) for fault tolerance
+- Consider adding thread-safe Bulkhead implementation for concurrent access
+- Consider adding bulkhead wrapper for provider adapters
+
+## Rate Limiter Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 25 tests written covering all rate limiter functionality
+  - 11 TokenBucket tests (initial state, refill, acquire, release)
+  - 8 RateLimiterImpl tests (set_limit, per-resource limits, get_available)
+  - 2 RateLimiter protocol tests (runtime_checkable, required methods)
+  - 4 Integration tests (circuit breaker, retry executor)
+- **GREEN Phase**: All 25 tests passing with 100% coverage for rate_limiter.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### RateLimiter Pattern Design
+- **RateLimiter Protocol**: Interface for rate limiting
+  - `try_acquire(resource, tokens=1) -> Result[bool]`: Try to acquire tokens
+  - `release(resource) -> Result[None]`: Release tokens (no-op in simple impl)
+  - `get_available(resource) -> Result[int]`: Get available request count
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on RateLimiter
+
+- **TokenBucket**: Token bucket algorithm implementation
+  - Bucket has fixed capacity
+  - Tokens refill at constant rate (tokens per second)
+  - Requests consume tokens from bucket
+  - Empty bucket = rate limited
+  - Tracks request timestamps for expiry
+  - Tracks refill timestamps for debugging
+
+- **RateLimiterImpl**: Per-resource rate limiting
+  - Manages separate TokenBucket for each resource
+  - `set_limit()`: Configure custom limits per resource
+  - `_get_or_create_bucket()`: Lazy bucket creation
+  - Supports default limits for new resources
+  - Per-resource isolation (different resources have independent limits)
+
+### Token Bucket Algorithm
+- **Refill logic**: Tokens added based on elapsed time
+  - Calculate tokens_to_add = elapsed_seconds * refill_rate
+  - Add to current tokens, respecting capacity limit
+  - Update last_refill_time timestamp
+  - Remove expired requests from tracking
+
+- **Acquire logic**: Check tokens, try refill, then check again
+  - First check: if tokens >= requested, allow immediately
+  - If insufficient, trigger refill
+  - After refill, check again and allow if now sufficient
+  - Return Err with "RATE_LIMIT_EXCEEDED" code if still insufficient
+
+### Result Pattern Integration
+- All rate limiter methods return Result types (Ok/Err)
+- Errors wrapped with explicit error codes ("RATE_LIMIT_EXCEEDED")
+- Exceptions caught and converted to Err (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 100% coverage for rate_limiter.py (67 statements, 0 missed)
+- 25 comprehensive tests, all passing (100% pass rate)
+- Tests verify:
+  - Initial state (tokens, last_refill_time)
+  - Refill logic (increments up to capacity, respects capacity)
+  - Acquire logic (success with enough tokens, refill if needed, Err when insufficient)
+  - Release logic (no-op)
+  - Per-resource limits (separate buckets for different resources)
+  - Protocol compliance (runtime_checkable, required methods)
+  - Integration with other patterns (circuit breaker, retry executor)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 25 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Token bucket algorithm is simple but effective** - Good choice for rate limiting
+   - Fixed capacity prevents burst overload
+   - Constant refill rate provides smooth throttling
+   - Per-resource isolation enables granular control
+
+3. **get_available() method naming is misleading** - Returns request count, not tokens
+   - Method name suggests returning available tokens
+   - Actually returns count of active requests within time window
+   - Tests expect request count, not token count
+   - This is intentional design but could be clearer with better naming
+
+4. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on RateLimiter
+   - Future: Database-backed rate limiter for distributed systems
+   - Future: Thread-safe rate limiter with locks or atomic operations
+
+5. **Result pattern integration is critical** - Explicit error handling without exceptions
+   - All methods return Result[bool], Result[None], or Result[int]
+   - Err includes error message and error code ("RATE_LIMIT_EXCEEDED")
+   - Caller can handle errors explicitly (no try/except needed)
+   - Consistent with Result pattern learned in Task 10
+
+6. **Thread safety is a limitation** - In-memory implementation not concurrent-safe
+   - Documented in docstring (non-blocking limitation)
+   - Suitable for single-process use (async rate limiting)
+   - Future: Thread-safe implementation with locks or atomic operations
+
+### Next Steps
+- Task 30: Implement Time-based Bulkhead for concurrency control
+- Consider adding distributed rate limiter with Redis/Database backing
+- Consider adding metrics/telemetry for rate limiter usage
