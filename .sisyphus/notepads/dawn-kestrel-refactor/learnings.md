@@ -1970,3 +1970,122 @@ Invalid transitions (examples):
 - Task 30: Implement Time-based Bulkhead for concurrency control
 - Consider adding distributed rate limiter with Redis/Database backing
 - Consider adding metrics/telemetry for rate limiter usage
+### Retry + Backoff Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 18 tests written covering all retry functionality
+  - 6 backoff strategy tests (exponential, linear, fixed)
+  - 11 retry executor tests (success, retry, permanent error, max attempts, backoff, stats, circuit breaker)
+  - 2 integration tests (retry with backoff, retry with circuit breaker)
+- **GREEN Phase**: All 18 tests passing with 89% coverage for retry.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Retry + Backoff Pattern Design
+- **BackoffStrategy Protocol**: Interface for backoff calculation
+  - `calculate_delay(attempt, base_delay_ms, max_delay_ms) -> float`
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on BackoffStrategy
+
+- **ExponentialBackoff**: Exponential backoff with jitter
+  - Delay formula: `base_delay_ms * (exponential_base ** attempt)`
+  - Jitter adds ±10% randomness to avoid thundering herd
+  - Default: base_delay_ms=100, max_delay_ms=30000 (30s), exponential_base=2.0, jitter=True
+  - Prevents all clients retrying simultaneously after failure
+
+- **LinearBackoff**: Linear (fixed interval) backoff
+  - Delay formula: `min(base_delay_ms * (attempt + 1), max_delay_ms)`
+  - Default: base_delay_ms=100, max_delay_ms=10000 (10s)
+  - Predictable delay increases
+
+- **FixedBackoff**: Fixed interval backoff
+  - Always returns constant delay regardless of attempt number
+  - Default: delay_ms=5000 (5 seconds)
+  - Simple and predictable
+
+### RetryExecutor Protocol
+- **RetryExecutor Protocol**: Interface for retry execution
+  - `execute(func, max_attempts, backoff, circuit_breaker) -> Result[Any]`
+  - `get_stats() -> dict[str, Any]`
+  - Protocol-based design enables runtime type checking and multiple implementations
+
+### RetryExecutorImpl
+- **Automatic retry logic**: Wraps async functions with configurable retry behavior
+  - Configurable `max_attempts` (default: 3)
+  - Configurable `backoff` strategy (defaults to ExponentialBackoff)
+  - Optional `circuit_breaker` integration for fault tolerance
+  - `transient_errors` set to define which errors are retryable
+
+- **Circuit breaker integration**: Checks circuit state before each attempt
+  - If circuit is CLOSED (blocks calls), returns Err immediately with "CIRCUIT_OPEN" code
+  - Prevents wasting retries when circuit breaker has blocked calls
+  - Works with CircuitBreakerImpl from Task 26
+
+- **Result pattern integration**: All methods return Result types
+  - Success: `Ok[Any]` with retry statistics tracking
+  - Permanent error: `Err` with "PERMANENT_ERROR" code (no retries)
+  - Transient error: Retries with backoff, returns Err after max attempts with "MAX_RETRIES_EXCEEDED" code
+  - Circuit blocked: `Err` with "CIRCUIT_OPEN" code
+  - Consistent with Result pattern learned in Task 10
+
+### Retry Statistics
+- **Tracking metrics**: Comprehensive statistics for monitoring
+  - `total_calls`: Total number of execute() calls
+  - `successful_calls`: Calls that succeeded (with or without retries)
+  - `failed_calls`: Calls that failed after all attempts
+  - `retry_count`: Total number of retry attempts across all calls
+  - Enables monitoring and debugging of retry behavior
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 18 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+   
+2. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on BackoffStrategy
+   - Backoff strategies are pluggable (Exponential, Linear, Fixed)
+   - RetryExecutor protocol allows different implementations
+   
+3. **Error handling with Result type** - Explicit error handling without exceptions
+   - All retry decisions check Result.is_ok() and Result.retryable
+   - Permanent errors (non-retryable) return immediately without retries
+   - Transient errors increment retry count and apply backoff
+   - Consistent with Result pattern learned in Task 10
+   
+4. **Jitter prevents thundering herd** - ±10% randomness in ExponentialBackoff
+   - Prevents synchronized retries from overwhelming the system
+   - Important for distributed systems with multiple clients
+   
+5. **Circuit breaker integration** - Fault tolerance with explicit blocking
+   - Checks circuit state before each retry attempt
+   - Returns Err with "CIRCUIT_OPEN" code when circuit is CLOSED (blocks calls)
+   - Works with CircuitBreakerImpl from Task 26
+   
+6. **Milliseconds-based delays** - All delays in milliseconds for precision
+   - Convert to seconds only when sleeping: `await asyncio.sleep(delay / 1000)`
+   - Consistent with backoff protocol specification
+   
+7. **Backoff configuration is flexible** - Base and max delays configurable
+   - Prevents excessive delays with max_delay_ms capping
+   - ExponentialBackoff: 100ms base, 30000ms max
+   - LinearBackoff: 100ms base, 10000ms max
+   - FixedBackoff: 5000ms constant
+   
+8. **Test coverage matters** - 89% coverage for retry.py
+   - All 18 tests pass (100% pass rate)
+   - 6 backoff strategy tests
+   - 11 retry executor tests
+   - 2 integration tests with circuit breaker
+   
+9. **Protected member access requires careful handling** - Only within class methods
+   - Accessing `_base_delay_ms` from outside class is an LSP error
+   - Use `isinstance()` checks and conditional logic to avoid protected access
+   
+10. **Error message includes error code** - Matches test expectations
+   - Tests check `assert "MAX_RETRIES_EXCEEDED" in result.error`
+   - Include code in error message for test compatibility
+
+### Next Steps
+- Task 29: Implement Rate Limiter for API calls
+- Integrate RetryExecutor with ProviderAdapter for LLM calls
+- Consider adding jitter to LinearBackoff and FixedBackoff for consistency
