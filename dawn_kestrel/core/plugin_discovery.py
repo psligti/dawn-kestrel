@@ -50,7 +50,13 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
                     )
                     continue
 
-                plugins[ep.name] = plugin
+                # Instantiate if it's a class (type), otherwise use as-is
+                if isinstance(plugin, type):
+                    instance = plugin()
+                else:
+                    instance = plugin
+
+                plugins[ep.name] = instance
                 logger.debug(f"Loaded {plugin_type} plugin: {ep.name}")
 
             except ImportError as e:
