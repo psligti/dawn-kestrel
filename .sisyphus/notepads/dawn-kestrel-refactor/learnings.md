@@ -669,3 +669,321 @@ Invalid transitions (examples):
 - Future: Add database-backed AgentFSM with persistence
 - Future: Add state change events to event bus for observability
 
+
+## ToolAdapter Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 21 tests written covering all adapter functionality
+  - 2 protocol compliance tests (execute, get_tool_name methods)
+  - 4 BashToolAdapter tests (wrap, ok success, err failure, tool name)
+  - 4 ReadToolAdapter tests (wrap, ok success, err failure, tool name)
+  - 4 WriteToolAdapter tests (wrap, ok success, err failure, tool name)
+  - 3 GenericToolAdapter tests (wrap, ok success, err failure)
+  - 4 adapter registration tests (register, get, list, unknown)
+- **GREEN Phase**: All 21 tests passing with 100% pass rate
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### ToolAdapter Pattern Design
+- **ToolAdapter Protocol**: Interface for tool adapters
+  - `execute(context, **kwargs) -> Result[dict[str, Any]]`: Execute tool with context
+  - `get_tool_name() -> str`: Get name of underlying tool
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on ToolAdapter
+
+- **BashToolAdapter**: Wraps BashTool with normalized interface
+  - Converts ToolResult to dict (title, output, metadata, attachments)
+  - Returns Result[dict[str, Any]] with Ok/Err outcomes
+  - Tool name: "bash"
+
+- **ReadToolAdapter**: Wraps ReadTool with normalized interface
+  - Same interface as BashToolAdapter
+  - Tool name: "read"
+
+- **WriteToolAdapter**: Wraps WriteTool with normalized interface
+  - Same interface as BashToolAdapter
+  - Tool name: "write"
+
+- **GenericToolAdapter**: Generic adapter for other tools
+  - Handles any tool with 'name' or 'id' attribute
+  - Returns tool name dynamically from attribute
+  - Returns "unknown" if no name attribute found
+
+### Adapter Registration System
+- **In-memory registry**: `_adapters: dict[str, ToolAdapter]`
+  - `register_adapter(name, adapter)` adds adapter to registry
+  - `get_adapter(name)` returns adapter or None
+  - `list_adapters()` returns all adapter names
+  - Enables custom tools at runtime without modifying core code
+
+### Result Pattern Integration
+- All adapter methods return Result types (Ok/Err)
+- Errors wrapped with explicit error codes ("TOOL_ERROR")
+- Exceptions caught and converted to Err (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 21 comprehensive tests, all passing (100% pass rate)
+- All public methods tested (execute, get_tool_name)
+- All adapter types tested (Bash, Read, Write, Generic)
+- Error conditions tested (tool exceptions)
+- Adapter registration tested (register, get, list)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 21 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on ToolAdapter
+   - Custom tools can implement protocol and register at runtime
+   - Adapter pattern normalizes interface without modifying core code
+
+3. **ToolResult to dict conversion** - Adapters normalize tool output
+   - Converts ToolResult (title, output, metadata, attachments) to dict
+   - Enables consistent handling across different tool types
+   - Maintains all ToolResult fields in output dict
+
+4. **Adapter pattern benefits** - Clean separation of concerns
+   - Tools unchanged (no breaking changes)
+   - Unified interface via adapters
+   - Custom tools enabled without core modifications
+   - Result types enable explicit error handling
+
+5. **Test coverage matters** - 21 comprehensive tests
+   - All adapter methods tested (execute, get_tool_name)
+   - All adapter types tested (Bash, Read, Write, Generic)
+   - Error conditions tested (tool exceptions)
+   - Adapter registration tested (register, get, list)
+
+### Next Steps
+- Consider adding adapters for other tool categories (Grep, Glob, ASTGrep, Edit, Lsp)
+- Consider adding caching layer to adapters
+- Consider adding retry logic to adapters
+- Future: Thread-safe adapter registry (currently simple dict)
+
+
+## Mediator Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 24 tests written covering all mediator functionality
+  - 5 Event type tests (EventType enum, Event dataclass)
+  - 7 Event publishing tests (all handlers, source filtering, target routing, errors)
+  - 4 Event subscription tests (subscribe adds, returns ok, source filter, multiple handlers)
+  - 4 Event unsubscription tests (removes handler, returns ok, err on unknown, first match)
+  - 3 Handler count tests (zero handlers, correct count, exception handling)
+  - 2 Protocol compliance tests (runtime_checkable, has all methods)
+- **GREEN Phase**: All 24 tests passing with 90% coverage for mediator.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Mediator Pattern Design
+- **EventMediator Protocol**: Interface for event coordination
+  - `publish(event) -> Result[None]`: Publish event to all registered handlers
+  - `subscribe(event_type, handler, source=None) -> Result[None]`: Subscribe to events
+  - `unsubscribe(event_type, handler) -> Result[None]`: Unsubscribe from events
+  - `get_handler_count(event_type) -> Result[int]`: Get handler count
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on EventMediator
+
+- **EventMediatorImpl**: In-memory mediator implementation
+  - Handler registry: dict[event_type, list[tuple[handler, source_filter]]]
+  - Routing logic: Events deliver to handlers based on source filter and target
+  - No thread safety (documented limitation for single-process use)
+
+### Event Type Categorization
+- **EventType Enum**: Four event type categories
+  - DOMAIN: Business logic events (session created, agent finished)
+  - APPLICATION: UI/operational events (progress, notification)
+  - SYSTEM: System events (startup, shutdown)
+  - LLM: LLM-related events (response received, streaming)
+
+- **Event Dataclass**: Container for event data
+  - event_type: EventType enum value
+  - source: Component that emitted the event
+  - target: Optional specific recipient (None means broadcast)
+  - data: Event payload as dictionary
+  - __post_init__ ensures data defaults to empty dict if None
+
+### Event Routing Logic
+- **Broadcast mode** (target=None): Deliver to all handlers with matching source filter or None
+  - Handler with source_filter=None receives all events of that type
+  - Handler with source_filter="specific" receives only events from that source
+- **Targeted mode** (target="specific"): Deliver only to handlers with matching source_filter
+  - Used for point-to-point communication between components
+  - Enables request-response patterns
+
+### Result Pattern Integration
+- All mediator methods return Result types (Ok/Err)
+- Errors wrapped with explicit error codes ("MEDIATOR_ERROR", "HANDLER_NOT_FOUND")
+- Exceptions caught and converted to Err (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 90% coverage for mediator.py (63 statements, 6 missed)
+- 100% pass rate: all 24 tests pass
+- All public methods tested (publish, subscribe, unsubscribe, get_handler_count)
+- Error conditions tested (handler exceptions, unknown handlers)
+- Routing logic tested (source filtering, target routing, broadcast)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 24 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Mediator pattern centralizes event coordination** - Eliminates component-to-component direct wiring
+   - Components register handlers with mediator
+   - Components publish events to mediator
+   - Mediator routes events to matching handlers
+   - Loose coupling between components
+
+3. **Event filtering enables fine-grained control** - Source and target routing
+   - Source filter: Subscribe to events from specific component
+   - Target routing: Send event to specific handler only
+   - Broadcast: All handlers or all handlers from specific source
+   - Flexible routing for different communication patterns
+
+4. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on EventMediator
+   - Future: In-memory mediator (current), database-backed mediator, distributed mediator
+   - Type hints ensure all implementations match protocol
+
+5. **Result pattern integration** - Explicit error handling without exceptions
+   - All methods return Result[None] or Result[int]
+   - Err includes error message, code ("MEDIATOR_ERROR", "HANDLER_NOT_FOUND")
+   - Caller can handle errors explicitly (no try/except needed)
+   - Consistent with Result pattern learned in Task 10
+
+6. **Thread safety is a limitation** - In-memory implementation not concurrent-safe
+   - Documented in docstring (non-blocking limitation)
+   - Suitable for single-process use (async event handling)
+   - Future: Thread-safe implementation with locks or database mediator
+
+7. **Test coverage matters** - 90% coverage for mediator.py
+   - All public methods tested (publish, subscribe, unsubscribe, get_handler_count)
+   - All routing paths tested (broadcast, source filter, target)
+   - Error conditions tested (handler exceptions, unknown handlers)
+   - Protocol compliance tested with isinstance()
+
+### Next Steps
+- Consider wrapping existing EventBus with Mediator for gradual migration
+- Consider adding event metadata (timestamp, correlation_id, priority)
+- Consider adding event filtering by data content (not just source/target)
+- Future: Thread-safe EventMediator implementation for concurrent access
+- Future: Database-backed EventMediator for distributed systems
+- Future: Event replay capabilities for debugging and audit trails
+
+
+## Command Pattern Implementation (2026-02-09)
+
+### TDD Workflow Success
+- **RED Phase**: 24 tests written covering all Command pattern functionality
+  - 2 Command protocol tests
+  - 7 CreateSessionCommand tests
+  - 5 ExecuteToolCommand tests
+  - 10 CommandQueue tests
+- **GREEN Phase**: All 24 tests passing with 91% coverage for commands.py
+- **REFACTOR Phase**: Clean code structure, comprehensive docstrings, type safety
+
+### Command Pattern Design
+- **Command Protocol**: Interface for command encapsulation
+  - `execute(context: CommandContext) -> Result[Any]`: Execute the command
+  - `undo() -> Result[None]`: Undo the command (if supported)
+  - `can_undo() -> bool`: Check if command can be undone
+  - `get_provenance() -> Result[dict[str, Any]]`: Get provenance information
+  - Protocol-based design enables runtime type checking and multiple implementations
+  - @runtime_checkable decorator allows isinstance() checks on Command
+
+- **CommandContext**: Execution context for commands
+  - session_id: Optional session ID
+  - message_id: Optional message ID
+  - agent_id: Optional agent ID
+  - user_id: Optional user ID
+  - timestamp: Creation timestamp (default: now)
+  - metadata: Dictionary for dependencies (session_repo, tool_adapter, etc.)
+
+- **BaseCommand**: Base class for all commands
+  - name: Command name
+  - description: Command description
+  - created_at: Creation timestamp
+  - Default execute() raises NotImplementedError
+  - Default can_undo() returns False
+  - Default undo() returns Err with UNDO_NOT_SUPPORTED code
+  - get_provenance() returns Ok with command metadata
+
+- **CreateSessionCommand**: Command to create sessions
+  - Uses session_repo from context.metadata
+  - Creates Session object with provided session_id and title
+  - Returns session_id on success
+  - Cannot be undone (can_undo() returns False)
+
+- **ExecuteToolCommand**: Command to execute tools
+  - Uses tool_adapter from context.metadata
+  - Passes arguments directly to tool_adapter.execute()
+  - Returns tool result on success
+  - Cannot be undone (can_undo() returns False)
+
+- **CommandQueue**: Queue for managing command execution with events
+  - Uses EventMediator for publishing command events
+  - enqueue(): Add command to queue and history, publish enqueued event
+  - process_next(): Process next command, publish started/completed/failed events
+  - history: Tracks all commands (even after processing)
+  - Returns Err if queue empty
+
+### Result Pattern Integration
+- All command methods return Result types (Ok/Err)
+- Errors wrapped with explicit error codes ("MISSING_DEPENDENCY", "COMMAND_ERROR", "QUEUE_ERROR", "UNDO_NOT_SUPPORTED")
+- Exceptions caught and converted to Err (violates pattern if raised)
+- Consistent with Result pattern learned in Task 10
+
+### Test Coverage
+- 91% coverage for commands.py (93 statements, 8 missed)
+- 100% pass rate: all 24 tests pass
+- All public methods tested (execute, undo, can_undo, get_provenance)
+- Error conditions tested (missing dependencies, execution failures)
+- Event publishing tested (enqueued, started, completed, failed)
+
+### Key Learnings
+1. **TDD workflow is essential** - RED-GREEN-REFACTOR ensured all functionality tested
+   - Started with 24 failing tests (RED)
+   - Implemented to pass all tests (GREEN)
+   - Clean code with comprehensive docstrings (REFACTOR)
+
+2. **Protocol-based design enables flexibility** - Multiple implementations possible
+   - @runtime_checkable decorator allows isinstance() checks on Command
+   - Custom commands can implement protocol and be enqueued
+   - Command pattern normalizes interface without modifying core code
+
+3. **Context metadata is flexible** - Dependencies passed via context.metadata
+   - session_repo, tool_adapter passed via metadata dictionary
+   - Easy to extend with new dependencies without changing CommandContext
+   - Avoids tight coupling between commands and their dependencies
+
+4. **EventMediator integration** - Commands publish execution events
+   - enqueue publishes command_enqueued event
+   - process_next publishes command_started, command_completed, or command_failed events
+   - Enables loose coupling and observability
+   - Consistent with Mediator pattern learned in Task 19
+
+5. **Test coverage matters** - 91% coverage for commands.py
+   - All Command protocol methods tested
+   - All concrete command implementations tested
+   - CommandQueue enqueue and process_next tested
+   - Error conditions tested with proper Result handling
+
+6. **Dataclass vs regular class** - CreateSessionCommand and ExecuteToolCommand use regular classes
+   - Initial dataclass decorator caused issues with __init__ method
+   - Removed @dataclass decorator for commands with custom __init__
+   - BaseCommand remains dataclass (standard fields, no custom __init__)
+
+7. **ToolAdapter.execute() signature** - Takes kwargs, not ToolContext
+   - ExecuteToolCommand passes arguments directly via **self.arguments
+   - Avoids ToolContext complexity (requires agent, abort, messages)
+   - Simpler integration with tool adapters
+
+### Next Steps
+- Task 21: Integrate Command pattern into AgentRuntime
+- Task 22: Add undo/redo support for commands
+- Task 23: Add command history and audit logging
+- Future: Consider thread-safe CommandQueue for concurrent access
+- Future: Consider command serialization for persistence
