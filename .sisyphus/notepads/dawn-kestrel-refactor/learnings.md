@@ -287,3 +287,32 @@ Key Learnings:
 3. Error handling: Remove try/except blocks when using Result pattern
 4. None handling: Result[Session | None] requires explicit None check after unwrap()
 5. TUI error display: Use [red]...[/red] formatting for error messages in notify()
+
+### RateLimiter TypeError Fix (2026-02-09)
+- **Problem**: RateLimiterImpl instances were being called as functions `rate_limiter()` instead of being assigned directly
+- **Root cause**: Confusion between factory pattern and instance pattern - reliability.py expected instances but called them as if they were factories
+- **Files fixed**:
+  1. dawn_kestrel/llm/reliability.py line 161: `self._rate_limiter = rate_limiter if rate_limiter is not None else None`
+  2. dawn_kestrel/llm/reliability.py line 182: `self._rate_limiter = rate_limiter if rate_limiter else None`
+  3. tests/llm/test_reliability.py line 71: Removed extra `()` from RateLimiterImpl instantiation in fixture
+
+Key Learnings:
+1. Instance vs Factory pattern: CircuitBreaker, RetryExecutor, and RateLimiter are instances, not factories - assign directly, don't call
+2. Pattern consistency: All three reliability patterns should be handled identically (circuit_breaker, retry_executor, rate_limiter)
+3. Test fixtures matter: Even test fixtures can have same bug - always verify test setup code
+4. Consistency check: When fixing bugs in one location, check all usages (both implementation code and test code)
+
+### RateLimiter Reset Bug Fix (2026-02-09)
+- **Problem**: `self._rate_limiter` became a dict instead of RateLimiterImpl instance, causing `AttributeError: 'dict' object has no attribute 'try_acquire'`
+- **Root cause**: reset() method in rate_limiter.py was defined at wrong indentation level (outside RateLimiterImpl class) and replaced TokenBucket instances with plain dicts
+- **Files fixed**: dawn_kestrel/llm/rate_limiter.py lines 383-406
+  - Fixed indentation: moved reset() method inside RateLimiterImpl class (was at module level)
+  - Fixed implementation: reset() now creates proper TokenBucket instances instead of dicts
+  - Before: `self._buckets[resource] = {"tokens": float(...), "last_refill": datetime.now()}`
+  - After: `self._buckets[resource] = TokenBucket(capacity=self._default_capacity, ...)`
+
+Test Results:
+- test_initialization_with_all_patterns now passes
+- All 25 rate_limiter tests pass
+- 19/20 reliability tests pass (1 pre-existing test failure unrelated to this fix)
+

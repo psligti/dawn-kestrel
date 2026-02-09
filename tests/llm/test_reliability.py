@@ -68,7 +68,7 @@ def rate_limiter():
         default_capacity=5,
         default_refill_rate=0.0833,  # 5 tokens per minute
         default_window_seconds=60,
-    )()
+    )
 
 
 @pytest.fixture
