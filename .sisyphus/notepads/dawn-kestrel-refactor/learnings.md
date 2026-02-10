@@ -1274,3 +1274,40 @@ Verification:
 Key Learning:
 - Review agents using early_return_on_no_relevance inherit generic reasoning message
 - Only summary field is customizable per reviewer; reasoning is common across all reviewers
+
+Task: Fix Pydantic Validation in contracts.py (2026-02-10)
+=========================================================
+Problem: Tests in test_contracts.py expected ValidationError when extra fields were provided, but models had extra="ignore" which silently ignores extra fields.
+
+Root Cause:
+- Scope had `model_config = pd.ConfigDict()` (no extra setting, defaults to extra="forbid" in Pydantic v2)
+- Skip had `model_config = pd.ConfigDict(extra="ignore")` (ignores extra fields)
+- MergeGate had `model_config = pd.ConfigDict(extra="ignore")` (ignores extra fields)
+- ReviewOutput had `model_config = pd.ConfigDict(extra="ignore")` (ignores extra fields)
+- Finding already had `model_config = pd.ConfigDict(extra="forbid")` (correct)
+
+Tests expecting ValidationError:
+- test_scope_extra_fields_forbidden - expects Scope to reject extra_field
+- test_skip_extra_fields_forbidden - expects Skip to reject extra_field
+- test_merge_gate_extra_fields_forbidden - expects MergeGate to reject extra_field
+- test_review_output_extra_fields_forbidden - expects ReviewOutput to reject extra_field
+
+Fix Applied:
+Changed model_config for Scope, Skip, MergeGate, and ReviewOutput from extra="ignore" to extra="forbid":
+1. Scope: model_config = pd.ConfigDict(extra="forbid")
+2. Skip: model_config = pd.ConfigDict(extra="forbid")
+3. MergeGate: model_config = pd.ConfigDict(extra="forbid")
+4. ReviewOutput: model_config = pd.ConfigDict(extra="forbid")
+
+Verification:
+- uv run pytest tests/review/test_contracts.py -q → 24 passed (100%)
+- All extra fields tests now properly raise ValidationError with "extra" in message
+
+Key Learnings:
+1. Pydantic extra field validation:
+   - extra="forbid": Raises ValidationError when extra fields provided
+   - extra="ignore": Silently ignores extra fields (default in Pydantic v2 for BaseModel)
+   - extra="allow": Accepts and stores extra fields
+2. ConfigDict() with no arguments defaults to extra="ignore" in Pydantic v2
+3. Test validation contracts: When tests expect ValidationError, ensure model_config uses extra="forbid"
+4. Scope had empty ConfigDict() which defaults to extra="ignore" in v2, needed explicit extra="forbid"
