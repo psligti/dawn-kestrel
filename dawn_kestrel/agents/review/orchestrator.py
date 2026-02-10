@@ -1,4 +1,5 @@
 """Orchestrator for parallel PR review agent execution."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +26,7 @@ from dawn_kestrel.agents.review.utils.executor import (
     CommandExecutor,
     ExecutionResult,
 )
+from dawn_kestrel.agents.review.utils.redaction import format_log_with_redaction
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,9 @@ class PRReviewOrchestrator:
         merge_decision = self.compute_merge_decision(results)
         tool_plan = self.generate_tool_plan(results)
 
-        summary = f"Review completed by {len(results)} subagents with {len(deduped_findings)} findings"
+        summary = (
+            f"Review completed by {len(results)} subagents with {len(deduped_findings)} findings"
+        )
 
         return OrchestratorOutput(
             merge_decision=merge_decision,
@@ -84,39 +88,47 @@ class PRReviewOrchestrator:
         self, inputs: ReviewInputs, stream_callback: Callable | None = None
     ) -> List[ReviewOutput]:
         import logging
+
         logger = logging.getLogger(__name__)
 
         tasks = []
         semaphore = asyncio.Semaphore(4)
-        logger.info(f"Starting parallel review with {len(self.subagents)} agents, max 4 concurrent, timeout={inputs.timeout_seconds}s")
+        logger.info(
+            f"Starting parallel review with {len(self.subagents)} agents, max 4 concurrent, timeout={inputs.timeout_seconds}s"
+        )
 
         for idx, agent in enumerate(self.subagents):
+
             async def run_with_timeout(current_agent=agent):
                 async with semaphore:
                     agent_name = current_agent.get_agent_name()
-                    logger.info(f"[{agent_name}] Starting agent (timeout: {inputs.timeout_seconds}s)")
+                    logger.info(
+                        f"[{agent_name}] Starting agent (timeout: {inputs.timeout_seconds}s)"
+                    )
 
                     try:
                         if stream_callback:
-                            await self.stream_manager.emit_progress(
-                                agent_name, "started", {}
-                            )
+                            await self.stream_manager.emit_progress(agent_name, "started", {})
 
                         logger.info(f"[{agent_name}] Building context...")
                         context = await self._build_context(inputs, current_agent)
-                        logger.info(f"[{agent_name}] Context built: {len(context.changed_files)} files, {len(context.diff)} chars diff")
-                        logger.debug(f"[{agent_name}] Changed files: {', '.join(context.changed_files[:10])}")
+                        logger.info(
+                            f"[{agent_name}] Context built: {len(context.changed_files)} files, {len(context.diff)} chars diff"
+                        )
+                        logger.debug(
+                            f"[{agent_name}] Changed files: {', '.join(context.changed_files[:10])}"
+                        )
 
                         logger.info(f"[{agent_name}] Calling LLM...")
                         result = await asyncio.wait_for(
                             current_agent.review(context), timeout=inputs.timeout_seconds
                         )
 
-                        logger.info(f"[{agent_name}] LLM response received: {len(result.findings)} findings")
+                        logger.info(
+                            f"[{agent_name}] LLM response received: {len(result.findings)} findings"
+                        )
                         if stream_callback:
-                            await self.stream_manager.emit_result(
-                                agent_name, result
-                            )
+                            await self.stream_manager.emit_result(agent_name, result)
 
                         return result
 
@@ -124,17 +136,13 @@ class PRReviewOrchestrator:
                         error_msg = f"Agent {agent_name} timed out after {inputs.timeout_seconds}s"
                         logger.error(f"[{agent_name}] {error_msg}")
                         if stream_callback:
-                            await self.stream_manager.emit_error(
-                                agent_name, error_msg
-                            )
+                            await self.stream_manager.emit_error(agent_name, error_msg)
 
                         return ReviewOutput(
                             agent=agent_name,
                             summary="Agent timed out",
                             severity="critical",
-                            scope=Scope(
-                                relevant_files=[], ignored_files=[], reasoning="Timeout"
-                            ),
+                            scope=Scope(relevant_files=[], ignored_files=[], reasoning="Timeout"),
                             checks=[],
                             skips=[],
                             findings=[],
@@ -142,7 +150,7 @@ class PRReviewOrchestrator:
                                 decision="needs_changes",
                                 must_fix=[],
                                 should_fix=[],
-                                notes_for_coding_agent=[]
+                                notes_for_coding_agent=[],
                             ),
                         )
 
@@ -150,17 +158,13 @@ class PRReviewOrchestrator:
                         error_msg = f"Agent {agent_name} failed: {str(e)}"
                         logger.error(f"[{agent_name}] {error_msg}", exc_info=True)
                         if stream_callback:
-                            await self.stream_manager.emit_error(
-                                agent_name, error_msg
-                            )
+                            await self.stream_manager.emit_error(agent_name, error_msg)
 
                         return ReviewOutput(
                             agent=agent_name,
                             summary="Agent failed with exception",
                             severity="critical",
-                            scope=Scope(
-                                relevant_files=[], ignored_files=[], reasoning="Exception"
-                            ),
+                            scope=Scope(relevant_files=[], ignored_files=[], reasoning="Exception"),
                             checks=[],
                             skips=[],
                             findings=[],
@@ -168,7 +172,7 @@ class PRReviewOrchestrator:
                                 decision="needs_changes",
                                 must_fix=[],
                                 should_fix=[],
-                                notes_for_coding_agent=[]
+                                notes_for_coding_agent=[],
                             ),
                         )
 
@@ -176,7 +180,9 @@ class PRReviewOrchestrator:
 
         logger.info(f"Gathering results from {len(tasks)} parallel agents...")
         results = await asyncio.gather(*tasks)
-        logger.info(f"All agents completed: {len([r for r in results if r.summary != 'Agent timed out' and r.summary != 'Agent failed with exception'])} successful")
+        logger.info(
+            f"All agents completed: {len([r for r in results if r.summary != 'Agent timed out' and r.summary != 'Agent failed with exception'])} successful"
+        )
 
         return results
 
@@ -221,6 +227,16 @@ class PRReviewOrchestrator:
             if key not in seen:
                 seen.add(key)
                 unique.append(finding)
+            else:
+                # Log dedup skip with finding ID and reason
+                reason = f"Duplicate finding with id={finding.id}, title={finding.title}, severity={finding.severity}"
+                logger.info(
+                    format_log_with_redaction(
+                        message="[DEDEDUPE] Skipping duplicate finding",
+                        finding_id=finding.id,
+                        reason=reason,
+                    )
+                )
 
         return unique
 
@@ -243,8 +259,7 @@ class PRReviewOrchestrator:
 
         if proposed_commands:
             auto_fix_available = any(
-                cmd.startswith("ruff") or cmd.startswith("black")
-                for cmd in proposed_commands
+                cmd.startswith("ruff") or cmd.startswith("black") for cmd in proposed_commands
             )
 
         summary = f"Generated tool plan with {len(proposed_commands)} commands"
@@ -255,7 +270,5 @@ class PRReviewOrchestrator:
             execution_summary=summary,
         )
 
-    async def _build_context(
-        self, inputs: ReviewInputs, agent: BaseReviewerAgent
-    ) -> ReviewContext:
+    async def _build_context(self, inputs: ReviewInputs, agent: BaseReviewerAgent) -> ReviewContext:
         return await self.context_builder.build(inputs, agent)
