@@ -1564,3 +1564,63 @@ def get_allowed_tools(self) -> List[str]:
 ## Note
 Tests need updates to work with Result type API. This is a separate task
 from previous Result type refactoring (Task 10/exception-wrapping).
+
+### CLI Result Pattern Verification (2026-02-10)
+- **Task**: Verify CLI commands in main.py already handle Result types correctly
+- **Verification Result**: ✅ CLI Result handling already implemented (no changes needed)
+- **Commands verified**:
+  1. `list_sessions`: Handles `Result[list[Session]]` correctly (lines 94-102)
+  2. `export_session`: Handles `Result[Session | None]` correctly (lines 197-205)
+  3. `import_session`: Uses `ExportImportManager` (not Result pattern, expected)
+  4. `run` and `tui`: No Result-returning calls
+  5. `review` and `docs`: Delegate to review CLI (separate module)
+
+- **Pattern applied in CLI**:
+  ```python
+  result = await service.method_name(...)
+  if result.is_err():
+      err_result = cast(Any, result)  # Type workaround for LSP
+      console.print(f"[red]Error: {err_result.error}[/red]")
+      sys.exit(1)
+  value = result.unwrap()
+  # Use value...
+  ```
+
+- **Key features verified**:
+  - `result.is_err()` used for error detection ✅
+  - `result.error` displayed to users with [red] formatting ✅
+  - `sys.exit(1)` on error ✅
+  - `result.unwrap()` to get values on success ✅
+  - `cast(Any, result)` to avoid LSP type narrowing warnings ✅
+  - No exceptions raised from Result handling ✅
+
+- **LSP diagnostics**: Clean - no errors on main.py (only pre-existing unused type: ignore warnings)
+
+- **Key learning**: CLI Result pattern handling was already implemented in previous tasks (documented in napkin lines 214). Pattern is consistent across list_sessions, export_session, and TUI app.
+
+### Test Fix: test_benchmarks.py Floating-Point and Assertion Errors (2026-02-10)
+- **Problem**: 2 tests failing in tests/test_benchmarks.py
+  1. test_result_to_dict: Floating-point precision error - mean was 0.15000000000000002 not exactly 0.15
+  2. test_print_summary: Assertion checked for "benchmark_name" (key) but output contains "test_benchmark" (value)
+
+- **Root cause**:
+  1. Floating-point arithmetic in Python produces slight precision errors when calculating mean of [0.1, 0.2]
+  2. Test checked for literal string "benchmark_name" in printed output, but BenchmarkRunner.print_summary() prints the value "test_benchmark", not the key name
+
+- **Fix Applied**:
+  1. Changed line 63: `assert result_dict["mean"] == 0.15` → `assert result_dict["mean"] == pytest.approx(0.15)`
+  2. Changed line 230: `assert "benchmark_name" in captured.out` → `assert "test_benchmark" in captured.out`
+
+- **Pattern**: 
+  - Use pytest.approx() for floating-point comparisons to handle precision errors
+  - Check actual output values (not key names) when verifying printed output
+
+- **Verification**:
+  - `pytest tests/test_benchmarks.py::TestBenchmarkResult::test_result_to_dict -q` → 1 passed
+  - `pytest tests/test_benchmarks.py -q` → 19 passed (100%)
+
+- **Key learnings**:
+  1. Floating-point arithmetic: (0.1 + 0.2) / 2 = 0.15000000000000002 due to binary representation
+  2. pytest.approx() handles small floating-point errors automatically
+  3. Test assertions must match actual printed output (values), not dictionary keys
+  4. All benchmark tests now pass (19/19)
