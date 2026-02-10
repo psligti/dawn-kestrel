@@ -1368,7 +1368,7 @@ print(f'Result: {doubled}')
   - Files: dawn_kestrel/core/result.py
   - Pre-commit: `pytest tests/core/test_result.py -v`
 
-- [ ] 10. Wrap Existing Exceptions with Result Types
+- [x] 10. Wrap Existing Exceptions with Result Types
 
   **What to do**:
   - Identify all exception-raising functions in domain layer
@@ -1483,7 +1483,7 @@ asyncio.run(test())
   - Files: dawn_kestrel/core/services/*.py, dawn_kestrel/sdk/*.py, dawn_kestrel/agents/*.py
   - Pre-commit: `pytest tests/core/test_exception_wrapping.py -v`
 
-- [ ] 11. Update All Public APIs to Return Results
+- [x] 11. Update All Public APIs to Return Results
 
   **What to do**:
   - Update all public SDK methods to return Results
