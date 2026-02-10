@@ -14,7 +14,7 @@ from textual.containers import Vertical, Horizontal, ScrollableContainer
 from textual.widgets import Static, Input, Button
 from textual.app import ComposeResult
 from textual.reactive import reactive
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, cast
 import asyncio
 import logging
 import pendulum
@@ -189,8 +189,14 @@ class MessageScreen(Screen):
 
         try:
             if self.session_service:
-                messages = await self.session_service.get_session(self.session.id)
-                self.messages = messages.messages if messages else []
+                result = await self.session_service.get_session(self.session.id)
+                if result.is_err():
+                    err_result = cast(Any, result)
+                    logger.error(f"Error loading messages: {err_result.error}")
+                    self.notify(f"[red]Error loading messages: {err_result.error}[/red]")
+                    return
+                session = result.unwrap()
+                self.messages = session.messages if session else []
             else:
                 storage_dir = settings.storage_dir_path()
                 storage = SessionStorage(storage_dir)
@@ -260,15 +266,27 @@ class MessageScreen(Screen):
             parts=[text_part],
         )
 
-        storage_dir = settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
-        work_dir = Path.cwd()
-        manager = SessionManager(storage, work_dir)
-        await manager.create_message(
-            session_id=self.session.id,
-            role="user",
-            text=text,
-        )
+        if self.session_service:
+            result = await self.session_service.add_message(
+                session_id=self.session.id,
+                role="user",
+                text=text,
+                parts=[text_part],
+            )
+            if result.is_err():
+                err_result = cast(Any, result)
+                logger.error(f"Error creating user message: {err_result.error}")
+                self.notify(f"[red]Error creating message: {err_result.error}[/red]")
+        else:
+            storage_dir = settings.storage_dir_path()
+            storage = SessionStorage(storage_dir)
+            work_dir = Path.cwd()
+            manager = SessionManager(storage, work_dir)
+            await manager.create_message(
+                session_id=self.session.id,
+                role="user",
+                text=text,
+            )
 
         self.messages = self.messages + [message]
         return message
@@ -630,16 +648,28 @@ class MessageScreen(Screen):
         assert self._current_assistant_message is not None, "Current assistant message must be set"
 
         try:
-            storage_dir = settings.storage_dir_path()
-            storage = SessionStorage(storage_dir)
-            work_dir = Path.cwd()
-            manager = SessionManager(storage, work_dir)
+            if self.session_service:
+                result = await self.session_service.add_message(
+                    session_id=self.session.id,
+                    role="assistant",
+                    text=self._current_assistant_message.text,
+                    parts=self._current_assistant_message.parts,
+                )
+                if result.is_err():
+                    err_result = cast(Any, result)
+                    logger.error(f"Error saving assistant message: {err_result.error}")
+                    return
+            else:
+                storage_dir = settings.storage_dir_path()
+                storage = SessionStorage(storage_dir)
+                work_dir = Path.cwd()
+                manager = SessionManager(storage, work_dir)
 
-            await manager.create_message(
-                session_id=self.session.id,
-                role="assistant",
-                text=self._current_assistant_message.text,
-            )
+                await manager.create_message(
+                    session_id=self.session.id,
+                    role="assistant",
+                    text=self._current_assistant_message.text,
+                )
 
             self.messages = self.messages + [self._current_assistant_message]
 
