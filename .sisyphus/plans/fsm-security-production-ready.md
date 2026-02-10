@@ -814,7 +814,7 @@ Scenario: End-to-end security review completes with real tools
 
 ---
 
-- [ ] 12. Update SecurityReviewerAgent to Use Real Subagents
+- [x] 12. Update SecurityReviewerAgent to Use Real Subagents
 
   **What to do**:
   - Update `SecurityReviewerAgent._delegate_investigation_tasks()`:

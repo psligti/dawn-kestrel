@@ -1054,6 +1054,16 @@ If no additional todos are needed, return an empty proposed_todos array.
         """
         self.logger.info("[DELEGATING_INVESTIGATION] Delegating tasks to subagents...")
 
+        # Import specialized subagents
+        from dawn_kestrel.agents.review.subagents import (
+            SecretsScannerAgent,
+            InjectionScannerAgent,
+            AuthReviewerAgent,
+            DependencyAuditorAgent,
+            CryptoScannerAgent,
+            ConfigScannerAgent,
+        )
+
         for todo_id, todo in self.todos.items():
             # Skip todos whose tasks were already processed in previous iterations
             if todo_id in self.processed_task_ids:
@@ -1073,27 +1083,88 @@ If no additional todos are needed, return an empty proposed_todos array.
                 # Mark todo as in_progress
                 todo.status = TodoStatus.IN_PROGRESS
 
-                # Create subagent task
-                task = create_agent_task(
-                    agent_name=todo.agent or "general_investigator",
-                    description=todo.description,
-                    skill_names=["security-scanner"],
-                    metadata={"todo_id": todo_id},
-                )
+                # Map todo.agent to specialized agent
+                agent_name = todo.agent or "general_investigator"
+                repo_root = self.context.repo_root if self.context else "."
+                files = self.context.changed_files if self.context else None
 
-                subagent_task = SubagentTask(
-                    task_id=task.task_id,
-                    todo_id=todo_id,
-                    description=todo.description,
-                    agent_name=todo.agent or "general_investigator",
-                    prompt=self._build_subagent_prompt(todo),
-                    tools=["grep", "ast-grep", "bandit", "git"],
-                )
+                # Delegate to appropriate subagent
+                subagent_task: Optional[SubagentTask] = None
 
-                self.subagent_tasks[task.task_id] = subagent_task
+                if agent_name == "secret_scanner":
+                    agent = SecretsScannerAgent()
+                    subagent_task = agent.execute(repo_root, files)
+                elif agent_name == "injection_scanner":
+                    agent = InjectionScannerAgent()
+                    subagent_task = agent.execute(repo_root, files)
+                elif agent_name == "auth_reviewer":
+                    agent = AuthReviewerAgent()
+                    subagent_task = await agent.execute(repo_root, files)
+                elif agent_name == "dependency_auditor":
+                    agent = DependencyAuditorAgent()
+                    subagent_task = agent.execute(repo_root, files)
+                elif agent_name == "crypto_scanner":
+                    agent = CryptoScannerAgent()
+                    subagent_task = agent.execute(repo_root, files)
+                elif agent_name == "config_scanner":
+                    agent = ConfigScannerAgent()
+                    subagent_task = agent.execute(repo_root, files)
+                else:
+                    self.logger.warning(
+                        f"[DELEGATING_INVESTIGATION] Unknown agent type: {agent_name}, skipping todo {todo_id}"
+                    )
+                    todo.status = TodoStatus.CANCELLED
+                    continue
 
-                # Simulate task execution
-                await self._simulate_subagent_execution(subagent_task)
+                if subagent_task is None:
+                    self.logger.warning(
+                        f"[DELEGATING_INVESTIGATION] Subagent returned None for {todo_id}, skipping"
+                    )
+                    todo.status = TodoStatus.CANCELLED
+                    continue
+
+                # Store subagent task
+                task_id = subagent_task.task_id
+                self.subagent_tasks[task_id] = subagent_task
+
+                # Extract findings from subagent result
+                if subagent_task.result is not None:
+                    findings_data = subagent_task.result.get("findings", [])
+                    summary = subagent_task.result.get("summary", "No summary provided")
+
+                    self.logger.info(f"[DELEGATING_INVESTIGATION] {agent_name}: {summary}")
+
+                    # Convert dict findings to SecurityFinding objects
+                    for finding_data in findings_data:
+                        finding = SecurityFinding(
+                            id=finding_data.get("id", f"finding_{len(self.findings)}"),
+                            severity=finding_data.get("severity", "medium"),
+                            title=finding_data.get("title", "Untitled finding"),
+                            description=finding_data.get("description", ""),
+                            evidence=finding_data.get("evidence", ""),
+                            file_path=finding_data.get("file_path"),
+                            line_number=finding_data.get("line_number"),
+                            recommendation=finding_data.get("recommendation"),
+                            requires_review=finding_data.get("requires_review", True),
+                            confidence_score=finding_data.get("confidence_score", 0.50),
+                        )
+                        # Deduplicate by finding ID
+                        if finding.id not in self.processed_finding_ids:
+                            self.findings.append(finding)
+                            self.processed_finding_ids.add(finding.id)
+                        else:
+                            self.logger.debug(
+                                f"[DELEGATING_INVESTIGATION] Skipping duplicate finding: {finding.id}"
+                            )
+
+                    # Mark todo as completed
+                    todo.status = TodoStatus.COMPLETED
+                    self.processed_task_ids.add(todo_id)
+                else:
+                    self.logger.warning(
+                        f"[DELEGATING_INVESTIGATION] Subagent result is None for {todo_id}"
+                    )
+                    todo.status = TodoStatus.CANCELLED
 
     def _build_subagent_prompt(self, todo: SecurityTodo) -> str:
         """Build prompt for subagent investigation.
