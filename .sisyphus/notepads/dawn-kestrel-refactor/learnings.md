@@ -911,6 +911,21 @@ else:
 ### UnitTestsReviewer Test Migration (2026-02-09)
 - **Problem**: All 7 tests in test_unit_tests_reviewer.py failed - tests patched AISession/Session but UnitTestsReviewer.review() now uses runner-based execution via SimpleReviewAgentRunner.run_with_retry(system_prompt, formatted_context) inherited from BaseReviewerAgent
 - **Root cause**: Test drift against architecture refactor - AISession execution path no longer used for review execution; all reviewer agents now delegate to BaseReviewerAgent._execute_review_with_runner()
+
+### Test Fix: test_generate_docs.py Function Name Reference (2026-02-10)
+- **Problem**: All tests in test_generate_docs.py were failing with AttributeError: module has no attribute 'generate_docs'
+- **Root cause**: Test file imported review_cli but called `review_cli.generate_docs` while the actual CLI command is named `docs` (decorator @click.command(name="docs") at line 386 of cli.py)
+- **Fix Applied**: Changed all 7 function calls from `review_cli.generate_docs` to `review_cli.docs` in tests/review/test_generate_docs.py
+- **Pattern preserved**: Test function names unchanged (e.g., test_generate_docs_with_agent_flag) - only actual function invocations updated
+- **Verification**:
+  - `uv run pytest tests/review/test_generate_docs.py -q` → 7 passed, 1 skipped (0 failures)
+  - LSP diagnostics clean
+- **Key learnings**:
+  1. Click command decorators can rename functions: `@click.command(name="docs")` means function is exported as `docs` not its original name
+  2. Test fixes should preserve test function names - only update what's actually called
+  3. grep all occurrences of the incorrect reference to ensure complete fix
+  4. replaceAll=True is efficient when all references are identical
+
 - **Fix Applied**: Updated tests/review/agents/test_unit_tests_reviewer.py to use SimpleReviewAgentRunner mocking pattern:
   * Removed all AISession and Session mocking (patches, instances, process_message handlers)
   * Patched "dawn_kestrel.core.harness.SimpleReviewAgentRunner" instead of AISession

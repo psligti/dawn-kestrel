@@ -1,4 +1,5 @@
 """Tests for generate-docs CLI command."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,11 +17,11 @@ def test_generate_docs_with_agent_flag(tmp_path: Path):
     mock_doc_gen = MagicMock()
     mock_doc_gen.generate_for_agent.return_value = (True, "Generated documentation for security")
 
-    with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+    with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
         MockDocGenAgent.return_value = mock_doc_gen
 
         result = runner.invoke(
-            review_cli.generate_docs,
+            review_cli.docs,
             ["--agent", "security", "--verbose"],
         )
 
@@ -42,20 +43,22 @@ def test_generate_docs_with_force_flag(tmp_path: Path):
     mock_agent = MagicMock()
     mock_agent.get_agent_name.return_value = "security"
 
-    with patch.dict('dawn_kestrel.agents.review.cli.__dict__', {'all_agents': {'security': mock_agent}}):
+    with patch.dict(
+        "dawn_kestrel.agents.review.cli.__dict__", {"all_agents": {"security": mock_agent}}
+    ):
         mock_doc_gen = MagicMock()
         mock_doc_gen.generate_for_agent.return_value = (True, "Generated documentation")
 
-        with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+        with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
             MockDocGenAgent.return_value = mock_doc_gen
 
             result = runner.invoke(
-                review_cli.generate_docs,
+                review_cli.docs,
                 ["--agent", "security", "--force"],
             )
 
     assert result.exit_code == 0
-    assert mock_doc_gen.generate_for_agent.call_args[1]['force'] is True
+    assert mock_doc_gen.generate_for_agent.call_args[1]["force"] is True
 
 
 def test_generate_docs_with_output_flag(tmp_path: Path):
@@ -66,24 +69,26 @@ def test_generate_docs_with_output_flag(tmp_path: Path):
     mock_agent = MagicMock()
     mock_agent.get_agent_name.return_value = "security"
 
-    with patch.dict('dawn_kestrel.agents.review.cli.__dict__', {'all_agents': {'security': mock_agent}}):
-        with patch('dawn_kestrel.agents.review.cli.get_subagents') as mock_get_subagents:
+    with patch.dict(
+        "dawn_kestrel.agents.review.cli.__dict__", {"all_agents": {"security": mock_agent}}
+    ):
+        with patch("dawn_kestrel.agents.review.cli.get_subagents") as mock_get_subagents:
             mock_get_subagents.return_value = [mock_agent]
 
             mock_doc_gen = MagicMock()
             mock_doc_gen.generate_for_agent.return_value = (True, "Generated documentation")
 
-            with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+            with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
                 MockDocGenAgent.return_value = mock_doc_gen
 
                 result = runner.invoke(
-                    review_cli.generate_docs,
+                    review_cli.docs,
                     ["--agent", "security", "--output", str(custom_output)],
                 )
 
     assert result.exit_code == 0
     # Check that DocGenAgent was initialized with the custom output path
-    assert MockDocGenAgent.call_args[1]['agents_dir'] == custom_output
+    assert MockDocGenAgent.call_args[1]["agents_dir"] == custom_output
 
 
 def test_generate_docs_with_verbose_flag(tmp_path: Path):
@@ -93,15 +98,17 @@ def test_generate_docs_with_verbose_flag(tmp_path: Path):
     mock_agent = MagicMock()
     mock_agent.get_agent_name.return_value = "security"
 
-    with patch.dict('dawn_kestrel.agents.review.cli.__dict__', {'all_agents': {'security': mock_agent}}):
+    with patch.dict(
+        "dawn_kestrel.agents.review.cli.__dict__", {"all_agents": {"security": mock_agent}}
+    ):
         mock_doc_gen = MagicMock()
         mock_doc_gen.generate_for_agent.return_value = (True, "Generated documentation")
 
-        with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+        with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
             MockDocGenAgent.return_value = mock_doc_gen
 
             result = runner.invoke(
-                review_cli.generate_docs,
+                review_cli.docs,
                 ["--agent", "security", "--verbose"],
             )
 
@@ -115,19 +122,19 @@ def test_generate_docs_with_invalid_agent(tmp_path: Path):
     runner = CliRunner()
 
     all_agents = {
-        'security': MagicMock(),
-        'architecture': MagicMock(),
+        "security": MagicMock(),
+        "architecture": MagicMock(),
     }
 
-    with patch.dict('dawn_kestrel.agents.review.cli.__dict__', {'all_agents': all_agents}):
+    with patch.dict("dawn_kestrel.agents.review.cli.__dict__", {"all_agents": all_agents}):
         mock_doc_gen = MagicMock()
         mock_doc_gen.generate_for_agent.return_value = (True, "")
 
-        with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+        with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
             MockDocGenAgent.return_value = mock_doc_gen
 
             result = runner.invoke(
-                review_cli.generate_docs,
+                review_cli.docs,
                 ["--agent", "invalid_agent"],
             )
 
@@ -143,11 +150,11 @@ def test_generate_docs_requires_agent_or_all(tmp_path: Path):
     mock_doc_gen = MagicMock()
     mock_doc_gen.generate_for_agent.return_value = (True, "")
 
-    with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+    with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
         MockDocGenAgent.return_value = mock_doc_gen
 
         result = runner.invoke(
-            review_cli.generate_docs,
+            review_cli.docs,
             [],
         )
 
@@ -162,15 +169,17 @@ def test_generate_docs_default_output_path(tmp_path: Path):
     mock_agent = MagicMock()
     mock_agent.get_agent_name.return_value = "security"
 
-    with patch.dict('dawn_kestrel.agents.review.cli.__dict__', {'all_agents': {'security': mock_agent}}):
+    with patch.dict(
+        "dawn_kestrel.agents.review.cli.__dict__", {"all_agents": {"security": mock_agent}}
+    ):
         mock_doc_gen = MagicMock()
         mock_doc_gen.generate_for_agent.return_value = (True, "Generated documentation")
 
-        with patch('dawn_kestrel.agents.review.doc_gen.DocGenAgent') as MockDocGenAgent:
+        with patch("dawn_kestrel.agents.review.doc_gen.DocGenAgent") as MockDocGenAgent:
             MockDocGenAgent.return_value = mock_doc_gen
 
             result = runner.invoke(
-                review_cli.generate_docs,
+                review_cli.docs,
                 ["--agent", "security"],
             )
 
