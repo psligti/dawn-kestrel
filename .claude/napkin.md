@@ -4,17 +4,21 @@
 | Date | Source | What Went Wrong | What To Do Instead |
 |------|--------|----------------|-------------------|
 | 2026-02-07 | self | Failed to commit after task completion | FOLLOW THE WORKFLOW: After each task completes and verification passes, IMMEDIATELY commit to changes. The workflow is: Verify → Mark in plan → Commit → Next task. Skipping the commit step leaves work untracked and can cause confusion. |
+| 2026-02-10 | self | Used `subprocess.run([... '-o', "addopts=''", ...])` and got misleading per-file pytest summaries | When passing pytest args as a list, use `-o`, `addopts=` (no embedded shell quotes). |
+| 2026-02-10 | self | Test chunk looked stalled because a long combined command hid which file was hanging | Use per-file execution with explicit timeouts and then drill down to per-test timeout to isolate the exact hanging node quickly. |
 
 ## User Preferences
 - Use `uv` package manager for build and install operations
 - Capture both stdout and stderr when verifying CLI commands
 - Use `.sisyphus/evidence/` directory for verification artifacts
+- Do not run `tests/tui` when user asks to skip unstable TUI tests
 
 ## Patterns That Work
 - Build wheel: `uv build` (creates both .whl and .tar.gz in dist/)
 - Install wheel: `uv pip install -U dist/*.whl`
 - Capture CLI output: `command 1>stdout.txt 2>stderr.txt; echo "Exit code: $?"`
 - Run targeted tests: `pytest -q -k "test_filter_pattern"`
+- **FSM-Based Security Review methodology: Parallel delegated investigations + synthesis for final assessment (2026-02-10)**
 - Use shell redirection to capture both stdout and stderr separately
 - Check exit codes to verify commands succeeded (0 = success)
 
@@ -238,3 +242,87 @@
 | 2026-02-09 | self | LSP errors with Result pattern return types | When type variance doesn't match (e.g., returning `Result[T]` where `Result[U]` expected), use `cast(Any, self)` with `# type: ignore[return-value]` comment. Also need to import `cast` from typing module. Pattern works for bind(), map_result(), and fold() functions. |
 
 | 2026-02-10 | self | CLI Result-based API update for export/import commands | Wrapped ExportImportManager.export_session() and import_session() in try/except to handle exceptions gracefully. Pattern: try/except (ValueError, FileNotFoundError, Exception) → print error in red → sys.exit(1). Success paths preserve original behavior (print details, default exit code 0). All 8 CLI integration tests pass (100%). Key learning: ExportImportManager doesn't return Result types yet, so CLI layer provides wrapper via exception handling. Tests: pytest tests/test_cli_integration.py -x --no-cov -q → 0 failures (8/8 pass). |
+| 2026-02-10 | self | TUI DI container migration | Updated TUI app to use DI container instead of direct repository/storage instantiation. Key challenge: Handler instances (TUIIOHandler, TUIProgressHandler, TUINotificationHandler) contain Textual App references with thread locks that can't be pickled by dependency-injector. Solution: Get service from container first, then set handlers on service instance directly (self.session_service._io_handler = ...). Result type handling: Use cast(Any, result) pattern to access result.error attribute (same as CLI migration). Test passes: pytest tests/tui/test_app.py → 1 passed. |
+
+
+| 2026-02-10 | self | Documentation enhancement (Task 35) | Enhanced docs/patterns.md from 49K/1522 lines to 69K/1963 lines with comprehensive documentation. Added: Table of Contents with clickable links, "When to Use" sections for all 21 patterns, "Benefits" sections for all 21 patterns, ASCII diagrams for key patterns (Reliability Stack, DI Container Flow, Unit of Work Transaction, Repository Pattern, Result Pattern). All verifications pass: 21 patterns documented, TOC present, When to Use/Benefits for all patterns, Migration Notes included, diagrams added. Pattern: Edit tool works well for structured additions to large files. |
+
+### Resilience Patterns Best Practices (2026-02-10)
+| 2026-02-10 | self | Compiled comprehensive verification rubric for resilience patterns | Research from authoritative sources (Azure SDK, AWS Prescriptive Guidance, Tenacity library, OneUptime blog, Resilient Circuit library) and real-world OSS implementations (fabfuel/circuitbreaker, grpc/grpc, datahub-project, media crawlers with semaphores). Key findings:
+- **Circuit Breaker**: Must have 3 states (CLOSED, OPEN, HALF_OPEN) with automatic transitions, per-provider failure tracking, cooldown period, half-open probes, thread safety
+- **Retry with Backoff**: Must use exponential backoff with jitter (prevent thundering herd), max retry limit, exception filtering (transient only), total timeout cap, before/after hooks for logging
+- **Bulkhead**: Must use semaphores for bounded concurrency, per-operation isolation, queue management when full, graceful degradation (wait vs reject), context manager cleanup, timeout on acquisition
+- **Rate Limiter**: Must use token bucket algorithm (burst capacity + steady rate), atomic token consumption, distributed state (Redis/DynamoDB), burst tolerance (human behavior), 429 with Retry-After header, time-based refill (no window boundaries)
+- **Integration**: Patterns must coordinate correctly (Circuit → Bulkhead → Retry → Rate Limiter), no conflicts, unified observability, thread safety across all layers
+- **Verification Checklist**: Comprehensive rubric with 50+ specific criteria for judging "working as intended" vs "nominally present only" implementations
+
+### HTTP Security Audit Findings (2026-02-10)
+| 2026-02-10 | self | HTTP/SSL security audit revealed CRITICAL security issues | Audit of LLM client, HTTP client, and providers found: CRITICAL (2): Missing SSL verification (all httpx.AsyncClient calls lack explicit verify=True), SSRF vulnerability in webfetch_url tool (no URL validation, allows internal network access). HIGH (1): Missing response size limits (DoS vector). MEDIUM (2): Missing granular timeouts (single timeout value), missing request size limits. POSITIVE: All URLs use HTTPS, timeouts implemented, circuit breaker/retry/rate limiter patterns in place. Full audit report: .sisyphus/evidence/http_security_audit_report.md |
+
+### Plugin System Security Audit (2026-02-10)
+| 2026-02-10 | self | Plugin discovery system has critical security vulnerabilities | **CRITICAL SECURITY ISSUES FOUND**: 1) `ep.load()` at plugin_discovery.py:49 executes arbitrary code from any entry point without validation 2) No plugin signature verification or trust checking 3) No sandboxing or isolation - plugins have full process access 4) JSON deserialization risk in agents/registry.py:144 5) Minimal validation (only checks for None and __class__) 6) Callable execution without restrictions (agents/registry.py:86-87) 7) No permission system for plugin loading itself 8) Supply chain attack vector - any package can execute code on load |
+| 2026-02-10 | self | Created comprehensive plugin security remediation plan | Generated detailed remediation document (.sisyphus/evidence/plugin_security_remediation_plan.md) with specific fixes for all 8 vulnerabilities. **Priority 1 fixes**: 1) Allowlist-based plugin loading (PluginSecurityConfig, TrustedPlugin dataclass) - blocks untrusted plugins via source verification 2) Pydantic schema for safe JSON deserialization (AgentSchema with extra='forbid') 3) Enhanced plugin validation with dangerous attribute checks and type-specific validation. **Priority 2 fixes**: 4) Capability-based sandboxing (PluginSandbox, CapabilityRestrictedWrapper) with capability sets 5) Secure callable execution with timeouts and factory validation. **Priority 3 (optional)**: 6) Ed25519 signature verification 7) Subprocess execution for isolation. All fixes include complete code examples, performance impact analysis, testing strategy, and migration path.
+
+### File System Security Audit (2026-02-10)
+| 2026-02-10 | self | Comprehensive file system security audit revealed multiple critical vulnerabilities | **CRITICAL (2)**: 1) Storage layer path traversal in store.py:_get_path() - uses `"/".join(keys)` without sanitization, allows reading/writing/deleting any file. 2) Tools path traversal in builtin.py and additional.py - ReadTool, WriteTool, EditTool use user-provided paths without validation. **HIGH (3)**: 3) Export/import path handling in export_import.py - no path validation on user-provided paths. 4) Snapshot file revert in snapshot.py - file_path not validated for path traversal. 5) CLI path handling in main.py - user-controlled directories used without validation. **MEDIUM (2)**: 6) Directory traversal in additional.py tools - SkillTool and ExternalDirectoryTool lack proper path validation. 7) Missing symlink handling - no symlink validation or TOCTOU protection. **LOW (4)**: Directory creation without ownership checks, file deletion without additional validation, unrestricted file listing, tempfile usage is actually correct (no issues). All details in .sisyphus/evidence/file_system_security_audit_report.md |
+| 2026-02-10 | self | Common root cause across all file system vulnerabilities | All issues stem from a single root cause: lack of proper path validation and sanitization before file operations. Fix strategy: 1) Implement centralized `validate_safe_path()` utility that uses `resolve().relative_to(base_dir)` to verify paths stay within bounds, 2) Reject paths containing `..`, absolute paths, or special sequences, 3) Add symlink protection using `resolve(strict=True)`, 4) Restrict all file operations to explicitly allowed base directories. |
+| 2026-02-10 | self | NOT security issues (safe patterns identified) | 1) ProviderRegistry (providers/registry.py) - does NOT use plugin_discovery, only loads ProviderConfig data objects 2) ToolRegistry (tools/registry.py) - direct instantiation of known built-in tools only 3) __import__() in test_review_tool.py and compaction.py - benign usage (dependency checking, datetime import) 4) eval/exec in test files - intentional test cases for verification, not actual code |
+ | 2026-02-10 | self | Dynamic import patterns need careful review | Found importlib usage in: plugin_discovery.py (entry_points.load), cli/main.py (module loading for CLI), session/fork_revert.py (snapshot loading), skills/loader.py (frontmatter import). These are more controlled but still use dynamic imports and should be reviewed for proper error handling and validation. |
+
+### LLM Resilience Patterns Security Analysis (2026-02-10)
+| 2026-02-10 | self | Security vulnerabilities found in LLM resilience patterns | Comprehensive security review of dawn_kestrel/llm/ patterns found these issues:
+
+**CRITICAL - Information Leakage:**
+1. **retry.py lines 358, 361**: Logger.error with full exception `e` - logs entire exception which may include credentials/params from failed operation. Fix: sanitize error messages before logging, never log full exception with potentially sensitive data.
+2. **rate_limiter.py line 206**: Error message leaks internal state: `f"Not enough tokens for {resource}: need {tokens}, have {self._tokens}"`. Attacker can infer rate limit behavior. Fix: Generic error message like "Rate limit exceeded" without token counts.
+3. **bulkhead.py line 203**: Error message leaks timeout: `f"Failed to acquire semaphore for {resource} after {timeout}s"`. Attacker can tune DoS based on timeout. Fix: Generic "Acquisition timeout" without timeout value.
+4. **reliability.py lines 240, 257**: Logs provider_name/resource in error/warning messages which may leak internal topology.
+
+**HIGH - Timing Attack Vectors:**
+1. **rate_limiter.py**: Not thread-safe - race conditions on token refill/consume. Attacker can exploit by rapid concurrent requests to bypass limits.
+2. **retry.py**: Retry delays visible via timing - backoff timing reveals internal state. Jitter enabled by default but optional.
+
+**MEDIUM - DoS Vulnerabilities:**
+1. **bulkhead.py**: Semaphore limits work but no request queue - all rejected requests fail immediately. Attacker can flood with requests to exhaust connection pools upstream.
+2. **circuit_breaker.py**: Manual control only (no automatic transitions) - circuit never opens on failures, cannot auto-recover.
+3. **circuit_breaker.py**: Per-provider failure tracking in memory - can be bypassed by rotating provider identifiers.
+
+**LOW - Timeout Issues:**
+1. All patterns: Default timeouts are generous (300s, 600s) - can be exploited for resource exhaustion.
+2. No timeout validation on user-provided values.
+
+**SAFE (No Issues Found):**
+- No credential exposure in retry mechanism (retries Result/Err objects, not params)
+- No direct sensitive data in error return values (only in logs)
+- Test code uses mock data, no hardcoded secrets
+- State management is clean (no zombie states, proper cleanup)
+
+**Recommendations:**
+1. Redact all internal state from error messages (token counts, timeout values, provider names)
+2. Implement thread-safe token refill with atomic operations (asyncio.Lock or threading.Lock)
+3. Add request queue with bounded size to bulkhead to prevent cascading failures
+4. Validate timeout parameters (min/max bounds)
+5. Add circuit breaker automatic state transitions with configurable thresholds
+6. Replace exc_info=True logging with sanitized error messages
+7. Consider adding rate limit fingerprinting to detect/bypass evasion attempts
+
+### Dependency Security Audit (2026-02-10)
+| 2026-02-10 | self | Dependency security audit (Task 36) | Investigated dependency changes between opencode_python and dawn_kestrel. Key findings: 1) Only NEW dependency added: dependency-injector>=4.41 (locked to 4.48.3) - LOW RISK from ets-labs (~4.8k stars, active maintenance, no known CVEs). 2) aiohttp 3.13.3 has CVE-2025-53643 (HTTP smuggling) but current version is patched (safe). 3) httpx 0.28.1 - NO CVEs found (cleaner security record than aiohttp). 4) pydantic 2.12.5 - CVE-2024-3772 (ReDoS) affects <2.4.0 but current version is safe. 5) textual 7.5.0 - potential typo in specifier (was >=0.79.0). Overall: LOW to MEDIUM risk, acceptable for production with monitoring. Pattern: Use uv.lock for exact versions, monitor security advisories, review dependency-injector usage for injection risks. |
+
+### Command Injection Security Fixes (2026-02-10)
+| 2026-02-10 | self | Input validation and command injection mitigation | **CRITICAL vulnerabilities fixed:**
+1. Created `dawn_kestrel/core/security/input_validation.py` with `safe_path()`, `validate_command()`, `validate_pattern()`, `validate_git_hash()`, `validate_url()`
+2. Fixed BashTool - changed `shell=True` to `shell=False` with `validate_command()` using `ALLOWED_SHELL_COMMANDS` allowlist
+3. Fixed GitCommands - added `validate_git_hash()` for all hash parameters
+4. Fixed Storage._get_path() - added path traversal protection, validates against `..` sequences and enforces base directory boundaries
+5. Fixed CLI _load_review_cli_command() - added `safe_path()` validation with `allow_absolute=True` for module loading
+6. Fixed GrepTool, GlobTool, ASTGrepTool - added `validate_pattern()` calls and `shell=False` for subprocess calls
+7. Created security documentation at `docs/security/command-injection-prevention.md`
+8. All tools now return security errors with `security_error: True` metadata when validation fails
+9. Pre-defined allowlists: `ALLOWED_SHELL_COMMANDS`, `ALLOWED_GIT_COMMANDS`, `ALLOWED_SEARCH_TOOLS`
+**Pattern:** Use `validate_*()` functions before any untrusted input. Never use `shell=True` with user input. Always use `shell=False` with list arguments. |
+
+### HTTP/SSL Security Remediation (2026-02-10)
+| 2026-02-10 | self | HTTP/SSL security remediation documentation | Created comprehensive remediation guide for 2 CRITICAL and 4 MEDIUM vulnerabilities in HTTP/SSL handling. Key findings: CRITICAL (2): 1) Missing SSL/TLS certificate verification - all httpx.AsyncClient calls lack explicit verify=True. 2) SSRF vulnerability in WebFetchTool - no URL validation, allows internal network access. MEDIUM (4): 3) Missing request/response size limits (DoS vector). 4) Insufficient timeout configuration (single timeout vs granular httpx.Timeout). 5) No response size limits (duplicate of #3). 6) No request queue (bulkhead DoS risk). Remediation document created at: .sisyphus/evidence/http_ssl_security_remediation.md with: 1) Complete code fixes for all vulnerabilities. 2) New dawn_kestrel/core/security/url_validator.py module for SSRF prevention. 3) Enhanced HTTPClientWrapper with bulkhead pattern, SSL verification, size limits, granular timeouts. 4) Updated OpenAIProvider with explicit SSL verification. 5) Updated WebFetchTool with SSRF protection. 6) Configuration options via environment variables. 7) Security trade-offs documented. 8) Testing recommendations included. Pattern: Always use explicit verify=True in httpx.AsyncClient for security posture clarity. Implement domain allowlist/blocklist pattern for SSRF protection. Use granular httpx.Timeout (20% connect, 60% read, 15% write, 5% pool) for balanced performance. Add bulkhead pattern with asyncio.Semaphore for DoS protection. |
+
+| 2026-02-10 | self | Baseline contract locking (Task 1) | Successfully locked baseline contracts for security agent improvement without modifying runtime code. Key learnings: 1) FSM-based security review architecture is well-structured with explicit state transitions (8 states, 13 transitions). 2) Pydantic contracts enforce structure at subagent output boundaries (extra="forbid" rejects malformed payloads). 3) Dataclass vs BaseModel split: dataclasses for internal state (SecurityFinding, SecurityTodo, SubagentTask), Pydantic models for external interfaces (ReviewOutput, Finding). 4) All defaults explicitly documented: diff_chunk_size (5000 chars), max_parallel_subagents (4), confidence_threshold (0.50), error_strategy (reject and log). 5) Success gates are measurable: accuracy (100%), no duplicates (0%), evidence quality (100%), coverage (100%), performance (<=5 min), false positive rate (<5%). Pattern: Documentation-only tasks should verify artifact creation, required key presence, and no runtime file modification before marking complete. |
