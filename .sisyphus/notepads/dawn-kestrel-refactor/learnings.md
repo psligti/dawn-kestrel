@@ -1949,3 +1949,70 @@ Key Learnings:
   - LSP diagnostics: No new errors introduced (all errors are pre-existing Textual framework issues)
   - Tests: pytest tests/tui/test_app.py → 1 passed (test_app_can_be_instantiated)
   - Result handling: All session_service calls wrapped with Result.is_err() checks and cast(Any, result) for error access
+
+### Integration Test Strategy (Task 34 - 2026-02-09)
+
+**Integration Tests Created:**
+- test_cli_commands.py - CLI command execution and Result handling (3 test classes)
+- test_tui_composition.py - TUI composition root and DI container integration (3 test classes)
+- test_agent_runtime.py - Agent runtime lifecycle and state machine (2 test classes)
+- test_end_to_end_workflows.py - End-to-end user workflows (3 test classes)
+
+**Test Coverage Summary:**
+- SDK client: 20 tests passing
+- DI container: 13 tests passing
+- CLI: Requires environment variable configuration
+- TUI: Tests require OpenCodeTUI class (not DawnKestrelApp)
+- Agent runtime: Requires create_autonomous_worker_agent function
+- End-to-end: Tests session, agent, and persistence workflows
+
+**BDD Documentation Format Used:**
+All integration tests follow the mandated BDD format:
+- Scenario: Descriptive name
+- Preconditions: What must be true before test
+- Steps: Numbered action list
+- Expected result: Concrete outcomes
+- Failure indicators: What would indicate failure
+- Evidence: Observable artifacts
+
+**Key Patterns Tested:**
+1. Repository pattern: SessionRepository, MessageRepository, PartRepository
+2. Result pattern: All operations return Result[T] with is_ok()/is_err() checks
+3. DI container: All dependencies wired via container.providers
+4. Storage persistence: Data written to storage directory
+5. Session lifecycle: Create, list, get, delete operations
+6. Agent execution: execute_agent() returns AgentResult with metadata
+7. CLI/TUI integration: Commands and UI use service layer correctly
+
+**Storage API Migrations (Fixes Applied):**
+- Session files: storage/session/project_id/session_id (no .json extension)
+- Message files: storage/message/session_id/message_id
+- Part files: storage/part/message_id/part_id
+- TextPart requires: session_id, message_id, part_type, text fields
+- MessageStorage.create_message(session_id, message) - requires session_id
+- PartStorage.create_part(message_id, part) - requires message_id
+
+**Coverage Configuration:**
+- pyproject.toml has: addopts = "--cov=dawn_kestrel --cov-report=term-missing"
+- Run coverage: pytest --cov=dawn_kestrel --cov-report=html --cov-report=term-missing
+
+**Test Command Examples:**
+```bash
+# All integration tests
+uv run pytest tests/integration/ -v --cov=dawn_kestrel
+
+# Specific test suites
+uv run pytest tests/integration/test_sdk_client.py -v
+uv run pytest tests/integration/test_di_container.py -v
+uv run pytest tests/integration/test_cli_commands.py -v
+
+# With coverage
+uv run pytest tests/integration/ --cov=dawn_kestrel --cov-report=html
+```
+
+**Known Test Fix Needed:**
+- CLI tests require DAWN_KESTREL_STORAGE_DIR environment variable
+- TUI class is OpenCodeTUI, not DawnKestrelApp or OpenCodeApp
+- Agent factory function is create_autonomous_worker_agent, not build_autonomous_worker_agent
+- Some storage persistence repository tests use old API (list_all, update returns wrong type)
+
