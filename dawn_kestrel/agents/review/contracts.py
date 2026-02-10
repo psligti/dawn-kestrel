@@ -1,4 +1,5 @@
 """Pydantic contracts for review agent output."""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, Literal
@@ -79,9 +80,7 @@ class PriorityMergePolicy(MergePolicy):
             decision=decision,
             must_fix=list(set(must_fix)),
             should_fix=list(set(should_fix)),
-            notes_for_coding_agent=[
-                f"Review completed by {len(results)} subagents"
-            ],
+            notes_for_coding_agent=[f"Review completed by {len(results)} subagents"],
         )
 
 
@@ -90,7 +89,7 @@ class Scope(pd.BaseModel):
     ignored_files: List[str] = pd.Field(default_factory=list)
     reasoning: str
 
-    model_config = pd.ConfigDict(extra="ignore")
+    model_config = pd.ConfigDict(extra="forbid")
 
 
 class Check(pd.BaseModel):
@@ -108,7 +107,7 @@ class Skip(pd.BaseModel):
     why_safe: str
     when_to_run: str
 
-    model_config = pd.ConfigDict(extra="ignore")
+    model_config = pd.ConfigDict(extra="forbid")
 
 
 class Finding(pd.BaseModel):
@@ -132,7 +131,7 @@ class MergeGate(pd.BaseModel):
     should_fix: List[str] = pd.Field(default_factory=list)
     notes_for_coding_agent: List[str] = pd.Field(default_factory=list)
 
-    model_config = pd.ConfigDict(extra="ignore")
+    model_config = pd.ConfigDict(extra="forbid")
 
 
 class ReviewOutput(pd.BaseModel):
@@ -145,7 +144,7 @@ class ReviewOutput(pd.BaseModel):
     findings: List[Finding] = pd.Field(default_factory=list)
     merge_gate: MergeGate
 
-    model_config = pd.ConfigDict(extra="ignore")
+    model_config = pd.ConfigDict(extra="forbid")
 
 
 class ReviewInputs(pd.BaseModel):
@@ -190,7 +189,7 @@ def get_review_output_schema() -> str:
         JSON schema string with explicit type information
     """
 
-    return f'''You MUST output valid JSON matching this exact schema. The output is parsed directly by the ReviewOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
+    return f"""You MUST output valid JSON matching this exact schema. The output is parsed directly by the ReviewOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
 
 {ReviewOutput.model_json_schema()}
 
@@ -292,4 +291,4 @@ EXAMPLE WITH WARNINGS:
     "should_fix": ["STYLE-001"],
     "notes_for_coding_agent": ["Style review complete"]
   }}
-}}'''
+}}"""
