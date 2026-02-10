@@ -1,4 +1,5 @@
 """Integration tests for PR review pipeline."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -56,12 +57,12 @@ async def test_review_pipeline_runs_all_subagents(tmp_path: Path):
     module_path.write_text(
         '"""Module docs."""\n'
         "def foo() -> None:\n"
-        "    \"\"\"Function docs.\"\"\"\n"
+        '    """Function docs."""\n'
         "    return None\n\n"
         "class Bar:\n"
-        "    \"\"\"Class docs.\"\"\"\n"
+        '    """Class docs."""\n'
         "    def baz(self) -> None:\n"
-        "        \"\"\"Method docs.\"\"\"\n"
+        '        """Method docs."""\n'
         "        return None\n"
     )
 
@@ -77,8 +78,8 @@ async def test_review_pipeline_runs_all_subagents(tmp_path: Path):
         ArchitectureReviewer(),
         SecurityReviewer(),
         DocumentationReviewer(),
-        LintingReviewer(executor=AsyncExecutor()),
-        UnitTestsReviewer(executor=SyncExecutor(), repo_root=str(tmp_path)),
+        LintingReviewer(),
+        UnitTestsReviewer(),
         RequirementsReviewer(),
         PerformanceReliabilityReviewer(),
         DependencyLicenseReviewer(),
@@ -94,12 +95,15 @@ async def test_review_pipeline_runs_all_subagents(tmp_path: Path):
         timeout_seconds=30,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/module.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value=diff),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/module.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value=diff),
+        ),
     ):
         output = await orchestrator.run_review(inputs)
 
