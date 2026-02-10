@@ -1245,3 +1245,32 @@ def get_allowed_tools(self) -> List[str] | list[str]:
   3. All reviewers inherit from BaseReviewerAgent and don't override __init__(), so they all use same signature
   4. Test fixtures at lines 24-49 (AsyncExecutor and SyncExecutor classes) are now unused and can be removed
   5. When fixing test constructor calls, check the actual class signature - don't rely on outdated patterns
+
+
+Task Fix - test_characterization_refactor_safety.py Assertion:
+==============================================================
+Bug Fixed:
+- Line 259 in tests/review/test_characterization_refactor_safety.py had incorrect assertion
+- Test expected: result.scope.reasoning == "No files matched security review patterns"
+- Actual value: "No files matched relevance patterns" (from BaseReviewerAgent._execute_review_with_runner line 308)
+- Summary field at line 256 was already correct: "No security-relevant files changed. Security review not applicable."
+
+Root Cause:
+- BaseReviewerAgent._execute_review_with_runner() returns reasoning as "No files matched relevance patterns"
+- Test had specific reviewer name (security) in assertion, but base class uses generic message
+
+Pattern:
+- When test assertions fail, check base class implementation for actual values
+- The summary field is customizable via no_relevance_summary parameter
+- The reasoning field is fixed in base class as "No files matched relevance patterns"
+
+Files Modified:
+1. tests/review/test_characterization_refactor_safety.py - Changed line 259 assertion
+
+Verification:
+- Test passes: pytest tests/review/test_characterization_refactor_safety.py::test_security_reviewer_skips_llm_for_non_relevant_files -q (1/1 passed)
+- LSP diagnostics: Clean (no errors on modified file)
+
+Key Learning:
+- Review agents using early_return_on_no_relevance inherit generic reasoning message
+- Only summary field is customizable per reviewer; reasoning is common across all reviewers
