@@ -1,5 +1,0 @@
-/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/lib/python3.12/site-packages/pydantic_settings/main.py:391: UserWarning: Legacy filename conflict for config '.env': using 'opencode-python' over 'opencode_python'.
-  sources = self.settings_customise_sources(
-/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/core/settings.py:55: UserWarning: Legacy filename conflict for config '.env': using 'opencode-python' over 'opencode_python'.
-  default_factory=lambda: str(_resolve_app_dir("config")), alias="CONFIG_DIR"
-Deprecation warning: 'opencode-review-generate-docs' is deprecated and will be removed in a future release. Use 'dawn-kestrel docs' instead.
