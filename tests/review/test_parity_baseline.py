@@ -5,6 +5,7 @@ This module validates that:
 2. Orchestrator can produce outputs compatible with fixtures
 3. JSON loading and schema validation works correctly
 """
+
 import json
 import pytest
 from pathlib import Path
@@ -79,7 +80,10 @@ class TestMinimalFixture:
         assert output.severity == "merge"
         assert len(output.scope.relevant_files) == 2
         assert len(output.scope.ignored_files) == 0
-        assert output.scope.reasoning == "Reviewed authentication and API route files for common security vulnerabilities"
+        assert (
+            output.scope.reasoning
+            == "Reviewed authentication and API route files for common security vulnerabilities"
+        )
         assert output.merge_gate.decision == "approve"
 
     def test_minimal_fixture_output(self):
@@ -156,17 +160,14 @@ class TestFixtureCompatibility:
                     scope=Scope(
                         relevant_files=["config/auth.py", "config/routes.py"],
                         ignored_files=[],
-                        reasoning="Reviewed authentication and API route files for common security vulnerabilities"
+                        reasoning="Reviewed authentication and API route files for common security vulnerabilities",
                     ),
                     checks=[],
                     skips=[],
                     findings=[],
                     merge_gate=MergeGate(
-                        decision="approve",
-                        must_fix=[],
-                        should_fix=[],
-                        notes_for_coding_agent=[]
-                    )
+                        decision="approve", must_fix=[], should_fix=[], notes_for_coding_agent=[]
+                    ),
                 )
 
             def get_system_prompt(self) -> str:
@@ -174,6 +175,9 @@ class TestFixtureCompatibility:
 
             def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
+
+            def get_allowed_tools(self) -> list[str]:
+                return []
 
         return MockReviewer()
 
@@ -187,7 +191,7 @@ class TestFixtureCompatibility:
             scope=Scope(
                 relevant_files=["config/secrets.yaml"],
                 ignored_files=[],
-                reasoning="Detected what appears to be a hardcoded API key in the configuration file"
+                reasoning="Detected what appears to be a hardcoded API key in the configuration file",
             ),
             checks=[
                 Check(
@@ -197,7 +201,7 @@ class TestFixtureCompatibility:
                         "grep -r 'sk_live\\|sk_test\\|AKIA\\|secret_key' . --include='*.py' --include='*.yaml' --include='*.env'"
                     ],
                     why="Security check for common credential patterns",
-                    expected_signal="No matches found"
+                    expected_signal="No matches found",
                 )
             ],
             skips=[],
@@ -212,7 +216,7 @@ class TestFixtureCompatibility:
                     evidence="Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'",
                     risk="Secret exposed in version control and production",
                     recommendation="Remove the hardcoded key and load it from a secure environment variable or secret manager",
-                    suggested_patch="Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')"
+                    suggested_patch="Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')",
                 )
             ],
             merge_gate=MergeGate(
@@ -221,9 +225,9 @@ class TestFixtureCompatibility:
                 should_fix=["Add secrets validation during deployment"],
                 notes_for_coding_agent=[
                     "CRITICAL: Remove hardcoded AWS credentials immediately",
-                    "Rotate any existing keys that may have been exposed"
-                ]
-            )
+                    "Rotate any existing keys that may have been exposed",
+                ],
+            ),
         )
 
     @pytest.mark.asyncio
@@ -241,8 +245,10 @@ class TestFixtureCompatibility:
         )
 
         # Mock git operations to avoid repository path validation
-        with patch('dawn_kestrel.agents.review.utils.git.get_changed_files') as mock_get_files, \
-             patch('dawn_kestrel.agents.review.utils.git.get_diff') as mock_get_diff:
+        with (
+            patch("dawn_kestrel.agents.review.utils.git.get_changed_files") as mock_get_files,
+            patch("dawn_kestrel.agents.review.utils.git.get_diff") as mock_get_diff,
+        ):
             mock_get_files.return_value = []
             mock_get_diff.return_value = ""
 
@@ -250,6 +256,7 @@ class TestFixtureCompatibility:
 
         # Verify orchestrator output structure
         from dawn_kestrel.agents.review.contracts import OrchestratorOutput
+
         assert isinstance(output, OrchestratorOutput)
         assert len(output.subagent_results) == 1
         result = output.subagent_results[0]
@@ -265,7 +272,13 @@ class TestFixtureCompatibility:
     async def test_orchestrator_compatibility_typical(self):
         """Verify orchestrator can handle typical fixture output with findings."""
         from unittest.mock import AsyncMock, patch
-        from dawn_kestrel.agents.review.contracts import OrchestratorOutput, ReviewOutput, Finding, MergeGate, Scope
+        from dawn_kestrel.agents.review.contracts import (
+            OrchestratorOutput,
+            ReviewOutput,
+            Finding,
+            MergeGate,
+            Scope,
+        )
 
         # Create a mock reviewer that returns typical fixture output with findings
         class MockReviewerWithFindings(BaseReviewerAgent):
@@ -280,7 +293,7 @@ class TestFixtureCompatibility:
                     scope=Scope(
                         relevant_files=["config/secrets.yaml"],
                         ignored_files=[],
-                        reasoning="Detected what appears to be a hardcoded API key in the configuration file"
+                        reasoning="Detected what appears to be a hardcoded API key in the configuration file",
                     ),
                     checks=[],
                     skips=[],
@@ -295,7 +308,7 @@ class TestFixtureCompatibility:
                             evidence="Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'",
                             risk="Secret exposed in version control and production",
                             recommendation="Remove the hardcoded key and load it from a secure environment variable or secret manager",
-                            suggested_patch="Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')"
+                            suggested_patch="Remove line 42 from config/secrets.yaml and use os.getenv('AWS_ACCESS_KEY')",
                         )
                     ],
                     merge_gate=MergeGate(
@@ -304,9 +317,9 @@ class TestFixtureCompatibility:
                         should_fix=["Add secrets validation during deployment"],
                         notes_for_coding_agent=[
                             "CRITICAL: Remove hardcoded AWS credentials immediately",
-                            "Rotate any existing keys that may have been exposed"
-                        ]
-                    )
+                            "Rotate any existing keys that may have been exposed",
+                        ],
+                    ),
                 )
 
             def get_system_prompt(self) -> str:
@@ -314,6 +327,9 @@ class TestFixtureCompatibility:
 
             def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
+
+            def get_allowed_tools(self) -> list[str]:
+                return []
 
         orchestrator = PRReviewOrchestrator(subagents=[MockReviewerWithFindings()])
         inputs = ReviewInputs(
@@ -325,8 +341,10 @@ class TestFixtureCompatibility:
         )
 
         # Mock git operations to avoid repository path validation
-        with patch('dawn_kestrel.agents.review.utils.git.get_changed_files') as mock_get_files, \
-             patch('dawn_kestrel.agents.review.utils.git.get_diff') as mock_get_diff:
+        with (
+            patch("dawn_kestrel.agents.review.utils.git.get_changed_files") as mock_get_files,
+            patch("dawn_kestrel.agents.review.utils.git.get_diff") as mock_get_diff,
+        ):
             mock_get_files.return_value = []
             mock_get_diff.return_value = ""
 
@@ -348,8 +366,14 @@ class TestFixtureCompatibility:
         assert finding.id == "SEC-001"
         assert finding.title == "Hardcoded API key in config"
         assert finding.severity == "blocking"
-        assert finding.evidence == "Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'"
-        assert finding.recommendation == "Remove the hardcoded key and load it from a secure environment variable or secret manager"
+        assert (
+            finding.evidence
+            == "Line 42 in config/secrets.yaml contains: AWS_ACCESS_KEY='AKIAIOSFODNN7EXAMPLE'"
+        )
+        assert (
+            finding.recommendation
+            == "Remove the hardcoded key and load it from a secure environment variable or secret manager"
+        )
 
         # Verify merge gate matches typical fixture
         assert result.merge_gate.decision == "block"
@@ -375,27 +399,29 @@ class TestFixtureCompatibility:
                     scope=Scope(
                         relevant_files=["config/secrets.yaml"],
                         ignored_files=[],
-                        reasoning="Security review"
+                        reasoning="Security review",
                     ),
                     checks=[],
                     skips=[],
-                    findings=[Finding(
-                        id="SEC-001",
-                        title="Hardcoded key",
-                        severity="critical",
-                        confidence="high",
-                        owner="security",
-                        estimate="S",
-                        evidence="Key found",
-                        risk="High risk",
-                        recommendation="Fix it"
-                    )],
+                    findings=[
+                        Finding(
+                            id="SEC-001",
+                            title="Hardcoded key",
+                            severity="critical",
+                            confidence="high",
+                            owner="security",
+                            estimate="S",
+                            evidence="Key found",
+                            risk="High risk",
+                            recommendation="Fix it",
+                        )
+                    ],
                     merge_gate=MergeGate(
                         decision="block",
                         must_fix=["Fix key"],
                         should_fix=[],
-                        notes_for_coding_agent=[]
-                    )
+                        notes_for_coding_agent=[],
+                    ),
                 )
 
             def get_system_prompt(self) -> str:
@@ -403,6 +429,9 @@ class TestFixtureCompatibility:
 
             def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
+
+            def get_allowed_tools(self) -> list[str]:
+                return []
 
         class MockReviewer2(BaseReviewerAgent):
             def get_agent_name(self) -> str:
@@ -416,27 +445,29 @@ class TestFixtureCompatibility:
                     scope=Scope(
                         relevant_files=["config/secrets.yaml"],
                         ignored_files=[],
-                        reasoning="Quality review"
+                        reasoning="Quality review",
                     ),
                     checks=[],
                     skips=[],
-                    findings=[Finding(
-                        id="SEC-001",
-                        title="Hardcoded key",
-                        severity="critical",
-                        confidence="high",
-                        owner="quality",
-                        estimate="S",
-                        evidence="Key found in quality review",
-                        risk="High risk",
-                        recommendation="Fix it"
-                    )],
+                    findings=[
+                        Finding(
+                            id="SEC-001",
+                            title="Hardcoded key",
+                            severity="critical",
+                            confidence="high",
+                            owner="quality",
+                            estimate="S",
+                            evidence="Key found in quality review",
+                            risk="High risk",
+                            recommendation="Fix it",
+                        )
+                    ],
                     merge_gate=MergeGate(
                         decision="block",
                         must_fix=["Fix key"],
                         should_fix=[],
-                        notes_for_coding_agent=[]
-                    )
+                        notes_for_coding_agent=[],
+                    ),
                 )
 
             def get_system_prompt(self) -> str:
@@ -444,6 +475,9 @@ class TestFixtureCompatibility:
 
             def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
+
+            def get_allowed_tools(self) -> list[str]:
+                return []
 
         orchestrator = PRReviewOrchestrator(subagents=[MockReviewer1(), MockReviewer2()])
         inputs = ReviewInputs(
@@ -454,8 +488,10 @@ class TestFixtureCompatibility:
         )
 
         # Mock git operations to avoid repository path validation
-        with patch('dawn_kestrel.agents.review.utils.git.get_changed_files') as mock_get_files, \
-             patch('dawn_kestrel.agents.review.utils.git.get_diff') as mock_get_diff:
+        with (
+            patch("dawn_kestrel.agents.review.utils.git.get_changed_files") as mock_get_files,
+            patch("dawn_kestrel.agents.review.utils.git.get_diff") as mock_get_diff,
+        ):
             mock_get_files.return_value = []
             mock_get_diff.return_value = ""
 
@@ -474,16 +510,13 @@ class TestInvalidFixtureDetection:
             "agent": "security",
             "summary": "Test",
             "severity": "invalid_severity",  # Invalid severity value
-            "scope": {
-                "relevant_files": ["test.py"],
-                "reasoning": "Test"
-            },
+            "scope": {"relevant_files": ["test.py"], "reasoning": "Test"},
             "merge_gate": {
                 "decision": "invalid_decision",  # Invalid decision
                 "must_fix": [],
                 "should_fix": [],
-                "notes_for_coding_agent": []
-            }
+                "notes_for_coding_agent": [],
+            },
         }
 
         with pytest.raises(ValidationError):
@@ -495,16 +528,13 @@ class TestInvalidFixtureDetection:
             "agent": "security",
             "summary": "Test",
             # Missing severity
-            "scope": {
-                "relevant_files": ["test.py"],
-                "reasoning": "Test"
-            },
+            "scope": {"relevant_files": ["test.py"], "reasoning": "Test"},
             "merge_gate": {
                 "decision": "approve",
                 "must_fix": [],
                 "should_fix": [],
-                "notes_for_coding_agent": []
-            }
+                "notes_for_coding_agent": [],
+            },
         }
 
         with pytest.raises(ValidationError):

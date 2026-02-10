@@ -1,4 +1,5 @@
 """Tests for PRReviewOrchestrator."""
+
 from __future__ import annotations
 
 import asyncio
@@ -24,7 +25,6 @@ from dawn_kestrel.agents.review.utils.executor import CommandExecutor, Execution
 
 
 class MockReviewerAgent(BaseReviewerAgent):
-
     def __init__(
         self,
         agent_name: str,
@@ -39,6 +39,9 @@ class MockReviewerAgent(BaseReviewerAgent):
 
     def get_agent_name(self) -> str:
         return self._agent_name
+
+    def get_allowed_tools(self) -> list[str]:
+        return []
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
         if self._should_timeout:
@@ -78,14 +81,16 @@ class MockReviewerAgent(BaseReviewerAgent):
 @pytest.fixture
 def mock_command_executor():
     executor = MagicMock(spec=CommandExecutor)
-    executor.execute = AsyncMock(return_value=ExecutionResult(
-        command="pytest",
-        exit_code=0,
-        stdout="PASSED",
-        stderr="",
-        timeout=False,
-        duration_seconds=0.5,
-    ))
+    executor.execute = AsyncMock(
+        return_value=ExecutionResult(
+            command="pytest",
+            exit_code=0,
+            stdout="PASSED",
+            stderr="",
+            timeout=False,
+            duration_seconds=0.5,
+        )
+    )
     return executor
 
 
@@ -190,12 +195,15 @@ async def test_run_subagents_parallel_success():
         timeout_seconds=60,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         results = await orchestrator.run_subagents_parallel(inputs)
 
@@ -221,12 +229,15 @@ async def test_run_subagents_parallel_with_timeout():
         timeout_seconds=1,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         results = await orchestrator.run_subagents_parallel(inputs)
 
@@ -254,12 +265,15 @@ async def test_run_subagents_parallel_with_exception():
         timeout_seconds=60,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         results = await orchestrator.run_subagents_parallel(inputs)
 
@@ -283,16 +297,17 @@ async def test_run_subagents_parallel_with_streaming(mock_stream_manager):
         timeout_seconds=60,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
-        results = await orchestrator.run_subagents_parallel(
-            inputs, stream_callback=lambda x: None
-        )
+        results = await orchestrator.run_subagents_parallel(inputs, stream_callback=lambda x: None)
 
     assert len(results) == 1
     mock_stream_manager.emit_progress.assert_called_once()
@@ -302,9 +317,7 @@ async def test_run_subagents_parallel_with_streaming(mock_stream_manager):
 @pytest.mark.asyncio
 async def test_execute_command_delegates_to_executor(mock_command_executor):
 
-    orchestrator = PRReviewOrchestrator(
-        [], command_executor=mock_command_executor
-    )
+    orchestrator = PRReviewOrchestrator([], command_executor=mock_command_executor)
 
     result = await orchestrator.execute_command("pytest", timeout=30)
 
@@ -519,12 +532,15 @@ async def test_run_review_full_workflow(sample_review_outputs):
         timeout_seconds=60,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         output = await orchestrator.run_review(inputs)
 
@@ -548,12 +564,15 @@ async def test_run_review_with_streaming(mock_stream_manager):
         timeout_seconds=60,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         output = await orchestrator.run_review(inputs, stream_callback=lambda x: None)
 

@@ -1,4 +1,5 @@
 """Tests for review CLI helpers."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,7 +37,9 @@ def _make_output(decision: str) -> OrchestratorOutput:
         should_fix=["b"] * 6,
         notes_for_coding_agent=["Review completed"],
     )
-    tool_plan = ToolPlan(proposed_commands=["ruff check"], auto_fix_available=True, execution_summary="summary")
+    tool_plan = ToolPlan(
+        proposed_commands=["ruff check"], auto_fix_available=True, execution_summary="summary"
+    )
     return OrchestratorOutput(
         merge_decision=merge_gate,
         findings=[finding],
@@ -129,10 +132,13 @@ def test_terminal_result_and_error_formatting(monkeypatch):
 def test_cli_review_json_output(monkeypatch, tmp_path: Path):
     output = _make_output("approve")
     async_mock = AsyncMock(return_value=output)
+
     def fake_orchestrator(*args, **kwargs):
         return type("O", (), {"run_review": async_mock})()
 
-    monkeypatch.setattr(review_cli, "PRReviewOrchestrator", fake_orchestrator)
+    monkeypatch.setattr(
+        "dawn_kestrel.agents.review.orchestrator.PRReviewOrchestrator", fake_orchestrator
+    )
     monkeypatch.setattr(review_cli, "get_subagents", lambda include_optional=False: [])
     runner = CliRunner()
 
@@ -152,7 +158,9 @@ def test_cli_review_markdown_output(monkeypatch, tmp_path: Path):
     def fake_orchestrator(*args, **kwargs):
         return type("O", (), {"run_review": async_mock})()
 
-    monkeypatch.setattr(review_cli, "PRReviewOrchestrator", fake_orchestrator)
+    monkeypatch.setattr(
+        "dawn_kestrel.agents.review.orchestrator.PRReviewOrchestrator", fake_orchestrator
+    )
     monkeypatch.setattr(review_cli, "get_subagents", lambda include_optional=False: [])
     console = DummyConsole()
     monkeypatch.setattr(review_cli, "console", console)
@@ -174,7 +182,9 @@ def test_cli_review_markdown_output_approve_with_warnings(monkeypatch, tmp_path:
     def fake_orchestrator(*args, **kwargs):
         return type("O", (), {"run_review": async_mock})()
 
-    monkeypatch.setattr(review_cli, "PRReviewOrchestrator", fake_orchestrator)
+    monkeypatch.setattr(
+        "dawn_kestrel.agents.review.orchestrator.PRReviewOrchestrator", fake_orchestrator
+    )
     monkeypatch.setattr(review_cli, "get_subagents", lambda include_optional=False: [])
     console = DummyConsole()
     monkeypatch.setattr(review_cli, "console", console)
@@ -206,7 +216,10 @@ def test_cli_review_terminal_output_streams_progress(monkeypatch, tmp_path: Path
                 await stream_callback("agent", "error", {}, error_msg="boom")
             return output
 
-    monkeypatch.setattr(review_cli, "PRReviewOrchestrator", lambda *args, **kwargs: FakeOrchestrator())
+    monkeypatch.setattr(
+        "dawn_kestrel.agents.review.orchestrator.PRReviewOrchestrator",
+        lambda *args, **kwargs: FakeOrchestrator(),
+    )
     monkeypatch.setattr(review_cli, "get_subagents", lambda include_optional=False: [])
     console = DummyConsole()
     monkeypatch.setattr(review_cli, "console", console)

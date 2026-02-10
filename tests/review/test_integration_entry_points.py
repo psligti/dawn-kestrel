@@ -10,6 +10,7 @@ This test suite covers the complete entry point system integration:
 - CLI integration
 - Error scenarios and graceful degradation
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +32,13 @@ from dawn_kestrel.agents.review.agents.security import SecurityReviewer
 from dawn_kestrel.agents.review.agents.telemetry import TelemetryMetricsReviewer
 from dawn_kestrel.agents.review.agents.unit_tests import UnitTestsReviewer
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.contracts import ReviewInputs, ReviewOutput, Finding, MergeGate, Scope
+from dawn_kestrel.agents.review.contracts import (
+    ReviewInputs,
+    ReviewOutput,
+    Finding,
+    MergeGate,
+    Scope,
+)
 from dawn_kestrel.agents.review.discovery import EntryPoint, EntryPointDiscovery
 from dawn_kestrel.agents.review.doc_gen import DocGenAgent
 from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
@@ -156,9 +163,7 @@ class TestEndToEndIntegration:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         success, message = doc_gen.generate_for_agent(
-            security_reviewer,
-            force=True,
-            output_path=output_path
+            security_reviewer, force=True, output_path=output_path
         )
 
         assert success is True, f"Doc generation failed: {message}"
@@ -175,7 +180,7 @@ class TestEndToEndIntegration:
                 description="Hardcoded API key",
                 weight=0.95,
                 pattern_type="content",
-                evidence="API_KEY = \"hardcoded_key_123\""
+                evidence='API_KEY = "hardcoded_key_123"',
             ),
             EntryPoint(
                 file_path="src/api/user.py",
@@ -183,24 +188,24 @@ class TestEndToEndIntegration:
                 description="Unsafe eval usage",
                 weight=0.95,
                 pattern_type="ast",
-                evidence="eval(user_data.get(\"code\", \"\"))"
+                evidence='eval(user_data.get("code", ""))',
             ),
         ]
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value.stdout = "src/auth/login.py:5:API_KEY = \"hardcoded_key_123\"\n"
+            mock_run.return_value.stdout = 'src/auth/login.py:5:API_KEY = "hardcoded_key_123"\n'
 
             discovery = EntryPointDiscovery()
             # Discovery would normally load from docs, but we'll mock the result
-            with patch.object(discovery, "_load_agent_patterns", return_value={
-                "ast": [],
-                "content": [],
-                "file_path": []
-            }):
+            with patch.object(
+                discovery,
+                "_load_agent_patterns",
+                return_value={"ast": [], "content": [], "file_path": []},
+            ):
                 entry_points = await discovery.discover_entry_points(
                     agent_name="security",
                     repo_root=str(mock_repo),
-                    changed_files=["src/auth/login.py", "src/api/user.py", "config/settings.py"]
+                    changed_files=["src/auth/login.py", "src/api/user.py", "config/settings.py"],
                 )
 
         # Step 3: Run orchestrator with discovery
@@ -216,19 +221,18 @@ class TestEndToEndIntegration:
 
         changed_files = ["src/auth/login.py", "src/api/user.py"]
 
-        with patch(
-            "dawn_kestrel.agents.review.utils.git.get_changed_files",
-            AsyncMock(return_value=changed_files)
-        ), patch(
-            "dawn_kestrel.agents.review.utils.git.get_diff",
-            AsyncMock(return_value=mock_pr_diff)
+        with (
+            patch(
+                "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                AsyncMock(return_value=changed_files),
+            ),
+            patch(
+                "dawn_kestrel.agents.review.utils.git.get_diff",
+                AsyncMock(return_value=mock_pr_diff),
+            ),
         ):
             # Mock review method to return findings
-            with patch.object(
-                SecurityReviewer,
-                "review",
-                new_callable=AsyncMock
-            ) as mock_review:
+            with patch.object(SecurityReviewer, "review", new_callable=AsyncMock) as mock_review:
                 mock_review.return_value = ReviewOutput(
                     agent="security",
                     severity="merge",
@@ -241,14 +245,14 @@ class TestEndToEndIntegration:
                             confidence="high",
                             owner="security",
                             estimate="M",
-                            evidence="API_KEY = \"hardcoded_key_123\"",
+                            evidence='API_KEY = "hardcoded_key_123"',
                             risk="Secret exposure",
                             recommendation="Use environment variables for secrets",
-                            suggested_patch=None
+                            suggested_patch=None,
                         )
                     ],
                     merge_gate=MergeGate(decision="block", must_fix=[]),
-                    summary="Found security issues"
+                    summary="Found security issues",
                 )
 
                 output = await orchestrator.run_review(inputs)
@@ -261,11 +265,7 @@ class TestEndToEndIntegration:
         # Step 5: Test self-verification
         reviewer = SecurityReviewer()
         findings = output.subagent_results[0].findings
-        verification = reviewer.verify_findings(
-            findings,
-            changed_files,
-            str(mock_repo)
-        )
+        verification = reviewer.verify_findings(findings, changed_files, str(mock_repo))
 
         # Verification should return evidence or empty list (graceful degradation)
         assert isinstance(verification, list), "Verification should return list"
@@ -298,9 +298,7 @@ class TestEndToEndIntegration:
             output_path = output_dir / f"{agent_name.lower()}_reviewer.md"
 
             success, message = doc_gen.generate_for_agent(
-                agent,
-                force=True,
-                output_path=output_path
+                agent, force=True, output_path=output_path
             )
 
             assert success is True, f"Doc generation failed for {agent_name}: {message}"
@@ -324,6 +322,7 @@ class TestBaselineComparison:
     @pytest.mark.asyncio
     async def test_baseline_vs_enhanced_performance(self, mock_repo: Path, mock_pr_diff: str):
         """Test that enhanced review is within 20% of baseline performance."""
+
         # Setup mock agent with predictable review time
         class MockReviewer(BaseReviewerAgent):
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -335,7 +334,7 @@ class TestBaselineComparison:
                     scope=Scope(relevant_files=[], reasoning="Mock review"),
                     findings=[],
                     merge_gate=MergeGate(decision="approve", must_fix=[]),
-                    summary="Mock review"
+                    summary="Mock review",
                 )
 
             def get_system_prompt(self) -> str:
@@ -346,6 +345,9 @@ class TestBaselineComparison:
 
             def get_agent_name(self) -> str:
                 return "MockReviewer"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
 
         changed_files = ["src/auth/login.py", "src/api/user.py"]
         diff = mock_pr_diff
@@ -361,12 +363,12 @@ class TestBaselineComparison:
             timeout_seconds=30,
         )
 
-        with patch(
-            "dawn_kestrel.agents.review.utils.git.get_changed_files",
-            AsyncMock(return_value=changed_files)
-        ), patch(
-            "dawn_kestrel.agents.review.utils.git.get_diff",
-            AsyncMock(return_value=diff)
+        with (
+            patch(
+                "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                AsyncMock(return_value=changed_files),
+            ),
+            patch("dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)),
         ):
             start_time = time.time()
             await orchestrator_baseline.run_review(inputs)
@@ -383,7 +385,7 @@ class TestBaselineComparison:
                 description="Entry point",
                 weight=0.9,
                 pattern_type="content",
-                evidence="test"
+                evidence="test",
             ),
             EntryPoint(
                 file_path="src/api/user.py",
@@ -391,26 +393,26 @@ class TestBaselineComparison:
                 description="Entry point",
                 weight=0.9,
                 pattern_type="content",
-                evidence="test"
+                evidence="test",
             ),
         ]
 
         with patch.object(
-            discovery,
-            "discover_entry_points",
-            new_callable=AsyncMock
+            discovery, "discover_entry_points", new_callable=AsyncMock
         ) as mock_discover:
             mock_discover.return_value = mock_entry_points
 
             agents_enhanced = [MockReviewer() for _ in range(3)]
             orchestrator_enhanced = PRReviewOrchestrator(agents_enhanced, discovery=discovery)
 
-            with patch(
-                "dawn_kestrel.agents.review.utils.git.get_changed_files",
-                AsyncMock(return_value=changed_files)
-            ), patch(
-                "dawn_kestrel.agents.review.utils.git.get_diff",
-                AsyncMock(return_value=diff)
+            with (
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                    AsyncMock(return_value=changed_files),
+                ),
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)
+                ),
             ):
                 start_time = time.time()
                 await orchestrator_enhanced.run_review(inputs)
@@ -465,14 +467,12 @@ class TestAll11ReviewersIntegration:
                     description=f"Entry point for {agent_name}",
                     weight=0.9,
                     pattern_type="content",
-                    evidence="test"
+                    evidence="test",
                 ),
             ]
 
         with patch.object(
-            discovery, "discover_entry_points",
-            side_effect=mock_discover,
-            new_callable=AsyncMock
+            discovery, "discover_entry_points", side_effect=mock_discover, new_callable=AsyncMock
         ) as mock_discover_entry_points:
             orchestrator = PRReviewOrchestrator(agents, discovery=discovery)
 
@@ -486,12 +486,14 @@ class TestAll11ReviewersIntegration:
             changed_files = ["src/auth/login.py", "src/api/user.py"]
             diff = mock_pr_diff
 
-            with patch(
-                "dawn_kestrel.agents.review.utils.git.get_changed_files",
-                AsyncMock(return_value=changed_files)
-            ), patch(
-                "dawn_kestrel.agents.review.utils.git.get_diff",
-                AsyncMock(return_value=diff)
+            with (
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                    AsyncMock(return_value=changed_files),
+                ),
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)
+                ),
             ):
                 # Mock review to return simple results
                 async def mock_review(context):
@@ -502,11 +504,13 @@ class TestAll11ReviewersIntegration:
                         scope=Scope(relevant_files=[], reasoning="Mock review"),
                         findings=[],
                         merge_gate=MergeGate(decision="approve", must_fix=[]),
-                        summary=f"Review by {context.changed_files}"
+                        summary=f"Review by {context.changed_files}",
                     )
 
                 for agent in agents:
-                    with patch.object(agent, "review", new_callable=AsyncMock, side_effect=mock_review):
+                    with patch.object(
+                        agent, "review", new_callable=AsyncMock, side_effect=mock_review
+                    ):
                         pass
 
                 output = await orchestrator.run_review(inputs)
@@ -526,8 +530,11 @@ class TestFallbackBehavior:
     """Test fallback behavior when discovery fails."""
 
     @pytest.mark.asyncio
-    async def test_discovery_returns_none_triggers_fallback(self, mock_repo: Path, mock_pr_diff: str):
+    async def test_discovery_returns_none_triggers_fallback(
+        self, mock_repo: Path, mock_pr_diff: str
+    ):
         """Test that None from discovery triggers fallback to is_relevant_to_changes()."""
+
         class MockReviewer(BaseReviewerAgent):
             async def review(self, context: ReviewContext) -> ReviewOutput:
                 return ReviewOutput(
@@ -536,7 +543,7 @@ class TestFallbackBehavior:
                     scope=Scope(relevant_files=[], reasoning="Mock review"),
                     findings=[],
                     merge_gate=MergeGate(decision="approve", must_fix=[]),
-                    summary=f"Reviewed {len(context.changed_files)} files"
+                    summary=f"Reviewed {len(context.changed_files)} files",
                 )
 
             def get_system_prompt(self) -> str:
@@ -548,14 +555,14 @@ class TestFallbackBehavior:
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
         discovery = EntryPointDiscovery()
 
         # Mock discovery to return None (simulating failure)
         with patch.object(
-            discovery,
-            "discover_entry_points",
-            new_callable=AsyncMock,
-            return_value=None
+            discovery, "discover_entry_points", new_callable=AsyncMock, return_value=None
         ):
             agent = MockReviewer()
             orchestrator = PRReviewOrchestrator([agent], discovery=discovery)
@@ -570,12 +577,14 @@ class TestFallbackBehavior:
             changed_files = ["src/auth/login.py", "config/settings.py"]
             diff = mock_pr_diff
 
-            with patch(
-                "dawn_kestrel.agents.review.utils.git.get_changed_files",
-                AsyncMock(return_value=changed_files)
-            ), patch(
-                "dawn_kestrel.agents.review.utils.git.get_diff",
-                AsyncMock(return_value=diff)
+            with (
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                    AsyncMock(return_value=changed_files),
+                ),
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)
+                ),
             ):
                 output = await orchestrator.run_review(inputs)
 
@@ -585,6 +594,7 @@ class TestFallbackBehavior:
     @pytest.mark.asyncio
     async def test_discovery_timeout_triggers_fallback(self, mock_repo: Path, mock_pr_diff: str):
         """Test that discovery timeout triggers fallback."""
+
         class MockReviewer(BaseReviewerAgent):
             async def review(self, context: ReviewContext) -> ReviewOutput:
                 return ReviewOutput(
@@ -593,7 +603,7 @@ class TestFallbackBehavior:
                     scope=Scope(relevant_files=[], reasoning="Mock review"),
                     findings=[],
                     merge_gate=MergeGate(decision="approve", must_fix=[]),
-                    summary="Review completed"
+                    summary="Review completed",
                 )
 
             def get_system_prompt(self) -> str:
@@ -605,6 +615,9 @@ class TestFallbackBehavior:
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
         discovery = EntryPointDiscovery(timeout_seconds=1)
 
         # Mock discovery to timeout
@@ -613,10 +626,7 @@ class TestFallbackBehavior:
             return []
 
         with patch.object(
-            discovery,
-            "discover_entry_points",
-            new_callable=AsyncMock,
-            side_effect=mock_timeout
+            discovery, "discover_entry_points", new_callable=AsyncMock, side_effect=mock_timeout
         ):
             agent = MockReviewer()
             orchestrator = PRReviewOrchestrator([agent], discovery=discovery)
@@ -631,12 +641,14 @@ class TestFallbackBehavior:
             changed_files = ["src/auth/login.py"]
             diff = mock_pr_diff
 
-            with patch(
-                "dawn_kestrel.agents.review.utils.git.get_changed_files",
-                AsyncMock(return_value=changed_files)
-            ), patch(
-                "dawn_kestrel.agents.review.utils.git.get_diff",
-                AsyncMock(return_value=diff)
+            with (
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                    AsyncMock(return_value=changed_files),
+                ),
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)
+                ),
             ):
                 output = await orchestrator.run_review(inputs)
 
@@ -672,7 +684,7 @@ patterns:
             "pattern": "AWS_ACCESS_KEY",
             "language": "python",
             "weight": 0.95,
-            "source": "PR #123 - Hardcoded AWS key found"
+            "source": "PR #123 - Hardcoded AWS key found",
         }
 
         success = pattern_learning.add_learned_pattern("security", new_pattern)
@@ -713,7 +725,7 @@ patterns:
             "pattern": "API_KEY",
             "language": "python",
             "weight": 0.95,
-            "source": "PR #456"
+            "source": "PR #456",
         }
 
         pattern_learning.add_learned_pattern("security", new_pattern)
@@ -738,12 +750,7 @@ patterns:
 
         pattern_learning = PatternLearning(docs_dir=docs_dir)
 
-        pattern = {
-            "type": "content",
-            "pattern": "password",
-            "language": "python",
-            "weight": 0.9
-        }
+        pattern = {"type": "content", "pattern": "password", "language": "python", "weight": 0.9}
 
         # Add same pattern twice
         success1 = pattern_learning.add_learned_pattern("security", pattern)
@@ -771,16 +778,14 @@ class TestDiscoveryPerformance:
                     description="Entry point",
                     weight=0.9,
                     pattern_type="content",
-                    evidence="test"
+                    evidence="test",
                 ),
             ]
 
         with patch.object(discovery, "discover_entry_points", side_effect=mock_discover):
             start_time = time.time()
             entry_points = await discovery.discover_entry_points(
-                agent_name="security",
-                repo_root=str(mock_repo),
-                changed_files=["src/auth/login.py"]
+                agent_name="security", repo_root=str(mock_repo), changed_files=["src/auth/login.py"]
             )
             discovery_time = time.time() - start_time
 
@@ -817,7 +822,7 @@ class TestContextFilteringEffectiveness:
                 description="Hardcoded secret",
                 weight=0.95,
                 pattern_type="content",
-                evidence="test"
+                evidence="test",
             ),
             EntryPoint(
                 file_path="config/settings.py",
@@ -825,7 +830,7 @@ class TestContextFilteringEffectiveness:
                 description="Configuration",
                 weight=0.9,
                 pattern_type="file_path",
-                evidence="test"
+                evidence="test",
             ),
         ]
 
@@ -835,7 +840,7 @@ class TestContextFilteringEffectiveness:
             discovery,
             "discover_entry_points",
             new_callable=AsyncMock,
-            return_value=mock_entry_points
+            return_value=mock_entry_points,
         ):
             agent = SecurityReviewer()
             orchestrator = PRReviewOrchestrator([agent], discovery=discovery)
@@ -849,12 +854,14 @@ class TestContextFilteringEffectiveness:
 
             diff = mock_pr_diff
 
-            with patch(
-                "dawn_kestrel.agents.review.utils.git.get_changed_files",
-                AsyncMock(return_value=all_files)
-            ), patch(
-                "dawn_kestrel.agents.review.utils.git.get_diff",
-                AsyncMock(return_value=diff)
+            with (
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                    AsyncMock(return_value=all_files),
+                ),
+                patch(
+                    "dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)
+                ),
             ):
                 # Mock review to capture context
                 captured_context = []
@@ -870,7 +877,7 @@ class TestContextFilteringEffectiveness:
                         scope=Scope(relevant_files=[], reasoning="Mock review"),
                         findings=[],
                         merge_gate=MergeGate(decision="approve", must_fix=[]),
-                        summary="Mock review"
+                        summary="Mock review",
                     )
 
                 with patch.object(agent, "review", new_callable=AsyncMock, side_effect=mock_review):
@@ -885,7 +892,7 @@ class TestContextFilteringEffectiveness:
 
         print(f"\nTotal files: {len(all_files)}")
         print(f"Filtered files: {len(filtered_files)}")
-        print(f"Reduction: {(1 - len(filtered_files)/len(all_files))*100:.1f}%")
+        print(f"Reduction: {(1 - len(filtered_files) / len(all_files)) * 100:.1f}%")
 
         # Assert filtering reduced file count
         assert len(filtered_files) < len(all_files), (
@@ -922,19 +929,15 @@ password = "admin"
                 evidence='Found API_KEY = "secret123"',
                 risk="Secret exposure",
                 recommendation="Use environment variables",
-                suggested_patch=None
+                suggested_patch=None,
             ),
         ]
 
         # Mock subprocess to avoid real grep calls
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value.stdout = "1:API_KEY = \"secret123\"\n"
+            mock_run.return_value.stdout = '1:API_KEY = "secret123"\n'
 
-            verification = reviewer.verify_findings(
-                findings,
-                ["test.py"],
-                str(tmp_path)
-            )
+            verification = reviewer.verify_findings(findings, ["test.py"], str(tmp_path))
 
         # Verify evidence structure
         assert isinstance(verification, list), "Verification should return list"
@@ -956,11 +959,7 @@ password = "admin"
         findings = [InvalidFinding()]
 
         # Should not raise exception
-        verification = reviewer.verify_findings(
-            findings,
-            ["test.py"],
-            "/tmp"
-        )
+        verification = reviewer.verify_findings(findings, ["test.py"], "/tmp")
 
         # Should return empty list on error
         assert isinstance(verification, list), "Should return list"
@@ -987,15 +986,10 @@ class TestErrorScenarios:
 
         # Mock _load_agent_patterns to return empty (no doc)
         with patch.object(
-            discovery,
-            "_load_agent_patterns",
-            new_callable=AsyncMock,
-            return_value={}
+            discovery, "_load_agent_patterns", new_callable=AsyncMock, return_value={}
         ):
             entry_points = await discovery.discover_entry_points(
-                agent_name="nonexistent",
-                repo_root=str(mock_repo),
-                changed_files=["src/test.py"]
+                agent_name="nonexistent", repo_root=str(mock_repo), changed_files=["src/test.py"]
             )
 
         # Should return None (trigger fallback)
@@ -1010,9 +1004,7 @@ class TestErrorScenarios:
         with patch("subprocess.run", side_effect=FileNotFoundError("Tool not found")):
             # Load patterns but discovery should fail gracefully
             entry_points = await discovery.discover_entry_points(
-                agent_name="security",
-                repo_root=str(mock_repo),
-                changed_files=["src/test.py"]
+                agent_name="security", repo_root=str(mock_repo), changed_files=["src/test.py"]
             )
 
         # Should return None (trigger fallback)
@@ -1044,6 +1036,7 @@ patterns: broken
     @pytest.mark.asyncio
     async def test_review_timeout_handling(self, mock_repo: Path, mock_pr_diff: str):
         """Test review timeout handling."""
+
         class SlowReviewer(BaseReviewerAgent):
             async def review(self, context: ReviewContext) -> ReviewOutput:
                 await asyncio.sleep(10)  # Simulate slow review
@@ -1053,7 +1046,7 @@ patterns: broken
                     scope=Scope(relevant_files=[], reasoning="Mock review"),
                     findings=[],
                     merge_gate=MergeGate(decision="approve", must_fix=[]),
-                    summary="Review"
+                    summary="Review",
                 )
 
             def get_system_prompt(self) -> str:
@@ -1064,6 +1057,9 @@ patterns: broken
 
             def get_agent_name(self) -> str:
                 return "SlowReviewer"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
 
         agent = SlowReviewer()
         orchestrator = PRReviewOrchestrator([agent])
@@ -1078,12 +1074,12 @@ patterns: broken
         changed_files = ["src/test.py"]
         diff = mock_pr_diff
 
-        with patch(
-            "dawn_kestrel.agents.review.utils.git.get_changed_files",
-            AsyncMock(return_value=changed_files)
-        ), patch(
-            "dawn_kestrel.agents.review.utils.git.get_diff",
-            AsyncMock(return_value=diff)
+        with (
+            patch(
+                "dawn_kestrel.agents.review.utils.git.get_changed_files",
+                AsyncMock(return_value=changed_files),
+            ),
+            patch("dawn_kestrel.agents.review.utils.git.get_diff", AsyncMock(return_value=diff)),
         ):
             # Review should handle timeout gracefully
             try:

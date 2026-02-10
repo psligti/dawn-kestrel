@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+from typing import List
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from dawn_kestrel.agents.review.doc_gen import DocGenAgent
@@ -111,6 +112,9 @@ class TestDocGenAgentGetAgentName:
             def get_agent_name(self) -> str:
                 return "CustomAgent"
 
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -129,6 +133,12 @@ class TestDocGenAgentGetAgentName:
         """Test fallback to class name when method doesn't exist."""
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -141,12 +151,18 @@ class TestDocGenAgentGetAgentName:
         agent = DocGenAgent()
         name = agent._get_agent_name(MockAgent())
 
-        assert name == "mockagent"
+        assert name == "MockAgent"
 
     def test_get_agent_name_removes_reviewer_suffix(self):
         """Test that 'reviewer' suffix is removed from class name."""
 
         class MockReviewer(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockReviewer"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -159,12 +175,19 @@ class TestDocGenAgentGetAgentName:
         agent = DocGenAgent()
         name = agent._get_agent_name(MockReviewer())
 
+        # get_agent_name() returns "MockReviewer", fallback removes 'reviewer' -> "mock"
         assert name == "mock"
 
     def test_get_agent_name_with_complex_name(self):
         """Test extraction with complex class names."""
 
         class MockReviewer123(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockReviewer123"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -177,8 +200,6 @@ class TestDocGenAgentGetAgentName:
         agent = DocGenAgent()
         name = agent._get_agent_name(MockReviewer123())
 
-        # "MockReviewer123" -> .lower() -> "mockreviewer123"
-        # remove "reviewer" -> "mock123"
         assert name == "mock123"
 
 
@@ -296,6 +317,12 @@ class TestDocGenAgentExtractPatternsFromPrompt:
 
         # Create mock agent with system prompt containing patterns
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return """You specialize in security review.
 
@@ -332,6 +359,12 @@ Content patterns:
         agent = DocGenAgent()
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Minimal prompt"
 
@@ -353,6 +386,12 @@ Content patterns:
         agent = DocGenAgent()
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Minimal prompt"
 
@@ -374,6 +413,12 @@ Content patterns:
         agent = DocGenAgent()
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Minimal prompt"
 
@@ -395,6 +440,12 @@ Content patterns:
         agent = DocGenAgent()
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return """High weight pattern
 Low weight pattern
@@ -417,6 +468,12 @@ Medium weight pattern"""
         agent = DocGenAgent()
 
         class MockAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "MockAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return """You specialize in testing.
 
@@ -695,6 +752,12 @@ class TestDocGenAgentDetermineAgentType:
         agent = DocGenAgent()
 
         class SecurityReviewer(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "SecurityReviewer"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -713,6 +776,12 @@ class TestDocGenAgentDetermineAgentType:
         agent = DocGenAgent()
 
         class CustomAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "CustomAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 
@@ -734,6 +803,12 @@ class TestDocGenAgentDetermineAgentType:
         for agent_name in required:
             # Create test class with the exact name
             class TestAgent(BaseReviewerAgent):
+                def get_agent_name(self) -> str:
+                    return "TestAgent"
+
+                def get_allowed_tools(self) -> List[str]:
+                    return []
+
                 def get_system_prompt(self) -> str:
                     return "Test"
 
@@ -756,11 +831,17 @@ class TestDocGenAgentDetermineAgentType:
         for agent_name in non_required:
 
             class MockAgent(BaseReviewerAgent):
+                def get_agent_name(self) -> str:
+                    return "MockAgent"
+
+                def get_allowed_tools(self) -> List[str]:
+                    return []
+
                 def get_system_prompt(self) -> str:
-                    return "Test"
+                    return "Minimal prompt"
 
                 def get_relevant_file_patterns(self):
-                    return []
+                    return ["test/**"]
 
                 async def review(self, context):
                     pass
@@ -1228,6 +1309,12 @@ prompt_hash: {test_hash}
         """Test agent name is extracted from agent instance."""
 
         class TestAgent(BaseReviewerAgent):
+            def get_agent_name(self) -> str:
+                return "TestAgent"
+
+            def get_allowed_tools(self) -> List[str]:
+                return []
+
             def get_system_prompt(self) -> str:
                 return "Test"
 

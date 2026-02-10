@@ -10,6 +10,7 @@ _build_context() method, including:
 - Timeout and error scenarios
 - Backward compatibility
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,6 @@ from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 
 
 class TestReviewerAgent(BaseReviewerAgent):
-
     def __init__(
         self,
         agent_name: str = "TestReviewer",
@@ -36,6 +36,9 @@ class TestReviewerAgent(BaseReviewerAgent):
 
     def get_agent_name(self) -> str:
         return self._agent_name
+
+    def get_allowed_tools(self) -> List[str]:
+        return []
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
         return ReviewOutput(
@@ -151,19 +154,24 @@ def orchestrator_with_mock_discovery(mock_discovery):
 
 
 @pytest.mark.asyncio
-async def test_build_context_extract_agent_name(orchestrator_with_mock_discovery, sample_review_inputs):
+async def test_build_context_extract_agent_name(
+    orchestrator_with_mock_discovery, sample_review_inputs
+):
     """Test that _build_context extracts agent name using agent.__class__.__name__."""
     orchestrator = orchestrator_with_mock_discovery
     agent = orchestrator.subagents[0]
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -185,16 +193,23 @@ async def test_build_context_with_successful_discovery(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=sample_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
-    assert set(context.changed_files) == {"src/auth/login.py", "src/auth/logout.py", "src/api/routes.py"}
+    assert set(context.changed_files) == {
+        "src/auth/login.py",
+        "src/auth/logout.py",
+        "src/api/routes.py",
+    }
     assert len(context.changed_files) == 3
 
     orchestrator.discovery.discover_entry_points.assert_called_once()
@@ -216,12 +231,15 @@ async def test_build_context_with_none_discovery_relevant_agent(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -241,12 +259,15 @@ async def test_build_context_with_none_discovery_irrelevant_agent(
 
     mock_discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -266,12 +287,15 @@ async def test_build_context_with_discovery_timeout(
 
     mock_discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -290,12 +314,15 @@ async def test_build_context_with_discovery_error(
 
     mock_discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -315,12 +342,15 @@ async def test_build_context_filters_files_to_entry_points(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=sample_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -344,12 +374,15 @@ async def test_build_context_empty_entry_points_vs_none(
 
     mock_discovery.discover_entry_points = AsyncMock(return_value=[])
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -405,12 +438,15 @@ async def test_build_context_multiple_reviewers(
 
     mock_discovery.discover_entry_points = AsyncMock(side_effect=mock_discover_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         security_context = await orchestrator._build_context(sample_review_inputs, security_agent)
         architecture_context = await orchestrator._build_context(
@@ -435,12 +471,15 @@ async def test_build_context_discovery_integration_parameters(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=sample_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -467,12 +506,15 @@ async def test_build_context_logs_discovery_success(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=sample_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         with caplog.at_level(logging.INFO):
             context = await orchestrator._build_context(sample_review_inputs, agent)
@@ -500,12 +542,15 @@ async def test_build_context_logs_fallback(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         with caplog.at_level(logging.INFO):
             context = await orchestrator._build_context(sample_review_inputs, agent)
@@ -531,12 +576,15 @@ async def test_build_context_logs_agent_not_relevant(
 
     mock_discovery.discover_entry_points = AsyncMock(return_value=None)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         with caplog.at_level(logging.INFO):
             context = await orchestrator._build_context(sample_review_inputs, agent)
@@ -560,12 +608,15 @@ async def test_build_context_populates_all_fields(
 
     orchestrator.discovery.discover_entry_points = AsyncMock(return_value=sample_entry_points)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -590,12 +641,15 @@ async def test_build_context_backward_compatibility_without_discovery(
     assert orchestrator.discovery is not None
     assert isinstance(orchestrator.discovery, EntryPointDiscovery)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         context = await orchestrator._build_context(sample_review_inputs, agent)
 
@@ -619,12 +673,15 @@ async def test_build_context_discovery_non_blocking(
 
     mock_discovery.discover_entry_points = AsyncMock(side_effect=slow_discovery)
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=sample_changed_files),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=sample_changed_files),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         start = asyncio.get_event_loop().time()
         context = await orchestrator._build_context(sample_review_inputs, agent)
