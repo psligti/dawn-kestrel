@@ -60,7 +60,7 @@ class TestBenchmarkResult:
         assert isinstance(result_dict, dict)
         assert result_dict["benchmark_name"] == "test"
         assert result_dict["metric_name"] == "time"
-        assert result_dict["mean"] == 0.15
+        assert result_dict["mean"] == pytest.approx(0.15)
 
     def test_result_with_zero_iterations(self):
         """Test that zero iterations raises error."""
@@ -227,7 +227,7 @@ class TestBenchmarkRunner:
 
         captured = capsys.readouterr()
         assert "test_report" in captured.out
-        assert "benchmark_name" in captured.out
+        assert "test_benchmark" in captured.out
 
 
 class TestBenchmarkIntegration:
