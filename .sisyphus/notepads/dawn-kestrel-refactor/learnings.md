@@ -1523,3 +1523,44 @@ def get_allowed_tools(self) -> List[str]:
 - Files fixed: 23 test files, ~25 mock classes, 3 production files
 - Total commits: 6 verified commits
 
+# Task: Refactor composition root (OpenCodeAsyncClient) to use DI container
+# Date: 2026-02-09
+# Outcome: Partially complete
+
+## What Went Right
+- DI container refactoring successful for normal path
+- Initialization tests pass (5/5 tests using DI container)
+- Added optional `session_service` parameter for test backward compatibility
+- LSP diagnostics clean (only expected unused import warnings)
+
+## What Went Wrong  
+- Tests need Result type updates (out of scope for this task)
+- 12/17 tests fail because they expect raw values but service now returns `Ok(value)`
+- This is a pre-existing issue from previous Result type refactoring
+
+## Backward Compatibility Strategy
+- Added `session_service` parameter to `__init__` for test mocking
+- When `session_service` is provided, use it directly (bypasses DI container)
+- When `session_service` is None, use `container.service()` (normal DI container path)
+- This allows tests to pass Mock services while production code uses DI container
+- No manual instantiation of storages, repositories when using DI container
+- Preserved unused imports with `# noqa: F401` for test patching compatibility
+
+## Implementation Details
+- Import: `from dawn_kestrel.core.di_container import container, configure_container`
+- Configuration: `configure_container()` called with SDK config and handlers
+- Service access: `self._service = session_service or container.service()`
+- Other services: Always obtained from DI container
+- Keep backward imports: DefaultSessionService, SessionStorage, etc. with noqa: F401
+
+## Test Status
+- Passing: Initialization tests (test_async_client_initialization_default, etc.)
+- Failing: Session method tests (expect raw values, get `Ok(value)`)
+  - test_async_client_create_session: expects Session, gets Ok(Session)
+  - test_async_client_add_message: expects str, gets Ok(str)
+  - test_async_client_delete_session: expects bool, gets Ok(bool)
+  - Agent method tests have attribute access issues on Ok objects
+
+## Note
+Tests need updates to work with Result type API. This is a separate task
+from previous Result type refactoring (Task 10/exception-wrapping).
