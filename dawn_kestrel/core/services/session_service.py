@@ -104,17 +104,6 @@ class SessionService(Protocol):
         """
         ...
 
-    async def get_session(self, session_id: str) -> Session | None:
-        """Get a session by ID.
-
-        Args:
-            session_id: The session ID.
-
-        Returns:
-            Session object or None if not found.
-        """
-        ...
-
 
 class DefaultSessionService:
     """Default implementation of SessionService with handler injection.
@@ -278,75 +267,6 @@ class DefaultSessionService:
         except Exception as e:
             return Err(f"Failed to create session: {e}", code="SessionError")
 
-    async def create_session_result(self, title: str) -> Result[Session]:
-        """Create a new session, returning Result.
-
-        Args:
-            title: The session title.
-
-        Returns:
-            Result with Session on success, or Err on failure.
-        """
-        try:
-            if self._io_handler:
-                use_parent = await self._io_handler.confirm(
-                    "Create this session as a child of an existing session?", default=False
-                )
-            else:
-                use_parent = False
-
-            if self._progress_handler:
-                self._progress_handler.start("Creating session", 100)
-                self._progress_handler.update(50, "Initializing...")
-
-            # Generate session ID and slug
-            import uuid
-            import re
-
-            session_id = str(uuid.uuid4())
-            slug = re.sub(r"\s+", "-", title.lower().replace(" ", "-"))
-            slug = re.sub(r"[^a-z0-9_-]", "", slug)[:100]
-
-            # Create session using repository
-            from datetime import datetime
-
-            now = datetime.now().timestamp()
-            session = Session(
-                id=session_id,
-                slug=slug,
-                project_id=self.project_dir.name,
-                directory=str(self.project_dir),
-                parent_id=None if not use_parent else "",
-                title=title,
-                version="1.0.0",
-                summary=None,
-                time_created=now,
-                time_updated=now,
-            )
-
-            result = await self._session_repo.create(session)
-            if result.is_err():
-                return Err(f"Failed to create session: {result.error}")
-
-            session = result.unwrap()
-
-            if self._progress_handler:
-                self._progress_handler.update(100, "Session created")
-                self._progress_handler.complete(f"Created session: {session.title}")
-
-            if self._notification_handler:
-                self._notification_handler.show(
-                    Notification(
-                        notification_type=NotificationType.SUCCESS,
-                        message=f"Session created: {session.title}",
-                    )
-                )
-
-            return Ok(session)
-
-        except Exception as e:
-            return Err(f"Failed to create session: {e}", code="SessionError")
-
     async def delete_session(self, session_id: str) -> Result[bool]:
         """Delete a session using injected handlers.
 
@@ -365,45 +285,6 @@ class DefaultSessionService:
             result = await self._session_repo.delete(session_id)
             if result.is_err():
                 return Err(f"Failed to delete session: {result.error}", code="SessionError")
-
-            deleted = result.unwrap()
-
-            if deleted:
-                if self._progress_handler:
-                    self._progress_handler.update(100, "Session deleted")
-                    self._progress_handler.complete(f"Deleted session: {session_id}")
-
-                if self._notification_handler:
-                    self._notification_handler.show(
-                        Notification(
-                            notification_type=NotificationType.SUCCESS,
-                            message=f"Session {session_id} deleted",
-                        )
-                    )
-
-            return Ok(deleted)
-
-        except Exception as e:
-            return Err(f"Failed to delete session: {e}", code="SessionError")
-
-    async def delete_session_result(self, session_id: str) -> Result[bool]:
-        """Delete a session by ID, returning Result.
-
-        Args:
-            session_id: The session ID to delete.
-
-        Returns:
-            Result with bool (True if deleted, False if not found) on success,
-            or Err on failure.
-        """
-        try:
-            if self._progress_handler:
-                self._progress_handler.start("Deleting session", 100)
-                self._progress_handler.update(50, f"Deleting {session_id}...")
-
-            result = await self._session_repo.delete(session_id)
-            if result.is_err():
-                return Err(f"Failed to delete session: {result.error}")
 
             deleted = result.unwrap()
 
@@ -461,62 +342,6 @@ class DefaultSessionService:
             result = await self._message_repo.create(message)
             if result.is_err():
                 return Err(f"Failed to add message: {result.error}", code="SessionError")
-
-            created_message = result.unwrap()
-
-            if self._progress_handler:
-                self._progress_handler.update(100, "Message added")
-                self._progress_handler.complete(f"Added message to session {session_id}")
-
-            if self._notification_handler:
-                self._notification_handler.show(
-                    Notification(
-                        notification_type=NotificationType.SUCCESS,
-                        message=f"Message added to session {session_id}",
-                    )
-                )
-
-            return Ok(created_message.id)
-
-        except Exception as e:
-            return Err(f"Failed to add message: {e}", code="SessionError")
-
-    async def add_message_result(self, session_id: str, role: str, text: str) -> Result[str]:
-        """Add a message to a session, returning Result.
-
-        Args:
-            session_id: The session ID.
-            role: The message role (user, assistant, system).
-            text: The message text.
-
-        Returns:
-            Result with message ID on success, or Err on failure.
-        """
-        try:
-            if self._progress_handler:
-                self._progress_handler.start("Adding message", 100)
-                self._progress_handler.update(50, "Creating message...")
-
-            # Generate message ID
-            import uuid
-            from datetime import datetime
-
-            message_id = str(uuid.uuid4())
-            now = datetime.now().timestamp()
-
-            # Create message
-            message = Message(
-                id=message_id,
-                session_id=session_id,
-                role=role,  # type: ignore
-                time={"created": now},
-                text=text,
-            )
-
-            # Use message repository
-            result = await self._message_repo.create(message)
-            if result.is_err():
-                return Err(f"Failed to add message: {result.error}")
 
             created_message = result.unwrap()
 
