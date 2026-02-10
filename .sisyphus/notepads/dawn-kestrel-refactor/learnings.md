@@ -1159,3 +1159,38 @@ def get_allowed_tools(self) -> List[str] | list[str]:
   3. Tests that call `reviewer._extract_search_terms(evidence, title)` require the real verifier class, not a mock
   4. Task acceptance criterion achieved: "All tests in test_self_verification.py that call reviewer._extract_search_terms() now pass"
   5. Other test failures (missing mocker fixture, missing verify_findings method) are pre-existing issues, not related to this fix
+
+### Task: Fix test_pattern_learning.py Abstract Methods (2026-02-10)
+**Problem**: TestReviewer and LearningReviewer test helper classes were missing abstract method implementations
+- Both classes inherit from BaseReviewerAgent
+- Missing methods: get_agent_name() and get_allowed_tools()
+- Error: "TypeError: Can't instantiate abstract class TestReviewer with abstract methods get_agent_name, get_allowed_tools"
+
+**Fix Applied**:
+1. Added `from typing import List` to imports in test_pattern_learning.py
+2. Added get_agent_name() to TestReviewer class (line 604-605):
+   ```python
+   def get_agent_name(self) -> str:
+       return "TestReviewer"
+   ```
+3. Added get_allowed_tools() to TestReviewer class (line 607-608):
+   ```python
+   def get_allowed_tools(self) -> List[str]:
+       return []
+   ```
+4. Added get_agent_name() to LearningReviewer class (line 643-644):
+   ```python
+   def get_agent_name(self) -> str:
+       return "LearningReviewer"
+   ```
+5. Added get_allowed_tools() to LearningReviewer class (line 646-647):
+   ```python
+   def get_allowed_tools(self) -> List[str]:
+       return []
+   ```
+
+**Test Results**:
+- All 38 tests pass (38/38 = 100%)
+- No new failures introduced
+
+**Pattern**: Consistent with previous 16 test fixes for missing abstract methods in reviewer agent test mocks
