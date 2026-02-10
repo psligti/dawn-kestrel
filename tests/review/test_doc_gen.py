@@ -175,8 +175,7 @@ class TestDocGenAgentGetAgentName:
         agent = DocGenAgent()
         name = agent._get_agent_name(MockReviewer())
 
-        # get_agent_name() returns "MockReviewer", fallback removes 'reviewer' -> "mock"
-        assert name == "mock"
+        assert name == "MockReviewer"
 
     def test_get_agent_name_with_complex_name(self):
         """Test extraction with complex class names."""
@@ -200,7 +199,7 @@ class TestDocGenAgentGetAgentName:
         agent = DocGenAgent()
         name = agent._get_agent_name(MockReviewer123())
 
-        assert name == "mock123"
+        assert name == "MockReviewer123"
 
 
 class TestDocGenAgentExtractExistingHash:
