@@ -2,6 +2,42 @@
 
 This document describes the 21 design patterns implemented across the Dawn Kestrel codebase, explaining their purpose, implementation details, and how they work together to provide excellent composition and eliminate blast exposure.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Core Architecture Patterns](#core-architecture-patterns)
+  - [1. Dependency Injection Container](#1-dependency-injection-container)
+  - [2. Plugin System](#2-plugin-system)
+  - [3. Result Pattern (Ok/Err/Pass)](#3-result-pattern-okerrpass)
+  - [4. Repository Pattern](#4-repository-pattern)
+  - [5. Unit of Work](#5-unit-of-work)
+  - [6. Adapter Pattern](#6-adapter-pattern)
+  - [7. Facade Pattern](#7-facade-pattern)
+  - [8. Mediator Pattern](#8-mediator-pattern)
+  - [9. Registry Pattern](#9-registry-pattern)
+- [Behavioral Patterns](#behavioral-patterns)
+  - [10. Command Pattern](#10-command-pattern)
+  - [11. Decorator/Proxy Pattern](#11-decoratorproxy-pattern)
+  - [12. Null Object Pattern](#12-null-object-pattern)
+  - [13. Strategy Pattern](#13-strategy-pattern)
+  - [14. Observer Pattern](#14-observer-pattern)
+  - [15. State (FSM) Pattern](#15-state-fsm-pattern)
+- [Reliability Patterns](#reliability-patterns)
+  - [16. Circuit Breaker Pattern](#16-circuit-breaker-pattern)
+  - [17. Bulkhead Pattern](#17-bulkhead-pattern)
+  - [18. Retry + Backoff Pattern](#18-retry--backoff-pattern)
+  - [19. Rate Limiter Pattern](#19-rate-limiter-pattern)
+  - [20. Configuration Object Pattern](#20-configuration-object-pattern)
+- [Structural Patterns](#structural-patterns)
+  - [21. Composite Pattern](#21-composite-pattern)
+- [Pattern Integration](#pattern-integration)
+- [Migration Notes](#migration-notes)
+- [Testing](#testing)
+- [Conclusion](#conclusion)
+- [References](#references)
+
+---
+
 ## Overview
 
 Dawn Kestrel implements a comprehensive suite of design patterns organized into three categories:
@@ -77,6 +113,19 @@ service = container.service()
 session_repo = container.session_repo()
 ```
 
+**When to Use:**
+- When you have complex dependency graphs that need automatic wiring
+- When you want lazy initialization of services (create only when needed)
+- When you need to swap implementations for testing
+- When you want to centralize all dependency configuration
+
+**Benefits:**
+- **Eliminates manual wiring**: No need to manually create and pass dependencies
+- **Lazy initialization**: Services created only when first accessed
+- **Testability**: Easy to inject mocks/stubs for testing
+- **Centralized configuration**: All wiring in one place
+- **Type safety**: Compile-time checking of dependency types
+
 **Integration:**
 - Used by Facade pattern to resolve dependencies
 - Repositories injected through DI container
@@ -136,6 +185,19 @@ agents = await load_agents()
 plan_agent = agents.get('plan')
 ```
 
+**When to Use:**
+- When you want third-party extensions without modifying core code
+- When you need runtime discovery of components (tools, providers, agents)
+- When you want to eliminate static registration maps
+- When multiple packages need to contribute plugins to a central system
+
+**Benefits:**
+- **Extensibility**: Third parties can extend functionality without code changes
+- **Dynamic loading**: Components discovered at runtime
+- **Decoupling**: No compile-time dependencies between core and plugins
+- **Automatic discovery**: No manual registration required
+- **Versioning**: Plugins can be versioned independently
+
 **Integration:**
 - Tools Registry uses plugin discovery to populate registry
 - Provider Registry loads providers via entry points
@@ -185,6 +247,19 @@ class Pass(Result[T]):
     def is_pass(self) -> bool: return True
 ```
 
+**Pattern Diagram:**
+```
+Result[T] (Abstract)
+├── Ok[T]     → Success with value
+├── Err       → Failure with error message, code, retryable flag
+└── Pass[T]   → Neutral/continue (used for conditional flow)
+
+Composition:
+result1 → bind(validator) → result2 → map_result(transformer) → result3
+          ↓                    ↓
+      validation           transformation
+```
+
 **Usage Example:**
 ```python
 from dawn_kestrel.core.result import Ok, Err, Result, bind
@@ -208,6 +283,20 @@ if final_result.is_ok():
     user = final_result.unwrap()
     print(f"Created user: {user.name}")
 ```
+
+**When to Use:**
+- When you want explicit error handling without exceptions
+- When you need type-safe error propagation
+- When you want to compose operations with error handling
+- When you need to distinguish between error types and retryable failures
+
+**Benefits:**
+- **Explicit error handling**: Error states are part of the type signature
+- **Composition**: `bind()`, `map_result()`, `fold()` enable functional composition
+- **Type safety**: Compiler enforces error handling
+- **No exception scattering**: Eliminates try/except blocks throughout codebase
+- **Retryable tracking**: Err types can mark errors as retryable
+- **JSON serialization**: Results can be serialized for debugging/logging
 
 **Integration:**
 - All service methods return `Result[T]` instead of raising exceptions
@@ -243,6 +332,24 @@ class SessionRepository(Protocol):
     async def list_by_project(self, project_id: str) -> Result[List[Session]]: ...
 ```
 
+**Pattern Diagram:**
+```
+Service Layer
+     ↓ (uses)
+Repository Interface (Protocol)
+     ↓
+Repository Implementation
+     ↓ (wraps)
+Storage (SessionStorage, MessageStorage, PartStorage)
+     ↓
+File System / Database / Cloud Storage
+
+Benefits:
+- Service depends on Repository interface, not storage
+- Can swap storage implementation without changing service
+- Easy to mock for testing
+```
+
 **Implementation:**
 ```python
 class SessionRepositoryImpl:
@@ -272,6 +379,19 @@ if result.is_ok():
     created = result.unwrap()
     print(f"Created session: {created.id}")
 ```
+
+**When to Use:**
+- When you want to separate domain logic from data access
+- When you need to swap storage implementations (file, database, cloud)
+- When you want to mock data access for testing
+- When multiple storage backends are needed
+
+**Benefits:**
+- **Abstraction layer**: Domain code doesn't depend on storage details
+- **Testability**: Easy to mock repositories for unit tests
+- **Swapability**: Can change storage implementation without affecting business logic
+- **Explicit error handling**: All methods return Result[T]
+- **Protocol-based**: Multiple implementations possible via Protocol
 
 **Integration:**
 - Unit of Work pattern uses repositories for transactional operations
@@ -325,6 +445,19 @@ async def create_session_with_message(uow: UnitOfWork):
     
     return Ok(session)
 ```
+
+**When to Use:**
+- When multiple writes must succeed or fail together (atomic transactions)
+- When you need to maintain data consistency across multiple repositories
+- When you want to prevent partial state updates on failures
+- When operations span multiple aggregate roots
+
+**Benefits:**
+- **Transactional consistency**: All operations succeed or all fail
+- **No partial updates**: Eliminates inconsistent states
+- **Atomic commits**: Groups related operations into single unit
+- **Rollback support**: Can undo failed transactions
+- **Explicit state management**: Requires begin/commit/rollback calls
 
 **Integration:**
 - Services can use Unit of Work for multi-write operations
@@ -408,6 +541,19 @@ if result.is_ok():
     print(f"Response: {response.text}")
 ```
 
+**When to Use:**
+- When you need to normalize multiple provider APIs to a common interface
+- When integrating third-party services with different protocols
+- When you want to add logging/metrics to provider calls
+- When provider APIs change but you want to keep internal API stable
+
+**Benefits:**
+- **Interface normalization**: Different providers expose same API
+- **Decoupling**: Core code doesn't depend on provider-specific APIs
+- **Extensibility**: New providers can be added without modifying core code
+- **Cross-cutting concerns**: Logging, metrics, error handling added in adapters
+- **Type conversion**: Handles provider-specific data formats
+
 **Integration:**
 - Used by reliability patterns (Circuit Breaker, Retry, Rate Limiter)
 - Provider Registry manages adapters for provider selection
@@ -460,6 +606,19 @@ if result.is_ok():
 
 result = await facade.add_message(session.id, "user", "Hello!")
 ```
+
+**When to Use:**
+- When you want to provide a simplified API over complex subsystems
+- When you want to hide DI container complexity from end users
+- When common operations require multiple service calls
+- When you want to provide a stable API despite internal changes
+
+**Benefits:**
+- **Simplified API**: Complex subsystems exposed via simple methods
+- **Hides complexity**: Users don't need to understand DI wiring
+- **Stable interface**: Internal changes don't affect facade API
+- **Convenience methods**: Common operations in one place
+- **Lazy initialization**: Services created only when needed
 
 **Integration:**
 - Simplifies DI container access for users
@@ -514,6 +673,19 @@ event = Event(
 )
 await mediator.publish(event)
 ```
+
+**When to Use:**
+- When you want to eliminate direct component-to-component wiring
+- When multiple components need to react to the same events
+- When you want loose coupling between publishers and subscribers
+- When event routing logic needs to be centralized
+
+**Benefits:**
+- **Loose coupling**: Components don't directly reference each other
+- **Centralized routing**: All event logic in one place
+- **Selective delivery**: Source filtering for targeted events
+- **Many-to-many**: Multiple subscribers, multiple publishers
+- **Type safety**: Event types prevent accidental misuse
 
 **Integration:**
 - Command Queue publishes events through mediator
@@ -575,12 +747,27 @@ bash_tool = tools.get("bash")
 result = await bash_tool.execute({"command": "ls -la"}, ctx=...)
 ```
 
+**When to Use:**
+- When you need centralized lookup of components (tools, providers, agents)
+- When components are discovered dynamically via plugins
+- When you want to eliminate scattered component registration code
+- When you need type-safe lookups with error handling
+
+**Benefits:**
+- **Centralized lookup**: Single place to find all components
+- **Dynamic loading**: Components loaded via plugin discovery
+- **Type safety**: Lookups return typed results
+- **Caching**: Performance through component caching
+- **Extensible**: New components registered automatically via plugins
+
 **Integration:**
 - Plugin discovery loads plugins into registries
 - Agent Runtime queries registries for available tools
 - Facade uses registries for component lookup
 
 ---
+
+## Behavioral Patterns
 
 ## Behavioral Patterns
 
@@ -641,6 +828,19 @@ context = CommandContext(
 
 result = await command.execute(context)
 ```
+
+**When to Use:**
+- When you need to encapsulate actions as first-class objects
+- When you need undo/redo functionality
+- When you want to track provenance of operations
+- When you need to queue and execute commands sequentially
+
+**Benefits:**
+- **Encapsulation**: Actions are objects, can be stored, queued, logged
+- **Undo/redo**: Commands can track state for reversal
+- **Provenance tracking**: Metadata and timestamps on every operation
+- **Composability**: Commands can be composed for complex workflows
+- **Event-driven**: Commands publish events through Mediator
 
 **Integration:**
 - Command Queue manages command lifecycle with Mediator events
@@ -722,6 +922,19 @@ proxy = create_logging_proxy(add, level=logging.DEBUG)
 result = await proxy(5, 10)
 ```
 
+**When to Use:**
+- When you want to add logging to functions without modifying them
+- When you need cross-cutting concerns (logging, metrics, caching)
+- When you want to control when/how functions are called
+- When you need to wrap functions with additional behavior
+
+**Benefits:**
+- **Non-invasive**: Add behavior without modifying original functions
+- **Configurable**: Logging level, prefix, included data all configurable
+- **Reusable**: Same decorator can be applied to many functions
+- **Async/sync support**: Works with both types
+- **Factory pattern**: Create logging proxies dynamically
+
 **Integration:**
 - Can be applied to any function in codebase
 - Works with async and sync functions
@@ -783,6 +996,19 @@ result = await io_handler.prompt("Enter value: ")
 await progress_handler.start("Processing", 100)
 ```
 
+**When to Use:**
+- When optional dependencies shouldn't require null checks
+- When you want safe default implementations of interfaces
+- When dependency is optional but still needs to be called
+- When you want to avoid if-not-None checks scattered through code
+
+**Benefits:**
+- **Eliminates null checks**: No `if handler is not None` needed
+- **Safe defaults**: Null objects provide no-op implementations
+- **Type safety**: Always have a valid object, never None
+- **Simplified code**: Clean code without conditional checks
+- **Flexible configuration**: Can swap null for real implementation later
+
 **Integration:**
 - DI container uses null handlers when handlers not configured
 - Facade can work with or without custom handlers
@@ -842,6 +1068,19 @@ selector.register("routing", RoundRobinRouting())
 result = await selector.select("routing", {"environment": "production"})
 ```
 
+**When to Use:**
+- When you need to swap algorithms at runtime
+- When you have multiple ways to solve the same problem
+- When you want to eliminate if/else chains for algorithm selection
+- When algorithms need to be configurable
+
+**Benefits:**
+- **Runtime selection**: Algorithms can be swapped based on context
+- **Eliminates conditionals**: No long if/else chains
+- **Extensible**: New strategies can be added without modifying client code
+- **Encapsulation**: Each strategy encapsulates a complete algorithm
+- **Testability**: Each strategy can be tested independently
+
 **Integration:**
 - Provider Registry uses routing strategies
 - Facade can switch strategies based on environment
@@ -891,6 +1130,19 @@ await observable.register_observer(observer)
 # Notify observers
 await observable.notify_observers({"action": "session_updated", "session_id": "session-1"})
 ```
+
+**When to Use:**
+- When multiple components need to react to state changes
+- When you want loose coupling between subject and observers
+- When you need one-to-many notification system
+- When components need to monitor state changes
+
+**Benefits:**
+- **Loose coupling**: Observables don't depend on observer implementations
+- **Dynamic subscription**: Observers can be added/removed at runtime
+- **One-to-many**: Single change notifies all observers
+- **Separation of concerns**: State logic separate from reaction logic
+- **Mediator integration**: Can combine with event mediator for distributed events
 
 **Integration:**
 - Works with Mediator pattern for event distribution
@@ -954,6 +1206,19 @@ if result.is_err():
     print(f"Cannot transition: {result.error}")
 ```
 
+**When to Use:**
+- When objects need complex state management with validation
+- When invalid state transitions should be prevented
+- When state logic needs to be explicit and testable
+- When lifecycle is complex with multiple possible states
+
+**Benefits:**
+- **Explicit state**: All valid states and transitions defined
+- **Prevents invalid transitions**: State validation ensures only valid moves
+- **Type-safe**: States are typed and validated
+- **Observable**: State changes can trigger events
+- **Testable**: All state transitions can be unit tested
+
 **Integration:**
 - Agent Runtime uses FSM to track lifecycle
 - Works with Result pattern for error handling
@@ -1015,6 +1280,19 @@ await breaker.open()   # Open circuit
 await breaker.close()  # Close circuit
 ```
 
+**When to Use:**
+- When calling external services (LLM providers, APIs) that can fail
+- When you need to prevent cascading failures
+- When services need time to recover from outages
+- When you want to fail fast instead of waiting for timeout
+
+**Benefits:**
+- **Fault tolerance**: Prevents cascading failures across services
+- **Fail fast**: Quickly rejects calls when service is down
+- **Per-provider tracking**: Different providers can have separate circuits
+- **Manual control**: Can manually open/close circuits
+- **State visibility**: Can query circuit state at any time
+
 **Integration:**
 - Retry executor checks circuit breaker before retrying
 - LLM Reliability wrapper uses circuit breaker for fault tolerance
@@ -1065,6 +1343,19 @@ result = await bulkhead.try_execute("openai", llm_call)
 if result.is_ok():
     response = result.unwrap()
 ```
+
+**When to Use:**
+- When you need to limit concurrent access to resources
+- When preventing resource exhaustion from too many requests
+- When different resources have different capacity limits
+- When you need fair allocation among concurrent operations
+
+**Benefits:**
+- **Resource isolation**: Limits per resource prevent one resource from starving others
+- **Prevents exhaustion**: No runaway concurrent requests
+- **Configurable limits**: Different resources can have different limits
+- **Timeout support**: Fails fast if resource unavailable
+- **Active tracking**: Can monitor active operations per resource
 
 **Integration:**
 - Used in reliability wrapper to limit concurrent LLM calls
@@ -1124,6 +1415,19 @@ if result.is_ok():
     stats = await executor.get_stats()
     print(f"Success after {stats['attempts']} attempts")
 ```
+
+**When to Use:**
+- When calling unreliable services that have transient failures
+- When you need automatic recovery from temporary errors
+- When you want to distinguish retryable vs non-retryable errors
+- When exponential backoff can help with overloaded services
+
+**Benefits:**
+- **Automatic recovery**: Transient errors handled without user intervention
+- **Configurable strategies**: Linear, exponential, or fixed backoff
+- **Retryable filtering**: Only retry specific error types
+- **Statistics tracking**: Monitor retry counts, success rates
+- **Circuit breaker integration**: Checks circuit before retrying
 
 **Integration:**
 - LLM Reliability wrapper uses retry as outer layer
@@ -1190,6 +1494,19 @@ else:
     # Rate limited, wait and retry
     print("Rate limited, wait and retry")
 ```
+
+**When to Use:**
+- When calling APIs with rate limits
+- When you need to prevent API throttling/banning
+- When different providers have different rate limits
+- When you need fair usage across concurrent operations
+
+**Benefits:**
+- **Prevents throttling**: Respects API rate limits
+- **Token bucket algorithm**: Fair allocation of request tokens
+- **Per-resource limits**: Different rates for different providers
+- **Refill support**: Tokens replenish over time
+- **Window tracking**: Track requests within time windows
 
 **Integration:**
 - LLM Reliability wrapper uses rate limiter as first layer
@@ -1258,12 +1575,27 @@ print(f"Storage: {config.storage_path}")
 print(f"Auto-confirm: {config.auto_confirm}")
 ```
 
+**When to Use:**
+- When you need centralized, type-safe configuration
+- When configuration comes from multiple sources (env vars, files, defaults)
+- When you want validation of configuration values
+- When configuration needs to be accessed throughout application
+
+**Benefits:**
+- **Type safety**: Pydantic validates types at startup
+- **Multiple sources**: Environment variables, .env files, XDG directories
+- **Validation**: Invalid config detected early
+- **Defaults**: Sensible defaults for optional settings
+- **Path expansion**: Automatic ~ expansion for paths
+
 **Integration:**
 - Used by DI container for configuration injection
 - Facade can customize SDK behavior via config
 - Settings used throughout application for consistent configuration
 
 ---
+
+## Structural Patterns
 
 ## Structural Patterns
 
@@ -1295,10 +1627,119 @@ await queue.process_next()  # Processes first command
 await queue.process_next()  # Processes second command
 ```
 
+**When to Use:**
+- When you need to treat individual objects and compositions uniformly
+- When building tree structures (commands, plans, validation)
+- When clients should treat leaf and composite nodes identically
+- When operations need to recurse over hierarchical structures
+
+**Benefits:**
+- **Uniform treatment**: Single API for leaves and composites
+- **Recursive operations**: Easy to implement tree traversal
+- **Flexible composition**: Can build complex structures from simple ones
+- **Type safety**: Protocol ensures consistent interface
+- **Scalable**: Can add new components without changing client code
+
 **Integration:**
 - Commands can be composed into sequences
 - Plan validation uses composite for nested structures
 - Works with Result pattern for validation
+
+---
+
+## Pattern Integration Diagrams
+
+### Reliability Stack
+```
+LLM Call Flow:
+┌─────────────────────────────────────────────────────────────┐
+│ LLMReliability Wrapper                                      │
+│                                                              │
+│ 1. Rate Limiter (Token Bucket)                              │
+│    ↓ Check if tokens available                               │
+│    ↓ If yes, consume token and continue                      │
+│    ↓ If no, return RATE_LIMIT_EXCEEDED                        │
+│                                                              │
+│ 2. Circuit Breaker                                          │
+│    ↓ Check if circuit is OPEN                                │
+│    ↓ If open, return CIRCUIT_OPEN error                       │
+│    ↓ If closed/half-open, proceed                            │
+│    ↓ Track failures per provider                             │
+│                                                              │
+│ 3. Retry Executor (with Backoff)                            │
+│    ↓ Execute LLM call                                        │
+│    ↓ If transient error, retry with backoff                  │
+│    ↓ If permanent error, return immediately                  │
+│    ↓ Max attempts exceeded → return RETRY_EXCEEDED          │
+│                                                              │
+│ Provider Adapter (OpenAI, Anthropic, ZAI)                   │
+│    ↓ Convert messages to provider format                     │
+│    ↓ Stream response events                                  │
+│    ↓ Return Result[Message]                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### DI Container Flow
+```
+Container.configure()
+         ↓
+┌─────────────────────────────────────────┐
+│ Configuration Provider                  │
+│ - storage_path                          │
+│ - project_dir                           │
+│ - handler flags                         │
+└─────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────┐
+│ Storage Providers (lazy)               │
+│ - storage: SessionStorage              │
+│ - message_storage: MessageStorage      │
+│ - part_storage: PartStorage            │
+└─────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────┐
+│ Repository Providers (lazy)            │
+│ - session_repo: SessionRepositoryImpl  │
+│ - message_repo: MessageRepositoryImpl  │
+│ - part_repo: PartRepositoryImpl        │
+└─────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────┐
+│ Service Provider (lazy)                │
+│ - service: DefaultSessionService       │
+│   (with all repositories injected)     │
+└─────────────────────────────────────────┘
+```
+
+### Unit of Work Transaction
+```
+UnitOfWork.begin()
+         ↓
+┌─────────────────────────────────────────┐
+│ Register Operations                    │
+│ ├─ register_session(session1)          │
+│ ├─ register_message(msg1)             │
+│ ├─ register_message(msg2)             │
+│ └─ register_part(part1)               │
+│                                         │
+│ (All tracked in memory, not persisted)│
+└─────────────────────────────────────────┘
+         ↓
+UnitOfWork.commit()
+         ↓
+┌─────────────────────────────────────────┐
+│ Atomic Commit                          │
+│ ├─ session_repo.create(session1)       │
+│ ├─ message_repo.create(msg1)           │
+│ ├─ message_repo.create(msg2)           │
+│ └─ part_repo.create(part1)             │
+│                                         │
+│ All succeed → commit complete           │
+│ Any fail → rollback all                │
+└─────────────────────────────────────────┘
+         ↓
+         Result[None]
+```
 
 ---
 
