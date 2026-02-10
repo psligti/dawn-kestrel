@@ -527,10 +527,10 @@ Scenario: End-to-end security review completes with real tools
 
 ### Wave 2: Core Security Agents
 
-- [ ] 3. Implement SecretsScannerAgent
-- [ ] 4. Implement InjectionScannerAgent
-- [ ] 5. Implement AuthReviewerAgent
-- [ ] 6. Create Tests for Wave 2 Core Agents
+- [x] 3. Implement SecretsScannerAgent
+- [x] 4. Implement InjectionScannerAgent
+- [x] 5. Implement AuthReviewerAgent
+- [x] 6. Create Tests for Wave 2 Core Agents
 
   **What to do**:
   - Create comprehensive test suite for specialized agents
@@ -598,141 +598,8 @@ Scenario: End-to-end security review completes with real tools
 ### Wave 3: Additional Security Agents
 
 - [x] 7. Implement DependencyAuditorAgent
-
-  **What to do**:
-  - Create `dawn_kestrel/agents/review/subagents/dependency_auditor.py` (NEW FILE)
-  - Implement `DependencyAuditorAgent` class:
-    - Uses ToolExecutor to run safety or pip-audit
-    - Handles dependency vulnerability checking
-    - Normalizes safety/pip-audit output to SecurityFinding format
-
-  **Must NOT do**:
-  - Don't add additional package managers (npm, cargo, go mod)
-  - Don't implement dependency fix recommendations (only findings)
-
-  **Recommended Agent Profile**:
-  - **Category**: `unspecified-low`
-  - **Reason**: Agent implementing tool execution for dependency checking. No specialized domain knowledge needed.
-  - **Skills**: [`napkin`]
-  - **Skills Evaluated but Omitted**: None
-
-  **Parallelization**:
-  - **Can Run In Parallel**: YES (Independent of other Wave 3 agents)
-  - **Parallel Group**: Wave 3 (can run with CryptoScannerAgent, ConfigScannerAgent)
-  - **Blocks**: Tasks 11-14
-  - **Blocked By**: Task 6
-
-  **References**:
-  - Pattern References (tool usage):
-    - `dawn_kestrel/agents/review/tools.py` - ToolExecutor.execute_tool pattern
-  - External References:
-    - https://pyup.io/docs/tools/safety/ - Safety CLI usage
-    - https://pip-audit.readthedocs.io/ - Pip-audit CLI (if needed)
-
-  **WHY Each Reference Matters**:
-  - `tools.py`: ToolExecutor is the new interface for all specialized agents to use
-  - Safety docs: Provide production-grade patterns for dependency vulnerability checking
-
-  **Acceptance Criteria**:
-
-  **If TDD (tests enabled)**:
-  - [ ] Test file created: `tests/review/subagents/test_dependency_auditor.py`
-  - [ ] Test covers: safety execution, output normalization
-  - [ ] Mock test fixtures for safety JSON output
-  - [ ] `pytest tests/review/subagents/test_dependency_auditor.py` → PASS (at least 3 tests, 0 failures)
-
-  **Agent-Executed QA Scenarios**:
-
-  ```
-  Scenario: DependencyAuditorAgent finds known vulnerability
-    Tool: Bash
-    Preconditions: Test requirements.txt contains "requests==2.25.0"
-    Steps:
-      1. cd /Users/parkersligting/develop/pt/worktrees/harness-agent-rework
-      2. python -c "from dawn_kestrel.agents.review.subagents.dependency_auditor import DependencyAuditorAgent; import asyncio; import unittest.mock as mock; orchestrator = mock.Mock(); agent = DependencyAuditorAgent(orchestrator, 'session-001'); result = asyncio.run(agent.run_tool('audit_deps', 'requirements.txt')); print('Findings:', result.findings); print('Count:', len(result.findings))"
-      3. Assert: len(result.findings) > 0
-      4. Assert: any('vulnerability' in f.title.lower() or 'cve' in f.description.lower() for f in result.findings)
-      5. Assert: any(f.severity in ['medium', 'high', 'critical'] for f in result.findings)
-    Expected Result: At least one medium+ finding for dependency vulnerability
-    Failure Indicators: No findings found, incorrect parsing
-    Evidence: .sisyphus/evidence/task-7-dep-vuln.json
-  ```
-
-  **Commit**: YES (groups with N)
-  - Message: `feat(review): Implement DependencyAuditorAgent with real safety execution`
-  - Files: `dawn_kestrel/agents/review/subagents/dependency_auditor.py`, `tests/review/subagents/test_dependency_auditor.py`
-  - Pre-commit: `pytest tests/review/subagents/test_dependency_auditor.py`
-
----
-
-- [ ] 8. Implement CryptoScannerAgent
-
-  **What to do**:
-  - Create `dawn_kestrel/agents/review/subagents/crypto_scanner.py` (NEW FILE)
-  - Implement `CryptoScannerAgent` class:
-    - Uses ToolExecutor to run grep/ast-grep for weak crypto patterns
-    - Patterns: MD5, SHA1, hardcoded keys, ECB mode, constant-time issues
-    - Normalizes grep output to SecurityFinding format
-
-  **Must NOT do**:
-  - Don't add crypto library integration (focus on pattern detection only)
-  - Don't implement cryptographic fixes (only findings)
-
-  **Recommended Agent Profile**:
-  - **Category**: `unspecified-low`
-  - **Reason**: Agent implementing tool execution for crypto pattern detection. No specialized domain knowledge needed.
-  - **Skills**: [`napkin`]
-  - **Skills Evaluated but Omitted**: None
-
-  **Parallelization**:
-  - **Can Run In Parallel**: YES (Independent of DependencyAuditorAgent, ConfigScannerAgent)
-  - **Parallel Group**: Wave 3 (can run with DependencyAuditorAgent, ConfigScannerAgent)
-  - **Blocks**: Tasks 11-14
-  - **Blocked By**: Task 6
-
-  **References**:
-  - Pattern References (tool usage):
-    - `dawn_kestrel/agents/review/tools.py` - ToolExecutor.execute_tool pattern
-  - External References:
-    - OWASP cryptographic cheat sheet - https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet
-
-  **WHY Each Reference Matters**:
-  - `tools.py`: ToolExecutor is the new interface for all specialized agents to use
-  - OWASP cheat sheet: Provides production-grade patterns for weak cryptography detection
-
-  **Acceptance Criteria**:
-
-  **If TDD (tests enabled)**:
-  - [ ] Test file created: `tests/review/subagents/test_crypto_scanner.py`
-  - [ ] Test covers: grep/ast-grep execution, pattern matching
-  - [ ] Mock test fixtures for grep output
-  - [ ] `pytest tests/review/subagents/test_crypto_scanner.py` → PASS (at least 3 tests, 0 failures)
-
-  **Agent-Executed QA Scenarios**:
-
-  ```
-  Scenario: CryptoScannerAgent finds MD5 hash usage
-    Tool: Bash
-    Preconditions: Test file contains "hashlib.md5(data).hexdigest()"
-    Steps:
-      1. cd /Users/parkersligting/develop/pt/worktrees/harness-agent-rework
-      2. python -c "from dawn_kestrel.agents.review.subagents.crypto_scanner import CryptoScannerAgent; import asyncio; import unittest.mock as mock; orchestrator = mock.Mock(); agent = CryptoScannerAgent(orchestrator, 'session-001'); result = asyncio.run(agent.run_tool('scan_crypto', 'test_file.py')); print('Findings:', result.findings); print('Count:', len(result.findings))"
-      3. Assert: len(result.findings) > 0
-      4. Assert: any('MD5' in f.title or 'md5' in f.evidence.lower() for f in result.findings)
-      5. Assert: any(f.severity in ['medium', 'high'] for f in result.findings)
-    Expected Result: At least one medium+ finding for MD5 usage
-    Failure Indicators: No findings found, incorrect pattern matching
-    Evidence: .sisyphus/evidence/task-8-md5-weak.json
-  ```
-
-  **Commit**: YES (with Tasks 7-9)
-  - Message: `feat(review): Implement CryptoScannerAgent with grep/ast-grep for weak crypto`
-  - Files: `dawn_kestrel/agents/review/subagents/crypto_scanner.py`, `tests/review/subagents/test_crypto_scanner.py`
-  - Pre-commit: `pytest tests/review/subagents/test_crypto_scanner.py`
-
----
-
-- [ ] 9. Implement ConfigScannerAgent
+- [x] 8. Implement CryptoScannerAgent
+- [x] 9. Implement ConfigScannerAgent
 
   **What to do**:
   - Create `dawn_kestrel/agents/review/subagents/config_scanner.py` (NEW FILE)
