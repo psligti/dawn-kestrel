@@ -8,7 +8,13 @@ import pytest
 
 from dawn_kestrel.agents.review.agents.security import SecurityReviewer
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.contracts import Finding, MergeGate, ReviewInputs, ReviewOutput, Scope
+from dawn_kestrel.agents.review.contracts import (
+    Finding,
+    MergeGate,
+    ReviewInputs,
+    ReviewOutput,
+    Scope,
+)
 from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 
 
@@ -178,12 +184,15 @@ async def test_timeout_fallback_output_shape_is_stable() -> None:
         timeout_seconds=1,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         results = await orchestrator.run_subagents_parallel(inputs)
 
@@ -214,12 +223,15 @@ async def test_exception_fallback_output_shape_is_stable() -> None:
         timeout_seconds=1,
     )
 
-    with patch(
-        "dawn_kestrel.agents.review.utils.git.get_changed_files",
-        AsyncMock(return_value=["src/file.py"]),
-    ), patch(
-        "dawn_kestrel.agents.review.utils.git.get_diff",
-        AsyncMock(return_value="diff content"),
+    with (
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_changed_files",
+            AsyncMock(return_value=["src/file.py"]),
+        ),
+        patch(
+            "dawn_kestrel.agents.review.utils.git.get_diff",
+            AsyncMock(return_value="diff content"),
+        ),
     ):
         results = await orchestrator.run_subagents_parallel(inputs)
 
@@ -256,7 +268,7 @@ async def test_security_reviewer_skips_llm_for_non_relevant_files() -> None:
     assert result.summary == "No security-relevant files changed. Security review not applicable."
     assert result.severity == "merge"
     assert result.scope.relevant_files == []
-    assert result.scope.reasoning == "No files matched security review patterns"
+    assert result.scope.reasoning == "No files matched relevance patterns"
     assert result.findings == []
     assert result.merge_gate.decision == "approve"
     assert mock_runner_cls.call_count == 0
