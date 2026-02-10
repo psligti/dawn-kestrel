@@ -1683,3 +1683,36 @@ Key Findings:
 4. LSP warnings on result.error are false positives (expected behavior with type narrowing)
 5. handlers.py doesn't need Result handling (display-only layer, doesn't call services)
 
+
+### Task 10 Completion - Exception Wrapping in session_service.py (2026-02-09)
+- **Successfully completed exception wrapping** in dawn_kestrel/core/services/session_service.py
+- **Issues found and fixed**:
+  1. Removed duplicate `get_session` method from SessionService protocol (lines 107-116)
+     - Duplicate had return type `Session | None` instead of `Result[Session | None]`
+     - Kept only correct version returning `Result[Session | None]`
+  2. Removed redundant `*_result` methods from DefaultSessionService:
+     - Removed `create_session_result` (lines 281-348) - duplicate of `create_session`
+     - Removed `delete_session_result` (lines 389-426) - duplicate of `delete_session`
+     - Removed `add_message_result` (lines 484-538) - duplicate of `add_message`
+  3. Verified all exception raising is properly wrapped:
+     - All async methods properly wrap exceptions in try-except and return Result types
+     - The only `raise ValueError` is in `__init__` which is appropriate for constructors
+     - Constructor validates required arguments: session_repo and message_repo
+
+**Key changes**:
+- SessionService protocol: Single `get_session` method with `Result[Session | None]` return type
+- DefaultSessionService: No more duplicate `*_result` methods
+- All async methods return Result[T]: create_session, delete_session, add_message, list_sessions, get_session, get_export_data, import_session
+
+**Verification**:
+- `uv run pytest tests/core/test_result.py -q` → 37 passed (100%)
+- No exception raises in domain methods (except __init__ ValueError for validation)
+- All Result pattern tests pass
+- 2 pre-existing test failures in test_exception_wrapping.py (outdated mocks returning raw values)
+
+**Key learnings**:
+1. Duplicate methods in Protocols cause confusion about correct signatures
+2. When refactoring return types, ensure ALL occurrences are updated
+3. Redundant `*_result` methods should be removed when main methods already return Result types
+4. Constructor validation exceptions (ValueError) are appropriate and should not be wrapped in Result
+5. Test mocks may return raw values for backward compatibility, but this can cause test failures

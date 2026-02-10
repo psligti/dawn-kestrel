@@ -12,7 +12,7 @@ Result types support composition through bind, map, and fold operations.
 
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar, cast
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -85,7 +85,7 @@ class Result(ABC, Generic[T]):
         """
         if self.is_ok():
             return func(self.unwrap())
-        return self
+        return cast(Any, self)  # type: ignore[return-value]
 
     @staticmethod
     def from_json(json_str: str) -> "Result[Any]":
@@ -319,7 +319,7 @@ def map_result(result: Result[T], func: Callable[[T], U]) -> Result[U]:
     """
     if result.is_ok():
         return Ok(func(result.unwrap()))
-    return result
+    return cast(Any, result)  # type: ignore[return-value]
 
 
 def fold(
@@ -355,8 +355,10 @@ def fold(
     if result.is_ok():
         return on_ok(result.unwrap())
     elif result.is_err():
-        return on_err(result.error)
+        err_result = cast(Any, result)
+        return on_err(err_result.error)
     else:  # Pass
         if on_pass is not None:
-            return on_pass(result.message)
+            pass_result = cast(Any, result)
+            return on_pass(pass_result.message)
         return on_ok(None)  # type: ignore
