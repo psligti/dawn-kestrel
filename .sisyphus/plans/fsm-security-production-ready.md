@@ -527,76 +527,9 @@ Scenario: End-to-end security review completes with real tools
 
 ### Wave 2: Core Security Agents
 
-- [x] 3. Implement SecretsScannerAgent
-- [x] 4. Implement InjectionScannerAgent
-- [x] 5. Implement AuthReviewerAgent
-
-  **What to do**:
-  - Create `dawn_kestrel/agents/review/subagents/auth_reviewer.py` (NEW FILE)
-  - Implement `AuthReviewerAgent` class:
-    - Uses LLM for pattern-based auth code review (JWT/OAuth validation)
-    - Uses grep/ast-grep for auth-specific patterns (missing exp check, hardcoded tokens)
-    - Combines LLM analysis with tool-based verification
-
-  **Must NOT do**:
-  - Don't add OAuth/OAuth2 library integration (out of scope)
-  - Don't add session management (focus on code patterns only)
-
-  **Recommended Agent Profile**:
-  - **Category**: `ultrabrain`
-  - **Reason**: Auth code review requires pattern matching PLUS contextual analysis (LLM needed for reasoning about auth flows).
-  - **Skills**: [`napkin`]
-  - **Skills Evaluated but Omitted**: None
-
-  **Parallelization**:
-  - **Can Run In Parallel**: YES (Independent of other Wave 2 agents)
-  - **Parallel Group**: Wave 2 (can run with SecretsScannerAgent, InjectionScannerAgent)
-  - **Blocks**: Tasks 11-14
-  - **Blocked By**: Task 1
-
-  **References**:
-  - Pattern References (LLM + tool patterns):
-    - `dawn_kestrel/agents/review/fsm_security.py:721-772` - _build_subagent_prompt pattern
-  - Production Patterns:
-    - Remix auth middleware (multi-layer validation): https://github.com/remix-run/remix/blob/d7bbd9a34dc86fd1fffa03440e07722bd56ffd81/packages/session-middleware/src/lib/session.ts#L12-L40
-  - AST patterns for auth code: JWT exp check, token validation
-
-  **WHY Each Reference Matters**:
-  - `fsm_security.py:721-772`: Shows how to build prompts with context and tool access
-  - Remix session middleware: Production-grade pattern for multi-layer auth validation that should inspire auth code review
-
-  **Acceptance Criteria**:
-
-  **If TDD (tests enabled)**:
-  - [ ] Test file created: `tests/review/subagents/test_auth_reviewer.py`
-  - [ ] Test covers: LLM analysis + tool pattern matching
-  - [ ] Mock test fixtures for auth code scenarios
-  - [ ] `pytest tests/review/subagents/test_auth_reviewer.py` → PASS (at least 4 tests, 0 failures)
-
-  **Agent-Executed QA Scenarios**:
-
-  ```
-  Scenario: AuthReviewerAgent finds missing JWT expiration check
-    Tool: Bash
-    Preconditions: Test file contains "if verify_token(token):  # No exp check"
-    Steps:
-      1. cd /Users/parkersligting/develop/pt/worktrees/harness-agent-rework
-      2. python -c "from dawn_kestrel.agents.review.subagents.auth_reviewer import AuthReviewerAgent; import asyncio; import unittest.mock as mock; orchestrator = mock.Mock(); agent = AuthReviewerAgent(orchestrator, 'session-001'); result = asyncio.run(agent.run_review('test_file.py')); print('Findings:', result.findings); print('Count:', len(result.findings))"
-      3. Assert: len(result.findings) > 0
-      4. Assert: any('JWT' in f.title and 'expiration' in f.description.lower() for f in result.findings)
-      5. Assert: any(f.severity in ['high', 'critical'] for f in result.findings)
-    Expected Result: At least one critical/high finding for missing JWT exp check
-    Failure Indicators: No findings found, incorrect auth analysis
-    Evidence: .sisyphus/evidence/task-5-jwt-exp.json
-  ```
-
-  **Commit**: YES (groups with N)
-  - Message: `feat(review): Implement AuthReviewerAgent with LLM + pattern analysis`
-  - Files: `dawn_kestrel/agents/review/subagents/auth_reviewer.py`, `tests/review/subagents/test_auth_reviewer.py`
-  - Pre-commit: `pytest tests/review/subagents/test_auth_reviewer.py`
-
----
-
+- [ ] 3. Implement SecretsScannerAgent
+- [ ] 4. Implement InjectionScannerAgent
+- [ ] 5. Implement AuthReviewerAgent
 - [ ] 6. Create Tests for Wave 2 Core Agents
 
   **What to do**:
@@ -664,7 +597,7 @@ Scenario: End-to-end security review completes with real tools
 
 ### Wave 3: Additional Security Agents
 
-- [ ] 7. Implement DependencyAuditorAgent
+- [x] 7. Implement DependencyAuditorAgent
 
   **What to do**:
   - Create `dawn_kestrel/agents/review/subagents/dependency_auditor.py` (NEW FILE)
