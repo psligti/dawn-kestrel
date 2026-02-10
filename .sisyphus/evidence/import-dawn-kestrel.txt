@@ -1,2 +1,0 @@
-command: python3 -c "import dawn_kestrel; print(dawn_kestrel.__name__)"
-output: dawn_kestrel
