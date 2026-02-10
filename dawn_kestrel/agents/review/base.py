@@ -1,9 +1,12 @@
 """Base ReviewerAgent abstract class for all review subagents."""
+
 from __future__ import annotations
-from typing import List
+
 from abc import ABC, abstractmethod
-from pathlib import Path
+from typing import List, Literal
 import pydantic as pd
+
+from dawn_kestrel.agents.review.utils.redaction import format_log_with_redaction
 
 from dawn_kestrel.agents.review.contracts import ReviewOutput
 from dawn_kestrel.agents.review.verifier import FindingsVerifier
@@ -24,33 +27,33 @@ def _match_glob_pattern(file_path: str, pattern: str) -> bool:
     path = Path(file_path)
     path_parts = list(path.parts)
 
-    if '**' in pattern:
-        parts = pattern.split('**')
+    if "**" in pattern:
+        parts = pattern.split("**")
         if len(parts) == 2:
-            prefix = parts[0].rstrip('/')
-            suffix = parts[1].lstrip('/')
+            prefix = parts[0].rstrip("/")
+            suffix = parts[1].lstrip("/")
 
             if prefix:
-                prefix_parts = prefix.split('/')
-                if not path_parts[:len(prefix_parts)] == prefix_parts:
+                prefix_parts = prefix.split("/")
+                if not path_parts[: len(prefix_parts)] == prefix_parts:
                     return False
-                remaining = path_parts[len(prefix_parts):]
+                remaining = path_parts[len(prefix_parts) :]
             else:
                 remaining = path_parts
 
             if suffix:
-                suffix_parts = suffix.split('/')
+                suffix_parts = suffix.split("/")
                 if not suffix_parts:
                     return True
 
                 if len(remaining) >= len(suffix_parts):
-                    if remaining[-len(suffix_parts):] == suffix_parts:
+                    if remaining[-len(suffix_parts) :] == suffix_parts:
                         return True
 
                 if len(suffix_parts) == 1 and remaining:
                     if fnmatch(remaining[-1], suffix_parts[0]):
                         return True
-                    if fnmatch('/'.join(remaining), suffix_parts[0]):
+                    if fnmatch("/".join(remaining), suffix_parts[0]):
                         return True
                 return False
             return True
@@ -176,6 +179,7 @@ class BaseReviewerAgent(ABC):
             Formatted string suitable for inclusion in prompt
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         agent_name = self.__class__.__name__
@@ -217,10 +221,7 @@ class BaseReviewerAgent(ABC):
         return "\n".join(parts)
 
     def verify_findings(
-        self,
-        findings: List,
-        changed_files: List[str],
-        repo_root: str
+        self, findings: List, changed_files: List[str], repo_root: str
     ) -> List[dict]:
         """Verify findings by delegating to the verifier strategy.
 
@@ -295,13 +296,18 @@ class BaseReviewerAgent(ABC):
             if self.is_relevant_to_changes([file_path])
         ]
 
-        logger.info(f"[{class_name}] Filtering relevant files: {len(relevant_files)}/{len(context.changed_files)} matched")
+        logger.info(
+            f"[{class_name}] Filtering relevant files: {len(relevant_files)}/{len(context.changed_files)} matched"
+        )
 
         if early_return_on_no_relevance and not relevant_files:
-            logger.info(f"[{class_name}] No relevant files found, returning early with 'merge' severity")
+            logger.info(
+                f"[{class_name}] No relevant files found, returning early with 'merge' severity"
+            )
             return ReviewOutput(
                 agent=self.get_agent_name(),
-                summary=no_relevance_summary or f"No {self.get_agent_name()}-relevant files changed. Review not applicable.",
+                summary=no_relevance_summary
+                or f"No {self.get_agent_name()}-relevant files changed. Review not applicable.",
                 severity="merge",
                 scope=Scope(
                     relevant_files=[],
@@ -312,7 +318,10 @@ class BaseReviewerAgent(ABC):
                     decision="approve",
                     must_fix=[],
                     should_fix=[],
-                    notes_for_coding_agent=[no_relevance_summary or f"No {self.get_agent_name()}-relevant files were changed."],
+                    notes_for_coding_agent=[
+                        no_relevance_summary
+                        or f"No {self.get_agent_name()}-relevant files were changed."
+                    ],
                 ),
             )
 
@@ -349,11 +358,20 @@ Please analyze the above changes and provide your review in the specified JSON f
             return output
 
         except pd.ValidationError as e:
-            logger.error(f"[{class_name}] JSON validation error: {e}")
+            # Log validation reject with structured format
+            logger.error(
+                format_log_with_redaction(
+                    message=f"[VALIDATION_REJECT] LLM response failed validation",
+                    reason=f"Pydantic validation error: {str(e)[:200]}",
+                    error_count=str(len(e.errors())),
+                )
+            )
             logger.error(f"[{class_name}]   Error count: {len(e.errors())}")
             for error in e.errors()[:5]:
                 logger.error(f"[{class_name}]     - {error['loc']}: {error['msg']}")
-            logger.error(f"[{class_name}]   Original response (first 500 chars): {response_text[:500]}...")
+            logger.error(
+                f"[{class_name}]   Original response (first 500 chars): {response_text[:500]}..."
+            )
 
             return ReviewOutput(
                 agent=self.get_agent_name(),
@@ -362,7 +380,7 @@ Please analyze the above changes and provide your review in the specified JSON f
                 scope=Scope(
                     relevant_files=relevant_files,
                     ignored_files=[],
-                    reasoning="Failed to parse LLM JSON response due to validation error."
+                    reasoning="Failed to parse LLM JSON response due to validation error.",
                 ),
                 findings=[],
                 merge_gate=MergeGate(
@@ -371,8 +389,8 @@ Please analyze the above changes and provide your review in the specified JSON f
                     should_fix=[],
                     notes_for_coding_agent=[
                         "Review LLM response format and ensure it matches expected schema."
-                    ]
-                )
+                    ],
+                ),
             )
         except (TimeoutError, ValueError):
             raise
