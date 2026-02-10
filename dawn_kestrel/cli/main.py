@@ -54,12 +54,27 @@ def list_sessions(directory: str | None) -> None:
             CLINotificationHandler,
             CLIProgressHandler,
         )
+        from dawn_kestrel.core.repositories import (
+            MessageRepositoryImpl,
+            PartRepositoryImpl,
+            SessionRepositoryImpl,
+        )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
         from dawn_kestrel.core.settings import settings
-        from dawn_kestrel.storage.store import SessionStorage
+        from dawn_kestrel.storage.store import (
+            MessageStorage,
+            PartStorage,
+            SessionStorage,
+        )
 
         storage_dir = settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
+        session_storage = SessionStorage(storage_dir)
+        message_storage = MessageStorage(storage_dir)
+        part_storage = PartStorage(storage_dir)
+
+        session_repo = SessionRepositoryImpl(session_storage)
+        message_repo = MessageRepositoryImpl(message_storage)
+        part_repo = PartRepositoryImpl(part_storage)
 
         work_dir = Path(directory).expanduser() if directory else Path.cwd()
 
@@ -68,7 +83,9 @@ def list_sessions(directory: str | None) -> None:
         notification_handler = CLINotificationHandler()
 
         service = DefaultSessionService(
-            storage=storage,
+            session_repo=session_repo,
+            message_repo=message_repo,
+            part_repo=part_repo,
             io_handler=io_handler,
             progress_handler=progress_handler,
             notification_handler=notification_handler,
@@ -77,7 +94,8 @@ def list_sessions(directory: str | None) -> None:
         result = await service.list_sessions()
 
         if result.is_err():
-            console.print(f"[red]Error: {result.error}[/red]")
+            err_result = cast(Any, result)
+            console.print(f"[red]Error: {err_result.error}[/red]")
             sys.exit(1)
 
         sessions = result.unwrap()
@@ -134,15 +152,31 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
             CLINotificationHandler,
             CLIProgressHandler,
         )
+        from dawn_kestrel.core.repositories import (
+            MessageRepositoryImpl,
+            PartRepositoryImpl,
+            SessionRepositoryImpl,
+        )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.core.settings import settings
         from dawn_kestrel.session.export_import import ExportImportManager
         from dawn_kestrel.snapshot.index import GitSnapshot
-        from dawn_kestrel.storage.store import SessionStorage
+        from dawn_kestrel.storage.store import (
+            MessageStorage,
+            PartStorage,
+            SessionStorage,
+        )
 
         storage_dir = settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
+        session_storage = SessionStorage(storage_dir)
+        message_storage = MessageStorage(storage_dir)
+        part_storage = PartStorage(storage_dir)
+
+        session_repo = SessionRepositoryImpl(session_storage)
+        message_repo = MessageRepositoryImpl(message_storage)
+        part_repo = PartRepositoryImpl(part_storage)
+
         work_dir = Path.cwd()
 
         io_handler = CLIIOHandler()
@@ -150,7 +184,9 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
         notification_handler = CLINotificationHandler()
 
         service = DefaultSessionService(
-            storage=storage,
+            session_repo=session_repo,
+            message_repo=message_repo,
+            part_repo=part_repo,
             io_handler=io_handler,
             progress_handler=progress_handler,
             notification_handler=notification_handler,
@@ -159,7 +195,8 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
         result = await service.get_session(session_id)
 
         if result.is_err():
-            console.print(f"[red]Error: {result.error}[/red]")
+            err_result = cast(Any, result)
+            console.print(f"[red]Error: {err_result.error}[/red]")
             sys.exit(1)
 
         session = result.unwrap()
@@ -168,7 +205,7 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
             return
 
         git_snapshot = GitSnapshot(storage_dir, work_dir.name)
-        session_manager = SessionManager(storage, work_dir)
+        session_manager = SessionManager(session_storage, work_dir)
         manager = ExportImportManager(session_manager, git_snapshot)
 
         result = await manager.export_session(
@@ -197,15 +234,31 @@ def import_session(import_path: str, project_id: str | None) -> None:
             CLINotificationHandler,
             CLIProgressHandler,
         )
+        from dawn_kestrel.core.repositories import (
+            MessageRepositoryImpl,
+            PartRepositoryImpl,
+            SessionRepositoryImpl,
+        )
         from dawn_kestrel.core.services.session_service import DefaultSessionService
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.core.settings import settings
         from dawn_kestrel.session.export_import import ExportImportManager
         from dawn_kestrel.snapshot.index import GitSnapshot
-        from dawn_kestrel.storage.store import SessionStorage
+        from dawn_kestrel.storage.store import (
+            MessageStorage,
+            PartStorage,
+            SessionStorage,
+        )
 
         storage_dir = settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
+        session_storage = SessionStorage(storage_dir)
+        message_storage = MessageStorage(storage_dir)
+        part_storage = PartStorage(storage_dir)
+
+        session_repo = SessionRepositoryImpl(session_storage)
+        message_repo = MessageRepositoryImpl(message_storage)
+        part_repo = PartRepositoryImpl(part_storage)
+
         work_dir = Path.cwd()
 
         io_handler = CLIIOHandler()
@@ -213,13 +266,15 @@ def import_session(import_path: str, project_id: str | None) -> None:
         notification_handler = CLINotificationHandler()
 
         service = DefaultSessionService(
-            storage=storage,
+            session_repo=session_repo,
+            message_repo=message_repo,
+            part_repo=part_repo,
             io_handler=io_handler,
             progress_handler=progress_handler,
             notification_handler=notification_handler,
         )
 
-        session_manager = SessionManager(storage, work_dir)
+        session_manager = SessionManager(session_storage, work_dir)
         git_snapshot = GitSnapshot(storage_dir, work_dir.name)
         manager = ExportImportManager(session_manager, git_snapshot)
 

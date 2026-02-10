@@ -38,6 +38,11 @@ class TestContainerInitialization:
         assert hasattr(container, "storage_dir")
         assert hasattr(container, "project_dir")
         assert hasattr(container, "storage")
+        assert hasattr(container, "message_storage")
+        assert hasattr(container, "part_storage")
+        assert hasattr(container, "session_repo")
+        assert hasattr(container, "message_repo")
+        assert hasattr(container, "part_repo")
         assert hasattr(container, "session_lifecycle")
         assert hasattr(container, "service")
         assert hasattr(container, "agent_registry")
@@ -112,7 +117,7 @@ class TestServiceProvider:
             reset_container()
 
     def test_service_injects_dependencies(self):
-        """Test that service properly injects storage and project_dir."""
+        """Test that service properly injects repositories and project_dir."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             configure_container(
@@ -120,11 +125,15 @@ class TestServiceProvider:
                 project_dir=tmp_path,
             )
             service = container.service()
-            from dawn_kestrel.storage.store import SessionStorage
+            from dawn_kestrel.core.repositories import (
+                SessionRepositoryImpl,
+                MessageRepositoryImpl,
+                PartRepositoryImpl,
+            )
 
-            assert isinstance(service.storage, SessionStorage)
-            # Storage adds /storage suffix to configured path
-            assert service.storage.storage_dir == tmp_path / "storage"
+            assert isinstance(service._session_repo, SessionRepositoryImpl)
+            assert isinstance(service._message_repo, MessageRepositoryImpl)
+            assert isinstance(service._part_repo, PartRepositoryImpl)
             assert service.project_dir == tmp_path
             reset_container()
 
@@ -365,9 +374,15 @@ class TestIntegration:
             assert isinstance(runtime, AgentRuntime)
 
             # Verify wiring
-            assert isinstance(service.storage, SessionStorage)
-            # Storage adds /storage suffix to configured path
-            assert service.storage.storage_dir == tmp_path / "storage"
+            from dawn_kestrel.core.repositories import (
+                SessionRepositoryImpl,
+                MessageRepositoryImpl,
+                PartRepositoryImpl,
+            )
+
+            assert isinstance(service._session_repo, SessionRepositoryImpl)
+            assert isinstance(service._message_repo, MessageRepositoryImpl)
+            assert isinstance(service._part_repo, PartRepositoryImpl)
             assert service.project_dir == tmp_path
             assert runtime.session_lifecycle is lifecycle
 

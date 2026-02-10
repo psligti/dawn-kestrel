@@ -60,7 +60,9 @@ class TestListSessionsCommand:
 
         assert mock_service_cls.called
         call_kwargs = mock_service_cls.call_args[1]
-        assert "storage" in call_kwargs
+        assert "session_repo" in call_kwargs
+        assert "message_repo" in call_kwargs
+        assert "part_repo" in call_kwargs
         assert "io_handler" in call_kwargs
         assert "progress_handler" in call_kwargs
         assert "notification_handler" in call_kwargs
@@ -168,7 +170,9 @@ class TestExportSessionCommand:
         # Verify SessionService was created with handlers
         assert mock_service_cls.called
         call_kwargs = mock_service_cls.call_args[1]
-        assert "storage" in call_kwargs
+        assert "session_repo" in call_kwargs
+        assert "message_repo" in call_kwargs
+        assert "part_repo" in call_kwargs
         assert "io_handler" in call_kwargs
         assert "progress_handler" in call_kwargs
         assert "notification_handler" in call_kwargs
@@ -292,7 +296,9 @@ class TestImportSessionCommand:
         # Verify SessionService was created with handlers
         assert mock_service_cls.called
         call_kwargs = mock_service_cls.call_args[1]
-        assert "storage" in call_kwargs
+        assert "session_repo" in call_kwargs
+        assert "message_repo" in call_kwargs
+        assert "part_repo" in call_kwargs
         assert "io_handler" in call_kwargs
         assert "progress_handler" in call_kwargs
         assert "notification_handler" in call_kwargs

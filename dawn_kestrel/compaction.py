@@ -7,8 +7,7 @@ messages with compaction agent, and prunes old tool outputs.
 
 import logging
 import uuid
-from typing import Optional, List
-from pathlib import Path
+from typing import Optional, List, Any, cast
 
 from .core.settings import settings
 from .core.models import (
@@ -37,25 +36,26 @@ class SessionCompactor:
         self.model_limit = model_limit
         self.last_compaction_tokens = 0
         self.total_compactions = 0
-    
+
     async def check_overflow(self, total_tokens: int, messages: list) -> bool:
         """Check if session should be compacted"""
         if total_tokens >= self.model_limit:
             logger.info(f"Token overflow detected: {total_tokens}/{self.model_limit}")
             return True
         return False
-    
+
     async def compact(self, session: Session, messages: list[MessageModel]) -> Optional[str]:
         """Compact session by creating summary and pruning old messages"""
-        from .storage.store import SessionStorage
-        from .core.session import SessionManager
+        from .storage.store import MessageStorage, PartStorage
+        from .core.repositories import MessageRepositoryImpl, PartRepositoryImpl
 
-        storage_dir = Path(settings.storage_dir).expanduser()
-        storage = SessionStorage(storage_dir)
+        storage_dir = settings.storage_dir_path()
 
-        project_dir = Path(session.directory)
+        message_storage = MessageStorage(storage_dir)
+        part_storage = PartStorage(storage_dir)
 
-        session_mgr = SessionManager(storage=storage, project_dir=project_dir)
+        message_repo = MessageRepositoryImpl(message_storage)
+        part_repo = PartRepositoryImpl(part_storage)
 
         if not await self.check_overflow(len(messages), messages):
             logger.info("No overflow detected, skipping compaction")
@@ -74,7 +74,9 @@ class SessionCompactor:
                 tokens_to_keep += self._count_message_tokens(msg)
                 tokens_pruned += self._count_message_tokens(msg)
 
-        logger.info(f"Keeping {tokens_to_keep}/{self.last_compaction_tokens} tokens, pruned {tokens_pruned}")
+        logger.info(
+            f"Keeping {tokens_to_keep}/{self.last_compaction_tokens} tokens, pruned {tokens_pruned}"
+        )
         self.last_compaction_tokens = tokens_to_keep
 
         summary = self._generate_summary(messages)
@@ -87,33 +89,45 @@ class SessionCompactor:
             auto=True,
         )
 
-        await session_mgr.add_part(compaction_part)
-
-        summary_part = TextPart(
-            id=str(uuid.uuid4()),
-            session_id=self.session_id,
-            message_id=str(uuid.uuid4()),
-            part_type="text",
-            text=f"Session compaction complete. {tokens_pruned} tokens pruned, {len(messages) - 10} messages removed. Summary: {summary}",
-        )
-
         summary_message = Message(
             id=str(uuid.uuid4()),
             session_id=self.session_id,
             role="system",
             time={"created": __import__("datetime").datetime.now().timestamp()},
             text=f"Session compaction complete. Summary: {summary}",
-            parts=[summary_part],
+            parts=[],
         )
 
-        summary_id = await session_mgr.add_message(summary_message)
+        part_result = await part_repo.create(summary_message.id, compaction_part)
+        if part_result.is_err():
+            err_result = cast(Any, part_result)
+            logger.error(f"Failed to create compaction part: {err_result.error}")
+            return None
+
+        summary_part = TextPart(
+            id=str(uuid.uuid4()),
+            session_id=self.session_id,
+            message_id=summary_message.id,
+            part_type="text",
+            text=f"Session compaction complete. {tokens_pruned} tokens pruned, {len(messages) - 10} messages removed. Summary: {summary}",
+        )
+
+        summary_message.parts.append(summary_part)
+
+        message_result = await message_repo.create(summary_message)
+        if message_result.is_err():
+            err_result = cast(Any, message_result)
+            logger.error(f"Failed to create summary message: {err_result.error}")
+            return None
+
+        summary_id = message_result.unwrap().id
 
         logger.info(f"Created summary message: {summary_id}")
 
         self.total_compactions += 1
 
         return summary_id
-    
+
     def _count_message_tokens(self, msg: MessageModel) -> int:
         """Count total tokens in message"""
         total = 0
@@ -131,7 +145,7 @@ class SessionCompactor:
                 total += 25
 
         return total
-    
+
     def _generate_summary(self, messages: list[MessageModel]) -> str:
         """Generate session summary for compaction"""
         if not messages:
@@ -170,7 +184,7 @@ class SessionCompactor:
             f"Current state: {user_content[:200]}",
             f"{tool_summary}",
             f"{changes_summary}",
-            "Recent activity summary"
+            "Recent activity summary",
         ]
 
         full_summary = "\n".join(summary_parts)

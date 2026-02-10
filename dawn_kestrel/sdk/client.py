@@ -12,8 +12,13 @@ import asyncio
 
 from dawn_kestrel.core.config import SDKConfig
 from dawn_kestrel.core.services.session_service import DefaultSessionService
-from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.repositories import (
+    SessionRepositoryImpl,
+    MessageRepositoryImpl,
+    PartRepositoryImpl,
+)
 from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.core.exceptions import OpenCodeError
 from dawn_kestrel.core.settings import settings
@@ -63,11 +68,20 @@ class OpenCodeAsyncClient:
         self._on_notification: Optional[Callable[[Notification], None]] = None
 
         storage_dir = self.config.storage_path or settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
         project_dir = self.config.project_dir or Path.cwd()
 
+        session_storage = SessionStorage(storage_dir)
+        message_storage = MessageStorage(storage_dir)
+        part_storage = PartStorage(storage_dir)
+
+        session_repo = SessionRepositoryImpl(session_storage)
+        message_repo = MessageRepositoryImpl(message_storage)
+        part_repo = PartRepositoryImpl(part_storage)
+
         self._service = DefaultSessionService(
-            storage=storage,
+            session_repo=session_repo,
+            message_repo=message_repo,
+            part_repo=part_repo,
             project_dir=project_dir,
             io_handler=io_handler,
             progress_handler=progress_handler,
@@ -138,8 +152,8 @@ class OpenCodeAsyncClient:
             or Err on failure.
         """
         try:
-            session = await self._service.get_session(session_id)
-            return Ok(session)
+            result = await self._service.get_session(session_id)
+            return result
         except Exception as e:
             if isinstance(e, OpenCodeError):
                 return Err(f"Failed to get session: {e}", code="SessionError")
@@ -152,8 +166,8 @@ class OpenCodeAsyncClient:
             Result with list of Session objects on success, or Err on failure.
         """
         try:
-            sessions = await self._service.list_sessions()
-            return Ok(sessions)
+            result = await self._service.list_sessions()
+            return result
         except Exception as e:
             if isinstance(e, OpenCodeError):
                 return Err(f"Failed to list sessions: {e}", code="SessionError")

@@ -32,7 +32,12 @@ from dawn_kestrel.tui.message_view import MessageView
 from dawn_kestrel.core.models import Message, TextPart
 from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.services.session_service import DefaultSessionService
-from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
+from dawn_kestrel.core.repositories import (
+    SessionRepositoryImpl,
+    MessageRepositoryImpl,
+    PartRepositoryImpl,
+)
 from dawn_kestrel.core.settings import settings
 from dawn_kestrel.tui.handlers import (
     TUIIOHandler,
@@ -56,10 +61,21 @@ class OpenCodeTUI(App[None]):
         super().__init__()
 
         storage_dir = settings.storage_dir_path()
-        storage = SessionStorage(storage_dir)
 
         if session_service is None:
-            self.session_service = DefaultSessionService(storage=storage)
+            session_storage = SessionStorage(storage_dir)
+            message_storage = MessageStorage(storage_dir)
+            part_storage = PartStorage(storage_dir)
+
+            session_repo = SessionRepositoryImpl(session_storage)
+            message_repo = MessageRepositoryImpl(message_storage)
+            part_repo = PartRepositoryImpl(part_storage)
+
+            self.session_service = DefaultSessionService(
+                session_repo=session_repo,
+                message_repo=message_repo,
+                part_repo=part_repo,
+            )
         else:
             self.session_service = session_service
 
