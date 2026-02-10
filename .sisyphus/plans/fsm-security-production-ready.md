@@ -527,7 +527,7 @@ Scenario: End-to-end security review completes with real tools
 
 ### Wave 2: Core Security Agents
 
-- [ ] 3. Implement SecretsScannerAgent
+- [x] 3. Implement SecretsScannerAgent
 
   **What to do**:
   - Create `dawn_kestrel/agents/review/subagents/secrets_scanner.py` (NEW FILE)
