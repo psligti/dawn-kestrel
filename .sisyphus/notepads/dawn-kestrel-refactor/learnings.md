@@ -1927,3 +1927,25 @@ Key Learnings:
 
 - **Refactor status**: ✅ COMPLETE AND OPERATIONAL
 
+
+### TUI DI Container Migration (2026-02-10)
+- **Successful migration**: Updated TUI app and message screen to use DI container instead of direct repository instantiation
+- **Changes made**:
+  1. dawn_kestrel/tui/app.py:
+     - Removed direct SessionStorage, MessageStorage, PartStorage, and repository instantiation
+     - Added import for configure_container from di_container
+     - Use configure_container() to get service from DI container
+     - Set handlers on service instance after creation (avoid pickle issues with handler instances)
+     - Fixed Result.error type narrowing with cast(Any, result) pattern
+     - Removed unused imports (Path, Footer, Header, settings)
+  2. dawn_kestrel/tui/screens/message_screen.py:
+     - Added import for cast
+     - Updated _load_messages() to handle Result types from session_service.get_session()
+     - Updated _create_user_message() to handle Result types from session_service.add_message()
+     - Updated _save_assistant_message() to handle Result types from session_service.add_message()
+     - Preserved SessionManager fallback paths for backward compatibility when session_service is None
+- **Key learning**: Handler instances (TUIIOHandler, TUIProgressHandler, TUINotificationHandler) contain references to Textual App with thread locks that can'\''t be pickled. Solution: Get service from container first, then set handlers on the service instance directly.
+- **Verification**:
+  - LSP diagnostics: No new errors introduced (all errors are pre-existing Textual framework issues)
+  - Tests: pytest tests/tui/test_app.py → 1 passed (test_app_can_be_instantiated)
+  - Result handling: All session_service calls wrapped with Result.is_err() checks and cast(Any, result) for error access

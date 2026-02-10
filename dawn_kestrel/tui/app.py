@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, List, Literal
+from typing import Any, List, Literal, cast
 
 import asyncio
 import logging
@@ -17,8 +16,6 @@ from textual.reactive import reactive, Reactive
 from textual.widgets import (
     Button,
     DataTable,
-    Footer,
-    Header,
     Input,
     Static,
     TabPane,
@@ -32,18 +29,12 @@ from dawn_kestrel.tui.message_view import MessageView
 from dawn_kestrel.core.models import Message, TextPart
 from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.services.session_service import DefaultSessionService
-from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
-from dawn_kestrel.core.repositories import (
-    SessionRepositoryImpl,
-    MessageRepositoryImpl,
-    PartRepositoryImpl,
-)
-from dawn_kestrel.core.settings import settings
 from dawn_kestrel.tui.handlers import (
     TUIIOHandler,
     TUIProgressHandler,
     TUINotificationHandler,
 )
+from dawn_kestrel.core.di_container import configure_container
 
 
 logger = logging.getLogger(__name__)
@@ -60,28 +51,19 @@ class OpenCodeTUI(App[None]):
         """
         super().__init__()
 
-        storage_dir = settings.storage_dir_path()
-
         if session_service is None:
-            session_storage = SessionStorage(storage_dir)
-            message_storage = MessageStorage(storage_dir)
-            part_storage = PartStorage(storage_dir)
+            container = configure_container()
+            self.session_service = container.service()
 
-            session_repo = SessionRepositoryImpl(session_storage)
-            message_repo = MessageRepositoryImpl(message_storage)
-            part_repo = PartRepositoryImpl(part_storage)
+            self.io_handler = TUIIOHandler(self)
+            self.progress_handler = TUIProgressHandler(self)
+            self.notification_handler = TUINotificationHandler(self)
 
-            self.session_service = DefaultSessionService(
-                session_repo=session_repo,
-                message_repo=message_repo,
-                part_repo=part_repo,
-            )
+            self.session_service._io_handler = self.io_handler
+            self.session_service._progress_handler = self.progress_handler
+            self.session_service._notification_handler = self.notification_handler
         else:
             self.session_service = session_service
-
-        self.io_handler = TUIIOHandler(self)
-        self.progress_handler = TUIProgressHandler(self)
-        self.notification_handler = TUINotificationHandler(self)
 
     CSS = """
     Screen {
@@ -173,7 +155,8 @@ class OpenCodeTUI(App[None]):
         result = await self.session_service.list_sessions()
 
         if result.is_err():
-            self.notify(f"[red]Error loading sessions: {result.error}[/red]")
+            err_result = cast(Any, result)
+            self.notify(f"[red]Error loading sessions: {err_result.error}[/red]")
             return
 
         sessions = result.unwrap()
@@ -225,7 +208,8 @@ class OpenCodeTUI(App[None]):
         result = asyncio.run(self.session_service.get_session(self.current_session_id))
 
         if result.is_err():
-            self.notify(f"[red]Error loading session: {result.error}[/red]")
+            err_result = cast(Any, result)
+            self.notify(f"[red]Error loading session: {err_result.error}[/red]")
             return
 
         session = result.unwrap()
