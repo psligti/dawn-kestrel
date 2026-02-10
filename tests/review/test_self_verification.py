@@ -1,4 +1,5 @@
 """Test self-verification functionality in BaseReviewerAgent."""
+
 import pytest
 from unittest.mock import Mock
 from pathlib import Path
@@ -8,6 +9,7 @@ import shlex
 
 from dawn_kestrel.agents.review.base import BaseReviewerAgent
 from dawn_kestrel.agents.review.contracts import Finding
+from dawn_kestrel.agents.review.verifier import GrepFindingsVerifier
 
 
 class MockReviewerAgent(BaseReviewerAgent):
@@ -16,20 +18,15 @@ class MockReviewerAgent(BaseReviewerAgent):
     async def review(self, context):
         """Mock review implementation."""
         from dawn_kestrel.agents.review.contracts import ReviewOutput, Scope, MergeGate
+
         return ReviewOutput(
             agent="mock",
             summary="Mock review",
             severity="merge",
             scope=Scope(
-                relevant_files=context.changed_files,
-                ignored_files=[],
-                reasoning="Mock reviewer"
+                relevant_files=context.changed_files, ignored_files=[], reasoning="Mock reviewer"
             ),
-            merge_gate=MergeGate(
-                decision="approve",
-                must_fix=[],
-                should_fix=[]
-            )
+            merge_gate=MergeGate(decision="approve", must_fix=[], should_fix=[]),
         )
 
     def get_system_prompt(self):
@@ -40,14 +37,20 @@ class MockReviewerAgent(BaseReviewerAgent):
         """Mock file patterns."""
         return ["*.py"]
 
+    def get_agent_name(self) -> str:
+        return "MockReviewerAgent"
+
+    def get_allowed_tools(self) -> list:
+        return []
+
 
 class TestSelfVerification:
     """Test verify_findings(), _extract_search_terms(), _grep_files() methods."""
 
     @pytest.fixture
     def reviewer(self):
-        """Create a MockReviewerAgent instance."""
-        return MockReviewerAgent()
+        """Create a GrepFindingsVerifier instance."""
+        return GrepFindingsVerifier()
 
     @pytest.fixture
     def sample_finding(self):
@@ -61,7 +64,7 @@ class TestSelfVerification:
             estimate="S",
             evidence='File: config.py:45 - Found hardcoded secret "API_KEY" in code',
             risk="Secret exposure",
-            recommendation="Remove hardcoded secret"
+            recommendation="Remove hardcoded secret",
         )
 
     @pytest.fixture
@@ -77,7 +80,7 @@ class TestSelfVerification:
                 estimate="S",
                 evidence='Found hardcoded "API_KEY" on line 45',
                 risk="Secret exposed",
-                recommendation="Use environment variables"
+                recommendation="Use environment variables",
             ),
             Finding(
                 id="test-002",
@@ -86,9 +89,9 @@ class TestSelfVerification:
                 confidence="high",
                 owner="dev",
                 estimate="M",
-                evidence='eval(user_input) found in process_data()',
+                evidence="eval(user_input) found in process_data()",
                 risk="Code injection",
-                recommendation="Use ast.literal_eval instead"
+                recommendation="Use ast.literal_eval instead",
             ),
             Finding(
                 id="test-003",
@@ -99,8 +102,8 @@ class TestSelfVerification:
                 estimate="L",
                 evidence='subprocess.run("rm -rf /", shell=True) detected',
                 risk="Command injection",
-                recommendation="Avoid shell=True"
-            )
+                recommendation="Avoid shell=True",
+            ),
         ]
 
     @pytest.fixture
@@ -140,9 +143,11 @@ def run_command(cmd):
         """Test verify_findings() with valid findings returns verification evidence."""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "5:API_KEY = \"sk-1234567890\"\n10:DATABASE_URL = \"postgres://localhost/db\""
+        mock_result.stdout = (
+            '5:API_KEY = "sk-1234567890"\n10:DATABASE_URL = "postgres://localhost/db"'
+        )
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer.verify_findings(sample_findings, ["config.py", "process.py"], temp_repo)
 
@@ -164,15 +169,13 @@ def run_command(cmd):
         assert result == []
         assert isinstance(result, list)
 
-    def test_verify_findings_with_invalid_finding_objects(
-        self, reviewer, temp_repo, mocker
-    ):
+    def test_verify_findings_with_invalid_finding_objects(self, reviewer, temp_repo, mocker):
         """Test verify_findings() gracefully handles invalid finding objects."""
         mock_result = Mock()
         mock_result.returncode = 1
         mock_result.stdout = ""
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         mixed_findings = [
             Finding(
@@ -184,25 +187,27 @@ def run_command(cmd):
                 estimate="S",
                 evidence="Valid evidence",
                 risk="Low risk",
-                recommendation="Fix it"
+                recommendation="Fix it",
             ),
             "invalid string",
             None,
             12345,
-            Mock(title="Mock object without evidence")
+            Mock(title="Mock object without evidence"),
         ]
 
         result = reviewer.verify_findings(mixed_findings, ["config.py"], temp_repo)
 
         assert isinstance(result, list)
 
-    def test_verify_findings_evidence_structure_complete(self, reviewer, sample_finding, temp_repo, mocker):
+    def test_verify_findings_evidence_structure_complete(
+        self, reviewer, sample_finding, temp_repo, mocker
+    ):
         """Test that verify_findings() returns complete evidence structure."""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "5:API_KEY = \"sk-1234567890\""
+        mock_result.stdout = '5:API_KEY = "sk-1234567890"'
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer.verify_findings([sample_finding], ["config.py"], temp_repo)
 
@@ -245,7 +250,7 @@ def run_command(cmd):
 
     def test_extract_search_terms_with_code_identifiers(self, reviewer):
         """Test _extract_search_terms() extracts code identifiers."""
-        evidence = 'Function eval(user_input) and subprocess.run(cmd) detected'
+        evidence = "Function eval(user_input) and subprocess.run(cmd) detected"
         title = "Code safety"
 
         result = reviewer._extract_search_terms(evidence, title)
@@ -255,7 +260,7 @@ def run_command(cmd):
 
     def test_extract_search_terms_with_assignments(self, reviewer):
         """Test _extract_search_terms() extracts identifiers from assignments."""
-        evidence = 'Variable result = subprocess.run() and data = json.loads()'
+        evidence = "Variable result = subprocess.run() and data = json.loads()"
         title = "Issue"
 
         result = reviewer._extract_search_terms(evidence, title)
@@ -275,7 +280,7 @@ def run_command(cmd):
 
     def test_extract_search_terms_filters_common_words(self, reviewer):
         """Test _extract_search_terms() filters out common words."""
-        evidence = 'The line and file for the function are tested'
+        evidence = "The line and file for the function are tested"
         title = "Test finding"
 
         result = reviewer._extract_search_terms(evidence, title)
@@ -321,7 +326,7 @@ def run_command(cmd):
 
     def test_extract_search_terms_case_sensitive(self, reviewer):
         """Test _extract_search_terms() is case-sensitive for code identifiers."""
-        evidence = 'Found Eval() and eval() in code'
+        evidence = "Found Eval() and eval() in code"
         title = "Issue"
 
         result = reviewer._extract_search_terms(evidence, title)
@@ -334,18 +339,18 @@ def run_command(cmd):
         """Test _grep_files() with real mock files."""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "3:API_KEY = \"sk-1234567890\"\n4:DEBUG = True\n5:DATABASE_URL = \"postgres://localhost/db\""
+        mock_result.stdout = '3:API_KEY = "sk-1234567890"\n4:DEBUG = True\n5:DATABASE_URL = "postgres://localhost/db"'
 
-        mock_run = mocker.patch('subprocess.run', return_value=mock_result)
+        mock_run = mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer._grep_files("API_KEY", ["config.py"], temp_repo)
 
         mock_run.assert_called_once()
         call_args = mock_run.call_args
 
-        assert call_args[0][0][0] == 'grep'
-        assert '-n' in call_args[0][0]
-        assert '-F' in call_args[0][0]
+        assert call_args[0][0][0] == "grep"
+        assert "-n" in call_args[0][0]
+        assert "-F" in call_args[0][0]
 
         escaped_pattern = call_args[0][0][3]
         assert shlex.quote("API_KEY") == escaped_pattern
@@ -360,17 +365,12 @@ def run_command(cmd):
     def test_grep_files_timeout(self, reviewer, temp_repo, mocker):
         """Test _grep_files() handles timeout gracefully."""
         mocker.patch(
-            'subprocess.run',
-            side_effect=subprocess.TimeoutExpired(cmd=['grep', '-n'], timeout=5)
+            "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["grep", "-n"], timeout=5)
         )
 
         result = reviewer._grep_files("pattern", ["config.py"], temp_repo)
 
-        assert result == {
-            "matches": [],
-            "line_numbers": [],
-            "file_path": ""
-        }
+        assert result == {"matches": [], "line_numbers": [], "file_path": ""}
 
     def test_grep_files_no_matches(self, reviewer, temp_repo, mocker):
         """Test _grep_files() when grep finds no matches."""
@@ -378,7 +378,7 @@ def run_command(cmd):
         mock_result.returncode = 1
         mock_result.stdout = ""
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer._grep_files("NONEXISTENT_PATTERN", ["config.py"], temp_repo)
 
@@ -392,7 +392,7 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "3:import subprocess\n5:subprocess.run"
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer._grep_files("subprocess", ["process.py", "utils.py"], temp_repo)
 
@@ -402,16 +402,12 @@ def run_command(cmd):
 
     def test_grep_files_file_not_exists(self, reviewer, temp_repo, mocker):
         """Test _grep_files() with non-existent file."""
-        mock_run = mocker.patch('subprocess.run')
+        mock_run = mocker.patch("subprocess.run")
 
         result = reviewer._grep_files("pattern", ["nonexistent.py"], temp_repo)
 
         mock_run.assert_not_called()
-        assert result == {
-            "matches": [],
-            "line_numbers": [],
-            "file_path": ""
-        }
+        assert result == {"matches": [], "line_numbers": [], "file_path": ""}
 
     def test_grep_uses_fixed_string_matching(self, reviewer, temp_repo, mocker):
         """Test that grep uses -F flag for fixed string matching."""
@@ -419,12 +415,12 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "5:some content"
 
-        mock_run = mocker.patch('subprocess.run', return_value=mock_result)
+        mock_run = mocker.patch("subprocess.run", return_value=mock_result)
 
         reviewer._grep_files("API_KEY", ["config.py"], temp_repo)
 
         call_args = mock_run.call_args[0][0]
-        assert '-F' in call_args
+        assert "-F" in call_args
 
     def test_grep_uses_line_numbers(self, reviewer, temp_repo, mocker):
         """Test that grep uses -n flag for line numbers."""
@@ -432,12 +428,12 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "5:some content"
 
-        mock_run = mocker.patch('subprocess.run', return_value=mock_result)
+        mock_run = mocker.patch("subprocess.run", return_value=mock_result)
 
         reviewer._grep_files("pattern", ["config.py"], temp_repo)
 
         call_args = mock_run.call_args[0][0]
-        assert '-n' in call_args
+        assert "-n" in call_args
 
     def test_grep_parsing_line_numbers(self, reviewer, temp_repo, mocker):
         """Test _grep_files() correctly parses grep output with line numbers."""
@@ -445,7 +441,7 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "3:first match\n7:second match\n10:third match"
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer._grep_files("pattern", ["config.py"], temp_repo)
 
@@ -458,7 +454,7 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "line without colon\nanother bad line\n5:good line"
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer._grep_files("pattern", ["config.py"], temp_repo)
 
@@ -487,15 +483,15 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "5:match found"
 
-        mock_run = mocker.patch('subprocess.run', return_value=mock_result)
+        mock_run = mocker.patch("subprocess.run", return_value=mock_result)
 
         reviewer.verify_findings(
-            sample_findings,
-            ["config.py", "process.py", "utils.py"],
-            temp_repo
+            sample_findings, ["config.py", "process.py", "utils.py"], temp_repo
         )
 
-        assert mock_run.call_count <= len(sample_findings) * 5 * len(["config.py", "process.py", "utils.py"])
+        assert mock_run.call_count <= len(sample_findings) * 5 * len(
+            ["config.py", "process.py", "utils.py"]
+        )
 
     def test_empty_evidence_and_title(self, reviewer):
         """Test _extract_search_terms() with empty evidence and title."""
@@ -519,7 +515,7 @@ def run_command(cmd):
         mock_result.returncode = 0
         mock_result.stdout = "5:pattern with special chars"
 
-        mock_run = mocker.patch('subprocess.run', return_value=mock_result)
+        mock_run = mocker.patch("subprocess.run", return_value=mock_result)
 
         pattern = "API_KEY.*[](){}$^"
         reviewer._grep_files(pattern, ["config.py"], temp_repo)
@@ -543,12 +539,10 @@ def run_command(cmd):
         self, reviewer, sample_finding, temp_repo, mocker, caplog
     ):
         """Test that verify_findings() logs warnings on errors."""
-        mocker.patch(
-            'subprocess.run',
-            side_effect=Exception("Grep failed")
-        )
+        mocker.patch("subprocess.run", side_effect=Exception("Grep failed"))
 
         import logging
+
         caplog.set_level(logging.DEBUG)
 
         reviewer.verify_findings([sample_finding], ["config.py"], temp_repo)
@@ -558,15 +552,13 @@ def run_command(cmd):
 
     # ===== Integration Tests =====
 
-    def test_full_verification_workflow(
-        self, reviewer, sample_finding, temp_repo, mocker
-    ):
+    def test_full_verification_workflow(self, reviewer, sample_finding, temp_repo, mocker):
         """Test complete workflow: extract terms → grep → return evidence."""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "5:API_KEY = \"sk-1234567890\"\n10:DEBUG = True"
+        mock_result.stdout = '5:API_KEY = "sk-1234567890"\n10:DEBUG = True'
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         result = reviewer.verify_findings([sample_finding], ["config.py"], temp_repo)
 
@@ -582,15 +574,13 @@ def run_command(cmd):
                 assert evidence["line_numbers"]
                 assert len(evidence["matches"]) == len(evidence["line_numbers"])
 
-    def test_multiple_search_terms_per_finding(
-        self, reviewer, temp_repo, mocker
-    ):
+    def test_multiple_search_terms_per_finding(self, reviewer, temp_repo, mocker):
         """Test that multiple search terms are extracted per finding."""
         mock_result = Mock()
         mock_result.returncode = 0
-        mock_result.stdout = "5:API_KEY = \"value\"\n10:subprocess.run()\n15:eval()"
+        mock_result.stdout = '5:API_KEY = "value"\n10:subprocess.run()\n15:eval()'
 
-        mocker.patch('subprocess.run', return_value=mock_result)
+        mocker.patch("subprocess.run", return_value=mock_result)
 
         finding = Finding(
             id="test-001",
@@ -601,7 +591,7 @@ def run_command(cmd):
             estimate="L",
             evidence='Found "API_KEY", subprocess.run(), and eval() in code',
             risk="Multiple security risks",
-            recommendation="Fix all issues"
+            recommendation="Fix all issues",
         )
 
         result = reviewer.verify_findings([finding], ["config.py"], temp_repo)
