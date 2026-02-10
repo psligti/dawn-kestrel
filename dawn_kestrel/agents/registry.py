@@ -12,6 +12,7 @@ from pathlib import Path
 import json
 import logging
 import aiofiles
+import asyncio
 
 from .builtin import Agent
 from dawn_kestrel.core.plugin_discovery import load_agents
@@ -58,7 +59,12 @@ class AgentRegistry:
 
     def _seed_builtin_agents(self) -> None:
         """Seed registry with built-in agents from plugin discovery"""
-        plugins = load_agents()
+        try:
+            plugins = asyncio.run(load_agents())
+        except RuntimeError:
+            # Event loop already running (in async context), skip seeding
+            logger.warning("Cannot seed builtin agents: event loop already running")
+            return
 
         for name, agent_plugin in plugins.items():
             agent = self._load_agent_from_plugin(name, agent_plugin)

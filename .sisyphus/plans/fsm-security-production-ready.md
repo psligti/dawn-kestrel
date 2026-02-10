@@ -885,7 +885,7 @@ Scenario: End-to-end security review completes with real tools
 
 ---
 
-- [ ] 13. Update fsm_cli.py to Use Real AgentRuntime
+- [x] 13. Update fsm_cli.py to Use Real AgentRuntime
 
   **What to do**:
   - Update `fsm_cli.py:383-388`:
