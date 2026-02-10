@@ -208,16 +208,20 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
         session_manager = SessionManager(session_storage, work_dir)
         manager = ExportImportManager(session_manager, git_snapshot)
 
-        result = await manager.export_session(
-            session_id=session_id,
-            output_path=Path(output) if output else None,
-            format=format,
-        )
+        try:
+            result = await manager.export_session(
+                session_id=session_id,
+                output_path=Path(output) if output else None,
+                format=format,
+            )
 
-        console.print("[green]Export complete![/green]")
-        console.print("[dim]  Path: {}".format(result["path"]))
-        console.print("[dim]  Format: {}".format(result["format"]))
-        console.print("[dim]  Messages: {}".format(result["message_count"]))
+            console.print("[green]Export complete![/green]")
+            console.print("[dim]  Path: {}".format(result["path"]))
+            console.print("[dim]  Format: {}".format(result["format"]))
+            console.print("[dim]  Messages: {}".format(result["message_count"]))
+        except (ValueError, FileNotFoundError, Exception) as e:
+            console.print(f"[red]Error: {e}[/red]")
+            sys.exit(1)
 
     run_async(_export())
 
@@ -278,14 +282,18 @@ def import_session(import_path: str, project_id: str | None) -> None:
         git_snapshot = GitSnapshot(storage_dir, work_dir.name)
         manager = ExportImportManager(session_manager, git_snapshot)
 
-        result = await manager.import_session(
-            import_path=Path(import_path),
-            project_id=project_id,
-        )
+        try:
+            result = await manager.import_session(
+                import_path=Path(import_path),
+                project_id=project_id,
+            )
 
-        console.print("[green]Import complete![/green]")
-        console.print("[dim]  Session ID: {}".format(result["session_id"]))
-        console.print("[dim]  Messages imported: {}".format(result["message_count"]))
+            console.print("[green]Import complete![/green]")
+            console.print("[dim]  Session ID: {}".format(result["session_id"]))
+            console.print("[dim]  Messages imported: {}".format(result["message_count"]))
+        except (ValueError, FileNotFoundError, Exception) as e:
+            console.print(f"[red]Error: {e}[/red]")
+            sys.exit(1)
 
     run_async(_import())
 
