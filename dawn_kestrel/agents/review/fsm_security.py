@@ -34,13 +34,17 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set, TYPE_CHECKING
 from pathlib import Path
 
 from dawn_kestrel.core.agent_task import TaskStatus, create_agent_task
 from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.agents.orchestrator import AgentOrchestrator
 from dawn_kestrel.agents.review.utils.redaction import format_log_with_redaction
+
+# For type hints (avoid circular import)
+if TYPE_CHECKING:
+    from dawn_kestrel.llm import LLMClient
 
 
 class ReviewFSMImpl:
@@ -182,6 +186,7 @@ class SecurityFinding:
     line_number: Optional[int] = None
     recommendation: Optional[str] = None
     requires_review: bool = True  # Whether this finding needs additional review task
+    confidence_score: float = 0.50  # Numeric confidence 0.0-1.0 for threshold filtering
 
 
 @dataclass
@@ -240,15 +245,19 @@ class SecurityReviewerAgent:
         ReviewState.FAILED: {ReviewState.IDLE},  # Can restart
     }
 
-    def __init__(self, orchestrator: AgentOrchestrator, session_id: str):
-        """Initialize the security reviewer agent.
+    def __init__(
+        self, orchestrator: AgentOrchestrator, session_id: str, confidence_threshold: float = 0.50
+    ):
+        """Initialize security reviewer agent.
 
         Args:
             orchestrator: AgentOrchestrator for task delegation
             session_id: Session ID for tracking
+            confidence_threshold: Minimum confidence score (0.0-1.0) for finding inclusion (default 0.50)
         """
         self.orchestrator = orchestrator
         self.session_id = session_id
+        self.confidence_threshold = confidence_threshold
 
         self.fsm = ReviewFSMImpl(initial_state=ReviewState.IDLE.value)
 
@@ -437,12 +446,14 @@ class SecurityReviewerAgent:
                 f"[INITIAL_EXPLORATION] Diff size: {len(self.context.diff)} characters"
             )
 
-        # Create initial todos based on exploration
-        await self._create_initial_todos()
+        # Create initial todos based on exploration (use dynamic method with LLM discovery if available)
+        await self._create_dynamic_todos(
+            llm_client=None
+        )  # Pass None for rule-only mode, can be enhanced later
 
         self.logger.info(f"[INITIAL_EXPLORATION] Created {len(self.todos)} initial todos")
 
-    async def _create_initial_todos(self):
+    async def _create_initial_todos_fallback(self):
         """Create initial todos based on exploration of changed files.
 
         Always creates comprehensive security checks regardless of filenames.
@@ -660,6 +671,377 @@ class SecurityReviewerAgent:
             agent="pattern_scanner",
         )
         todo_id += 1
+
+    async def _create_dynamic_todos(self, llm_client: Optional["LLMClient"] = None):
+        """
+        Create dynamic todos based on file analysis with LLM-powered discovery.
+
+        This method implements a two-layer approach:
+        1. Rule-based layer: File-type classification, risk-based prioritization, resource-aware scaling
+        2. LLM-powered discovery: Analyze changed files for unexpected security patterns
+
+        Args:
+            llm_client: Optional LLMClient for dynamic todo discovery.
+                       If None or LLM fails, falls back to rule-only mode.
+
+        Returns:
+            None (updates self.todos in place)
+        """
+        self.logger.info("[DYNAMIC_TODOS] Creating dynamic todos with rule-based layer...")
+
+        if not self.context or not self.context.changed_files:
+            self.logger.warning("[DYNAMIC_TODOS] No changed files found")
+            return
+
+        # =========================================================================
+        # LAYER 1: Rule-Based Todo Generation
+        # =========================================================================
+
+        self.logger.info("[DYNAMIC_TODOS] Starting rule-based layer...")
+
+        # Calculate total lines changed for resource-aware scaling
+        total_lines_changed = 0
+        if self.context.diff:
+            # Count non-empty lines in diff
+            total_lines_changed = len(
+                [line for line in self.context.diff.split("\n") if line.strip()]
+            )
+
+        # Resource-aware scaling decision
+        max_parallel_subagents = 4  # Default for medium diffs
+        if total_lines_changed < 100:
+            max_parallel_subagents = 2
+            self.logger.info(
+                f"[DYNAMIC_TODOS] Small diff ({total_lines_changed} lines), limiting to 2 parallel agents"
+            )
+        elif total_lines_changed > 1000:
+            max_parallel_subagents = 6
+            self.logger.info(
+                f"[DYNAMIC_TODOS] Large diff ({total_lines_changed} lines), allowing up to 6 parallel agents"
+            )
+        else:
+            self.logger.info(
+                f"[DYNAMIC_TODOS] Medium diff ({total_lines_changed} lines), using up to 4 parallel agents"
+            )
+
+        # Store scaling decision in agent state for logging
+        self._max_parallel_subagents = max_parallel_subagents  # type: ignore[attr-defined]
+
+        # File-type classification
+        python_files = [f for f in self.context.changed_files if f.endswith((".py", ".pyx"))]
+        js_files = [f for f in self.context.changed_files if f.endswith((".js", ".ts", ".tsx"))]
+        config_files = [
+            f
+            for f in self.context.changed_files
+            if any(
+                x in f.lower()
+                for x in [
+                    ".env",
+                    "settings",
+                    "config",
+                    "package.json",
+                    "pyproject.toml",
+                    "docker-compose.yml",
+                    "requirements.txt",
+                ]
+            )
+        ]
+
+        self.logger.info(
+            f"[DYNAMIC_TODOS] File classification: {len(python_files)} Python, {len(js_files)} JS/TS, {len(config_files)} config files"
+        )
+
+        todo_id = 1
+
+        # Rule-based: Always create core security todos
+        # Secrets scan (always HIGH priority)
+        self.todos[f"todo_{todo_id}"] = SecurityTodo(
+            id=f"todo_{todo_id}",
+            title="Scan for secrets and credentials",
+            description=f"Scan {len(self.context.changed_files)} changed files for leaked secrets or credentials",
+            priority=TodoPriority.HIGH,
+            agent="secret_scanner",
+        )
+        todo_id += 1
+
+        # Injection scan (always HIGH priority)
+        self.todos[f"todo_{todo_id}"] = SecurityTodo(
+            id=f"todo_{todo_id}",
+            title="Scan for injection vulnerabilities",
+            description="Check for SQL injection, XSS, command injection, and path traversal",
+            priority=TodoPriority.HIGH,
+            agent="injection_scanner",
+        )
+        todo_id += 1
+
+        # Rule-based: Risk-based prioritization for file types
+
+        # Auth files → HIGH priority auth review
+        auth_files = [
+            f
+            for f in self.context.changed_files
+            if any(
+                x in f.lower()
+                for x in ["auth", "login", "session", "jwt", "token", "user", "permission", "role"]
+            )
+        ]
+        if auth_files:
+            self.todos[f"todo_{todo_id}"] = SecurityTodo(
+                id=f"todo_{todo_id}",
+                title="Review authentication and authorization code",
+                description=f"Check {len(auth_files)} auth-related files for security issues: {', '.join(auth_files[:5])}",
+                priority=TodoPriority.HIGH,
+                agent="auth_reviewer",
+            )
+            todo_id += 1
+
+        # Dependency files → HIGH priority dependency audit
+        dependency_files = [
+            f
+            for f in self.context.changed_files
+            if any(
+                x in f.lower()
+                for x in [
+                    "requirements",
+                    "pyproject",
+                    "package.json",
+                    "yarn",
+                    "npm",
+                    "composer",
+                    "pom.xml",
+                ]
+            )
+        ]
+        if dependency_files:
+            self.todos[f"todo_{todo_id}"] = SecurityTodo(
+                id=f"todo_{todo_id}",
+                title="Audit dependencies for vulnerabilities",
+                description=f"Check {len(dependency_files)} dependency files for known vulnerabilities: {', '.join(dependency_files[:3])}",
+                priority=TodoPriority.HIGH,
+                agent="dependency_auditor",
+            )
+            todo_id += 1
+
+        # Config files → HIGH priority config scan
+        config_security_files = [
+            f
+            for f in self.context.changed_files
+            if any(x in f.lower() for x in ["config", "env", "setting", ".env", "security"])
+        ]
+        if config_security_files:
+            self.todos[f"todo_{todo_id}"] = SecurityTodo(
+                id=f"todo_{todo_id}",
+                title="Review security configuration",
+                description=f"Check {len(config_security_files)} config files for security misconfigurations: {', '.join(config_security_files[:3])}",
+                priority=TodoPriority.HIGH,
+                agent="config_scanner",
+            )
+            todo_id += 1
+
+        # Regular source files → MEDIUM priority pattern scan
+        self.todos[f"todo_{todo_id}"] = SecurityTodo(
+            id=f"todo_{todo_id}",
+            title="Check for unsafe function usage",
+            description="Scan for eval(), exec(), system(), shell_exec, and other dangerous functions",
+            priority=TodoPriority.HIGH,
+            agent="unsafe_function_scanner",
+        )
+        todo_id += 1
+
+        self.todos[f"todo_{todo_id}"] = SecurityTodo(
+            id=f"todo_{todo_id}",
+            title="Review cryptography and encoding usage",
+            description="Check for weak crypto, hardcoded keys, or encoding issues",
+            priority=TodoPriority.MEDIUM,
+            agent="crypto_scanner",
+        )
+        todo_id += 1
+
+        self.todos[f"todo_{todo_id}"] = SecurityTodo(
+            id=f"todo_{todo_id}",
+            title="Scan diff for security patterns",
+            description="Use grep/ast-grep to scan the diff for common security vulnerabilities",
+            priority=TodoPriority.MEDIUM,
+            agent="pattern_scanner",
+        )
+        todo_id += 1
+
+        # =========================================================================
+        # LAYER 2: LLM-Powered Discovery (optional)
+        # =========================================================================
+
+        if llm_client:
+            self.logger.info("[DYNAMIC_TODOS] Starting LLM-powered discovery layer...")
+            await self._llm_discover_todos(llm_client)
+        else:
+            self.logger.info("[DYNAMIC_TODOS] No LLM client provided, skipping discovery layer")
+
+        self.logger.info(
+            f"[DYNAMIC_TODOS] Created {len(self.todos)} dynamic todos (rule-based: {todo_id - 1}, LLM-discovered: {len(self.todos) - (todo_id - 1) if self.todos else 0})"
+        )
+
+    async def _llm_discover_todos(self, llm_client: "LLMClient"):
+        """
+        LLM-powered discovery of additional todos not covered by rules.
+
+        This method analyzes changed files for unexpected security patterns
+        and proposes context-aware todos.
+
+        Args:
+            llm_client: LLMClient for dynamic todo discovery
+
+        Returns:
+            None (updates self.todos in place)
+        """
+        self.logger.info(
+            "[LLM_DISCOVERY] Analyzing changed files for unexpected security patterns..."
+        )
+
+        # Build context for LLM
+        if not self.context or not self.context.changed_files:
+            return
+
+        # Build file list summary
+        files_str = ", ".join(self.context.changed_files[:20])
+        if len(self.context.changed_files) > 20:
+            files_str += f" ... and {len(self.context.changed_files) - 20} more"
+
+        # Build diff summary
+        diff_summary = self.context.diff[:1000] if self.context.diff else "No diff available"
+
+        # Build existing todos summary
+        existing_todos_summary = "\n".join(
+            [f"- {todo.title} ({todo.priority} priority)" for todo in self.todos.values()]
+        )
+
+        # Build prompt for LLM
+        prompt = f"""You are a security code reviewer specializing in dynamic security analysis.
+
+Your task is to analyze changed files for unexpected security patterns that might not be covered by standard rules.
+
+FILES CHANGED:
+{files_str}
+
+DIFF SUMMARY:
+{diff_summary}
+
+EXISTING RULE-BASED TODOS:
+{existing_todos_summary}
+
+ANALYSIS TASK:
+Review the changed files and diff for the following:
+
+1. Unexpected Security Patterns:
+   - Security issues not typically caught by standard rules
+   - Novel attack vectors specific to this codebase
+   - Context-specific security risks
+   - Business logic security flaws
+
+2. Dynamic Risk Factors:
+   - Security patterns unique to this project's architecture
+   - Integration points that might introduce vulnerabilities
+   - Data flow issues not covered by static analysis
+   - Configuration drift or environment-specific risks
+
+3. Iteration Awareness:
+   - Consider findings from previous iterations (if any)
+   - Prioritize areas where security issues were found before
+   - Check if previous fixes introduced new vulnerabilities
+
+OUTPUT FORMAT:
+Return proposed todos as a JSON object with:
+{{
+  "proposed_todos": [
+    {{
+      "title": "Short descriptive title",
+      "description": "Detailed description of what needs to be reviewed",
+      "priority": "high|medium|low",
+      "agent": "suggested agent name (e.g., pattern_scanner, auth_reviewer)",
+      "rationale": "Why this todo is needed based on analysis"
+    }}
+  ],
+  "summary": "Brief summary of LLM discovery"
+}}
+
+BE CONSISTENT with existing agents:
+- secret_scanner: For secrets and credentials
+- injection_scanner: For SQL injection, XSS, command injection, path traversal
+- auth_reviewer: For authentication and authorization code
+- dependency_auditor: For dependency vulnerabilities
+- unsafe_function_scanner: For dangerous functions (eval, exec, system)
+- crypto_scanner: For weak crypto, hardcoded keys, encoding issues
+- config_scanner: For security misconfigurations
+- pattern_scanner: For general security patterns
+
+If no additional todos are needed, return an empty proposed_todos array.
+"""
+
+        try:
+            from dawn_kestrel.llm import LLMRequestOptions
+            import json
+
+            # Call LLM
+            response = await llm_client.complete(
+                messages=[{"role": "user", "content": prompt}],
+                options=LLMRequestOptions(
+                    temperature=0.3,  # Lower temperature for more deterministic results
+                    max_tokens=2000,
+                ),
+            )
+
+            # Parse LLM response
+            try:
+                llm_result = json.loads(response.text)
+                proposed_todos = llm_result.get("proposed_todos", [])
+                summary = llm_result.get("summary", "LLM discovery completed")
+
+                # Add LLM-proposed todos to self.todos
+                for proposed in proposed_todos:
+                    # Validate proposed todo fields
+                    title = proposed.get("title", "")
+                    description = proposed.get("description", "")
+                    priority_str = proposed.get("priority", "medium")
+                    agent = proposed.get("agent", "pattern_scanner")
+
+                    if not title or not description:
+                        self.logger.warning(
+                            f"[LLM_DISCOVERY] Skipping proposed todo with missing title or description"
+                        )
+                        continue
+
+                    # Validate priority
+                    try:
+                        priority = TodoPriority(priority_str)
+                    except ValueError:
+                        self.logger.warning(
+                            f"[LLM_DISCOVERY] Invalid priority '{priority_str}', defaulting to medium"
+                        )
+                        priority = TodoPriority.MEDIUM
+
+                    # Create new todo
+                    new_todo_id = f"todo_llm_{len(self.todos) + 1}"
+                    self.todos[new_todo_id] = SecurityTodo(
+                        id=new_todo_id,
+                        title=title,
+                        description=description,
+                        priority=priority,
+                        agent=agent,
+                    )
+                    self.logger.info(
+                        f"[LLM_DISCOVERY] Added todo: {title} ({priority} priority, agent: {agent})"
+                    )
+
+                self.logger.info(
+                    f"[LLM_DISCOVERY] LLM proposed {len(proposed_todos)} todos: {summary}"
+                )
+
+            except json.JSONDecodeError as e:
+                self.logger.warning(f"[LLM_DISCOVERY] Failed to parse LLM response as JSON: {e}")
+                self.logger.debug(f"[LLM_DISCOVERY] LLM response: {response.text[:500]}")
+
+        except Exception as e:
+            self.logger.warning(f"[LLM_DISCOVERY] LLM discovery failed: {e}")
+            # Fall back to rule-only mode (todos already created)
 
     async def _delegate_investigation_tasks(self):
         """
@@ -1042,14 +1424,48 @@ Be thorough. Report ALL potential issues, even low-severity ones.
         FINAL_ASSESSMENT state handler.
 
         Generate final security assessment based on all findings.
+        Applies confidence threshold filtering and logs confidence scores.
         """
         self.logger.info("[FINAL_ASSESSMENT] Generating final security assessment...")
+        self.logger.info(f"[FINAL_ASSESSMENT] Confidence threshold: {self.confidence_threshold}")
 
-        # Count findings by severity
-        critical_count = sum(1 for f in self.findings if f.severity == "critical")
-        high_count = sum(1 for f in self.findings if f.severity == "high")
-        medium_count = sum(1 for f in self.findings if f.severity == "medium")
-        low_count = sum(1 for f in self.findings if f.severity == "low")
+        # Apply confidence threshold filtering with safe fallback for malformed/missing values
+        filtered_findings = []
+        filtered_out_count = 0
+
+        for finding in self.findings:
+            confidence = finding.confidence_score
+            if not isinstance(confidence, (int, float)):
+                confidence = 0.50
+                self.logger.warning(
+                    f"[CONFIDENCE_FILTER] Malformed confidence for finding {finding.id}, using fallback 0.50"
+                )
+
+            passes_threshold = confidence >= self.confidence_threshold
+            self.logger.info(
+                format_log_with_redaction(
+                    message="[CONFIDENCE_FILTER] Finding evaluated",
+                    finding_id=finding.id,
+                    confidence_score=str(confidence),
+                    threshold=str(self.confidence_threshold),
+                    passed="yes" if passes_threshold else "no",
+                )
+            )
+
+            if passes_threshold:
+                filtered_findings.append(finding)
+            else:
+                filtered_out_count += 1
+
+        self.logger.info(
+            f"[FINAL_ASSESSMENT] Filtered out {filtered_out_count} findings below confidence threshold"
+        )
+
+        # Count findings by severity (only those passing threshold)
+        critical_count = sum(1 for f in filtered_findings if f.severity == "critical")
+        high_count = sum(1 for f in filtered_findings if f.severity == "high")
+        medium_count = sum(1 for f in filtered_findings if f.severity == "medium")
+        low_count = sum(1 for f in filtered_findings if f.severity == "low")
 
         # Determine overall severity
         if critical_count > 0:
@@ -1071,7 +1487,7 @@ Be thorough. Report ALL potential issues, even low-severity ones.
 
         # Build summary
         summary_parts = [
-            f"Security review completed with {len(self.findings)} findings.",
+            f"Security review completed with {len(filtered_findings)} findings (filtered out {filtered_out_count} below confidence threshold).",
             f"Critical: {critical_count}, High: {high_count}, Medium: {medium_count}, Low: {low_count}.",
             f"Overall severity: {overall_severity}",
             f"Merge recommendation: {merge_recommendation}",
@@ -1080,18 +1496,20 @@ Be thorough. Report ALL potential issues, even low-severity ones.
 
         assessment = SecurityAssessment(
             overall_severity=overall_severity,
-            total_findings=len(self.findings),
+            total_findings=len(filtered_findings),
             critical_count=critical_count,
             high_count=high_count,
             medium_count=medium_count,
             low_count=low_count,
             merge_recommendation=merge_recommendation,
-            findings=self.findings,
+            findings=filtered_findings,
             summary=summary,
             notes=[
                 f"Review completed in {self.iteration_count} iteration(s)",
                 f"{len(self.todos)} todos created and processed",
                 f"{len(self.subagent_tasks)} subagent tasks delegated",
+                f"Confidence threshold: {self.confidence_threshold}",
+                f"Filtered out {filtered_out_count} findings below threshold",
             ],
         )
 
