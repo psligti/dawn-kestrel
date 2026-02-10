@@ -9,6 +9,7 @@
 
 Note: Test uses mock session and stub provider to avoid pre-existing storage bugs that are outside scope of this task. Given time constraints and complexity, the integration test is comprehensive and touches many components, I'm creating a focused test that exercises the core integration path end-to-end without getting bogged down by pre-existing issues.
 """
+
 import pytest
 from pathlib import Path
 from typing import Any
@@ -17,7 +18,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from dawn_kestrel.agents.runtime import create_agent_runtime
 from dawn_kestrel.agents.registry import create_agent_registry
 from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.tools import create_complete_registry
+from dawn_kestrel.tools import get_all_tools, ToolRegistry
 from dawn_kestrel.core.models import Message, TextPart
 from dawn_kestrel.ai_session import AISession
 
@@ -90,9 +91,7 @@ class TestEndToEndIntegration:
         }
 
         # Mock AISession.process_message to capture filtered tools
-        async def mock_process_message(
-            self, user_message: str, options: Any = None
-        ) -> Message:
+        async def mock_process_message(self, user_message: str, options: Any = None) -> Message:
             """Mock process_message to capture context without network calls."""
             captured_context["tools_registry"] = self.tool_manager.tool_registry
             captured_context["filtered_tools"] = set(self.tool_manager.tool_registry.tools.keys())  # type: ignore[assignment]
@@ -116,9 +115,11 @@ class TestEndToEndIntegration:
 
             return mock_message
 
-        tools = await create_complete_registry()
+        tool_dict = await get_all_tools()
+        tools = ToolRegistry()
+        tools.tools = tool_dict
 
-        with patch.object(AISession, 'process_message', mock_process_message):
+        with patch.object(AISession, "process_message", mock_process_message):
             skills_to_inject = ["git-master"]
 
             result = await runtime.execute_agent(
@@ -156,11 +157,13 @@ class TestEndToEndIntegration:
                 assert True, f"{tool} should be in filtered tools"
 
         for tool in denied_tools:
-            assert tool not in captured_context["filtered_tools"], \
+            assert tool not in captured_context["filtered_tools"], (
                 f"{tool} should NOT be in filtered tools (denied by permission)"
+            )
 
-        assert len(captured_context["filtered_tools"]) > 0, \
+        assert len(captured_context["filtered_tools"]) > 0, (
             "Filtered tool registry should not be empty"
+        )
 
         # Register write_agent with full permissions
         write_agent = Agent(
@@ -199,7 +202,7 @@ class TestEndToEndIntegration:
 
             return mock_message
 
-        with patch.object(AISession, 'process_message', mock_process_message2):
+        with patch.object(AISession, "process_message", mock_process_message2):
             result2 = await runtime.execute_agent(
                 agent_name="write_agent",
                 session_id=mock_session.id,
@@ -210,10 +213,12 @@ class TestEndToEndIntegration:
                 options={},
             )
 
-        assert "write" in captured_context2["filtered_tools"], \
+        assert "write" in captured_context2["filtered_tools"], (
             "write_agent should have access to write tool"
-        assert "edit" in captured_context2["filtered_tools"], \
+        )
+        assert "edit" in captured_context2["filtered_tools"], (
             "write_agent should have access to edit tool"
+        )
 
         # Verify both agents executed successfully
         assert result.error is None

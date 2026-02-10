@@ -127,7 +127,7 @@ def run(message: str, model: Optional[str], provider: Optional[str], session: Op
 
     async def process():
         # Setup storage and session manager
-        storage_dir = Path(settings.storage_dir).expanduser()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = Path.cwd()
         session_mgr = SessionManager(storage, project_dir)
@@ -172,7 +172,7 @@ def new_session():
     from ..core.session import SessionManager
 
     async def create():
-        storage_dir = Path(settings.storage_dir).expanduser()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = Path.cwd()
         session_mgr = SessionManager(storage, project_dir)
@@ -196,7 +196,7 @@ def list_sessions():
     from rich.table import Table
 
     async def list():
-        storage_dir = Path(settings.storage_dir).expanduser()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = Path.cwd()
         session_mgr = SessionManager(storage, project_dir)
@@ -236,7 +236,7 @@ def export_session(session_id: str):
     from dawn_kestrel.storage.store import SessionStorage
 
     async def export():
-        storage_dir = Path(settings.storage_dir).expanduser()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = Path.cwd()
         session_mgr = SessionManager(storage, project_dir)
@@ -262,7 +262,7 @@ def import_session(file_path: str):
     from dawn_kestrel.storage.store import SessionStorage
 
     async def import_():
-        storage_dir = Path(settings.storage_dir).expanduser()
+        storage_dir = settings.storage_dir_path()
         storage = SessionStorage(storage_dir)
         project_dir = Path.cwd()
         session_mgr = SessionManager(storage, project_dir)

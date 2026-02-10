@@ -1,4 +1,5 @@
 """Test BaseReviewerAgent abstract class and its utility methods."""
+
 import pytest
 from abc import ABC, abstractmethod
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
@@ -10,6 +11,14 @@ class MockReviewerAgent(BaseReviewerAgent):
     def get_system_prompt(self) -> str:
         """Get the system prompt for the mock reviewer."""
         return "Test system prompt"
+
+    def get_agent_name(self) -> str:
+        """Get the agent name for the mock reviewer."""
+        return "MockReviewerAgent"
+
+    def get_allowed_tools(self) -> list[str]:
+        """Get allowed tools for the mock reviewer."""
+        return []
 
     def get_relevant_file_patterns(self) -> list[str]:
         """Get file patterns relevant to the mock reviewer."""
@@ -26,6 +35,14 @@ class MockReviewerWithNoPatterns(BaseReviewerAgent):
     def get_system_prompt(self) -> str:
         """Get the system prompt for the mock reviewer."""
         return "Test system prompt"
+
+    def get_agent_name(self) -> str:
+        """Get the agent name for the mock reviewer."""
+        return "MockReviewerWithNoPatterns"
+
+    def get_allowed_tools(self) -> list[str]:
+        """Get allowed tools for the mock reviewer."""
+        return []
 
     def get_relevant_file_patterns(self) -> list[str]:
         """Get file patterns relevant to the mock reviewer."""
@@ -47,9 +64,9 @@ class TestBaseReviewerAgentAbstract:
     def test_base_reviewer_agent_requires_abstract_methods(self):
         """Test that BaseReviewerAgent has required abstract methods."""
         # Verify abstract methods exist
-        assert hasattr(BaseReviewerAgent, 'review')
-        assert hasattr(BaseReviewerAgent, 'get_system_prompt')
-        assert hasattr(BaseReviewerAgent, 'get_relevant_file_patterns')
+        assert hasattr(BaseReviewerAgent, "review")
+        assert hasattr(BaseReviewerAgent, "get_system_prompt")
+        assert hasattr(BaseReviewerAgent, "get_relevant_file_patterns")
 
         # Verify they are abstract
         # This is tested by attempting to instantiate BaseReviewerAgent directly
@@ -161,7 +178,7 @@ class TestFormatInputsForPrompt:
             diff="+ def foo():\n+     return 'hello'",
             repo_root="/repo",
             base_ref="main",
-            head_ref="feature/test"
+            head_ref="feature/test",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -180,7 +197,7 @@ class TestFormatInputsForPrompt:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -199,7 +216,7 @@ class TestFormatInputsForPrompt:
             diff="+ def foo():\n+     return 'hello'",
             repo_root="/repo",
             pr_title="Test PR",
-            pr_description="This is a test PR"
+            pr_description="This is a test PR",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -216,7 +233,7 @@ class TestFormatInputsForPrompt:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'\n+ def bar():\n+     return 'world'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -232,7 +249,7 @@ class TestFormatInputsForPrompt:
         context = ReviewContext(
             changed_files=["src/main.py", "src/utils.py", "tests/test_main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -245,9 +262,7 @@ class TestFormatInputsForPrompt:
         """Test that format_inputs_for_prompt handles empty changed files list."""
         agent = MockReviewerAgent()
         context = ReviewContext(
-            changed_files=[],
-            diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            changed_files=[], diff="+ def foo():\n+     return 'hello'", repo_root="/repo"
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -259,11 +274,7 @@ class TestFormatInputsForPrompt:
     def test_format_inputs_for_prompt_no_diff(self):
         """Test that format_inputs_for_prompt handles case with no diff."""
         agent = MockReviewerAgent()
-        context = ReviewContext(
-            changed_files=["src/main.py"],
-            diff="",
-            repo_root="/repo"
-        )
+        context = ReviewContext(changed_files=["src/main.py"], diff="", repo_root="/repo")
 
         result = agent.format_inputs_for_prompt(context)
 
@@ -277,7 +288,7 @@ class TestFormatInputsForPrompt:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         result = agent.format_inputs_for_prompt(context)
@@ -285,14 +296,14 @@ class TestFormatInputsForPrompt:
         # Should have opening and closing code block markers
         assert "```diff" in result
         assert "```" in result
-        lines = result.split('\n')
+        lines = result.split("\n")
         diff_start_idx = None
         diff_end_idx = None
 
         for i, line in enumerate(lines):
-            if line.strip() == '```diff':
+            if line.strip() == "```diff":
                 diff_start_idx = i
-            if line.strip() == '```' and diff_start_idx is not None:
+            if line.strip() == "```" and diff_start_idx is not None:
                 diff_end_idx = i
                 break
 
@@ -306,13 +317,13 @@ class TestFormatInputsForPrompt:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         result = agent.format_inputs_for_prompt(context)
 
         cleaned = result.rstrip()
-        lines = cleaned.split('\n')
+        lines = cleaned.split("\n")
 
         assert lines[-1] != ""
         for i, line in enumerate(lines):
@@ -328,7 +339,7 @@ class TestReviewContext:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         assert context.changed_files == ["src/main.py"]
@@ -344,7 +355,7 @@ class TestReviewContext:
             base_ref="main",
             head_ref="feature/test",
             pr_title="Test PR",
-            pr_description="This is a test PR"
+            pr_description="This is a test PR",
         )
 
         assert context.base_ref == "main"
@@ -357,7 +368,7 @@ class TestReviewContext:
         context = ReviewContext(
             changed_files=["src/main.py"],
             diff="+ def foo():\n+     return 'hello'",
-            repo_root="/repo"
+            repo_root="/repo",
         )
 
         assert context.base_ref is None
@@ -372,5 +383,5 @@ class TestReviewContext:
                 changed_files=["src/main.py"],
                 diff="+ def foo():\n+     return 'hello'",
                 repo_root="/repo",
-                extra_field="should raise error"
+                extra_field="should raise error",
             )

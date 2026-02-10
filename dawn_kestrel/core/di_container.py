@@ -25,13 +25,18 @@ from typing import Optional, Any
 
 from dependency_injector import containers, providers
 
-from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
 from dawn_kestrel.core.services.session_service import DefaultSessionService
 from dawn_kestrel.providers.registry import ProviderRegistry, create_provider_registry
 from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
 from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle, create_session_lifecycle
 from dawn_kestrel.core.settings import settings
+from dawn_kestrel.core.repositories import (
+    SessionRepositoryImpl,
+    MessageRepositoryImpl,
+    PartRepositoryImpl,
+)
 
 
 class Container(containers.DeclarativeContainer):
@@ -61,15 +66,45 @@ class Container(containers.DeclarativeContainer):
         base_dir=storage_dir,
     )
 
+    # MessageStorage - lazily initialized
+    message_storage = providers.Factory(
+        MessageStorage,
+        base_dir=storage_dir,
+    )
+
+    # PartStorage - lazily initialized
+    part_storage = providers.Factory(
+        PartStorage,
+        base_dir=storage_dir,
+    )
+
+    # Repositories - wrap storage implementations
+    session_repo = providers.Factory(
+        SessionRepositoryImpl,
+        storage=storage,
+    )
+
+    message_repo = providers.Factory(
+        MessageRepositoryImpl,
+        storage=message_storage,
+    )
+
+    part_repo = providers.Factory(
+        PartRepositoryImpl,
+        storage=part_storage,
+    )
+
     # SessionLifecycle - singleton, no dependencies
     session_lifecycle = providers.Singleton(
         SessionLifecycle,
     )
 
-    # DefaultSessionService - depends on storage and project_dir
+    # DefaultSessionService - depends on repositories and project_dir
     service = providers.Factory(
         DefaultSessionService,
-        storage=storage,
+        session_repo=session_repo,
+        message_repo=message_repo,
+        part_repo=part_repo,
         project_dir=project_dir,
         io_handler=providers.Factory(lambda: container.config.io_handler()),
         progress_handler=providers.Factory(lambda: container.config.progress_handler()),

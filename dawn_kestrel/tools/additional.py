@@ -615,12 +615,6 @@ class ExternalDirectoryTool(Tool):
                 metadata={"error": "not_directory"},
             )
 
-        from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.storage.store import SessionStorage
-
-        storage = SessionStorage(Path.cwd())
-        session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
-
         dir_files = []
         try:
             for item in path.rglob("*"):
@@ -695,7 +689,7 @@ class CompactionTool(Tool):
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage = SessionStorage(Path.cwd())
+        storage = SessionStorage(settings.storage_dir_path())
         session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         messages = await session_mgr.get_messages(ctx.session_id)
 
@@ -1055,7 +1049,7 @@ class QuestionTool(Tool):
                 from dawn_kestrel.storage.store import SessionStorage
                 from pathlib import Path
 
-                storage = SessionStorage(Path.cwd())
+                storage = SessionStorage(settings.storage_dir_path())
                 session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
                 user_questions = await session_mgr.get_user_questions(ctx.session_id)
 
@@ -1154,7 +1148,7 @@ class QuestionTool(Tool):
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage = SessionStorage(Path.cwd())
+        storage = SessionStorage(settings.storage_dir_path())
         session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         user_questions = await session_mgr.get_user_questions(ctx.session_id)
 
@@ -1235,7 +1229,7 @@ class TaskTool(Tool):
             from dawn_kestrel.core.session import SessionManager
             from dawn_kestrel.storage.store import SessionStorage
 
-            storage = SessionStorage(Path.cwd())
+            storage = SessionStorage(settings.storage_dir_path())
             session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
             # Get tools registry
@@ -1313,7 +1307,7 @@ class TaskTool(Tool):
             from dawn_kestrel.core.session import SessionManager
             from dawn_kestrel.storage.store import SessionStorage
 
-            storage = SessionStorage(Path.cwd())
+            storage = SessionStorage(settings.storage_dir_path())
             session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
             if session_id_to_resume:
@@ -1402,7 +1396,7 @@ class TodoTool(Tool):
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage = SessionStorage(Path.cwd())
+        storage = SessionStorage(settings.storage_dir_path())
         session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
         todos = await session_mgr.get_todos(ctx.session_id)
 
@@ -1477,7 +1471,7 @@ class TodowriteTool(Tool):
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
 
-        storage = SessionStorage(Path.cwd())
+        storage = SessionStorage(settings.storage_dir_path())
         session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
 
         todos_list = []

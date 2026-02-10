@@ -173,35 +173,38 @@ class TestSecurityReviewerLLMBased:
 
     @pytest.mark.asyncio
     async def test_review_includes_system_prompt_and_context_in_message(
-        self, reviewer, sample_context, mock_session, sample_review_output_json
+        self, reviewer, sample_context, sample_review_output_json
     ):
         """Test that review() includes system prompt and formatted context."""
-        # Mock AISession
-        mock_ai_session = MagicMock()
-        mock_message = MagicMock()
-        mock_message.text = sample_review_output_json
+        # Mock runner to capture system_prompt and formatted_context
+        mock_runner = MagicMock()
+        captured_system_prompt = None
+        captured_formatted_context = None
 
-        captured_message = None
+        async def mock_run_with_retry(system_prompt, formatted_context):
+            nonlocal captured_system_prompt, captured_formatted_context
+            captured_system_prompt = system_prompt
+            captured_formatted_context = formatted_context
+            return sample_review_output_json
 
-        async def mock_process_message(user_message, options=None):
-            nonlocal captured_message
-            captured_message = user_message
-            return mock_message
+        mock_runner.run_with_retry = mock_run_with_retry
 
-        mock_ai_session.process_message = mock_process_message
+        with patch("dawn_kestrel.core.harness.SimpleReviewAgentRunner", return_value=mock_runner):
+            result = await reviewer.review(sample_context)
 
-        # Patch AISession
-        with patch("dawn_kestrel.agents.review.agents.security.AISession") as mock_ai_session_cls:
-            mock_ai_session_cls.return_value = mock_ai_session
+            # Verify runner was called
+            assert captured_system_prompt is not None
+            assert captured_formatted_context is not None
 
-            # Patch Session creation
-            with patch("dawn_kestrel.agents.review.agents.security.Session") as mock_session_cls:
-                mock_session_cls.return_value = mock_session
+            # Verify system prompt contains security reviewer instructions
+            assert "security" in captured_system_prompt.lower()
 
-                await reviewer.review(sample_context)
+            # Verify formatted context includes expected information
+            assert "## Review Context" in captured_formatted_context
+            assert "src/auth.py" in captured_formatted_context
+            assert sample_context.diff in captured_formatted_context
+            assert "config/api.yaml" in captured_formatted_context
 
-                # Verify message includes context
-                assert captured_message is not None
-                assert "## Review Context" in captured_message
-                assert "src/auth.py" in captured_message
-                assert sample_context.diff in captured_message
+            # Verify result is parsed correctly
+            assert isinstance(result, ReviewOutput)
+            assert result.agent == "security"
