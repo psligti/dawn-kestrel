@@ -18,7 +18,8 @@ class TestLoadTools:
     """Test tool plugin discovery and loading."""
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_tools_from_entry_points(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_tools_from_entry_points(self, mock_entry_points):
         """Test that tools are loaded from entry_points."""
         # Setup mock entry points
         mock_ep = Mock(spec=EntryPoint)
@@ -34,7 +35,7 @@ class TestLoadTools:
         from dawn_kestrel.core.plugin_discovery import load_tools
 
         # Test
-        tools = load_tools()
+        tools = await load_tools()
 
         # Assert
         assert isinstance(tools, dict)
@@ -43,7 +44,8 @@ class TestLoadTools:
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
     @patch("dawn_kestrel.core.plugin_discovery._load_tools_fallback")
-    def test_load_tools_with_no_entry_points(self, mock_fallback, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_tools_with_no_entry_points(self, mock_fallback, mock_entry_points):
         """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
@@ -52,14 +54,15 @@ class TestLoadTools:
 
         from dawn_kestrel.core.plugin_discovery import load_tools
 
-        tools = load_tools()
+        tools = await load_tools()
 
         assert isinstance(tools, dict)
         assert len(tools) == 0
         mock_fallback.assert_called_once()
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_tools_handles_loading_errors(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_tools_handles_loading_errors(self, mock_entry_points):
         """Test that loading errors are handled gracefully."""
         # Setup mock with failing entry point
         mock_ep = Mock(spec=EntryPoint)
@@ -75,7 +78,7 @@ class TestLoadTools:
         from dawn_kestrel.core.plugin_discovery import load_tools
 
         # Test - should not raise, just log warning
-        tools = load_tools()
+        tools = await load_tools()
 
         # Assert - broken tool should be skipped
         assert "broken_tool" not in tools
@@ -85,7 +88,8 @@ class TestLoadProviders:
     """Test provider plugin discovery and loading."""
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_providers_from_entry_points(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_providers_from_entry_points(self, mock_entry_points):
         """Test that providers are loaded from entry_points."""
         # Setup mock entry points
         mock_ep = Mock(spec=EntryPoint)
@@ -101,7 +105,7 @@ class TestLoadProviders:
         from dawn_kestrel.core.plugin_discovery import load_providers
 
         # Test
-        providers = load_providers()
+        providers = await load_providers()
 
         # Assert
         assert isinstance(providers, dict)
@@ -110,7 +114,8 @@ class TestLoadProviders:
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
     @patch("dawn_kestrel.core.plugin_discovery._load_providers_fallback")
-    def test_load_providers_with_no_entry_points(self, mock_fallback, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_providers_with_no_entry_points(self, mock_fallback, mock_entry_points):
         """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
@@ -119,7 +124,7 @@ class TestLoadProviders:
 
         from dawn_kestrel.core.plugin_discovery import load_providers
 
-        providers = load_providers()
+        providers = await load_providers()
 
         assert isinstance(providers, dict)
         assert len(providers) == 0
@@ -130,7 +135,8 @@ class TestLoadAgents:
     """Test agent plugin discovery and loading."""
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_load_agents_from_entry_points(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_agents_from_entry_points(self, mock_entry_points):
         """Test that agents are loaded from entry_points."""
         # Setup mock entry points
         mock_ep = Mock(spec=EntryPoint)
@@ -146,7 +152,7 @@ class TestLoadAgents:
         from dawn_kestrel.core.plugin_discovery import load_agents
 
         # Test
-        agents = load_agents()
+        agents = await load_agents()
 
         # Assert
         assert isinstance(agents, dict)
@@ -155,7 +161,8 @@ class TestLoadAgents:
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
     @patch("dawn_kestrel.core.plugin_discovery._load_agents_fallback")
-    def test_load_agents_with_no_entry_points(self, mock_fallback, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_load_agents_with_no_entry_points(self, mock_fallback, mock_entry_points):
         """Test that fallback is used when no entry points found."""
         mock_eps = Mock()
         mock_eps.select.return_value = []
@@ -164,7 +171,7 @@ class TestLoadAgents:
 
         from dawn_kestrel.core.plugin_discovery import load_agents
 
-        agents = load_agents()
+        agents = await load_agents()
 
         assert isinstance(agents, dict)
         assert len(agents) == 0
@@ -175,7 +182,8 @@ class TestPluginValidation:
     """Test plugin validation logic."""
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_validate_plugin_structure(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_validate_plugin_structure(self, mock_entry_points):
         """Test that plugin structure is validated."""
         # Setup mock entry point with valid structure
         mock_ep = Mock(spec=EntryPoint)
@@ -195,13 +203,14 @@ class TestPluginValidation:
         from dawn_kestrel.core.plugin_discovery import load_tools
 
         # Test
-        tools = load_tools()
+        tools = await load_tools()
 
         # Assert
         assert "valid_tool" in tools
 
     @patch("dawn_kestrel.core.plugin_discovery.entry_points")
-    def test_invalid_plugin_rejected(self, mock_entry_points):
+    @pytest.mark.asyncio
+    async def test_invalid_plugin_rejected(self, mock_entry_points):
         """Test that invalid plugins are rejected gracefully."""
         # Setup mock entry point that returns None
         mock_ep = Mock(spec=EntryPoint)
@@ -217,7 +226,7 @@ class TestPluginValidation:
         from dawn_kestrel.core.plugin_discovery import load_tools
 
         # Test
-        tools = load_tools()
+        tools = await load_tools()
 
         # Assert - invalid plugin should be skipped
         assert "invalid_plugin" not in tools

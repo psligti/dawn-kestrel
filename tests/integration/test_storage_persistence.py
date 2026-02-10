@@ -101,7 +101,7 @@ class TestStoragePersistence:
         assert created_session.id == "test_session_1", "Session ID mismatch"
         assert created_session.title == "Test Session", "Title mismatch"
 
-        session_file = temp_storage_dir / "storage" / "sessions" / "test_session_1.json"
+        session_file = temp_storage_dir / "storage" / "session" / "test_project" / "test_session_1"
         assert session_file.exists(), "Session file not created"
 
     @pytest.mark.asyncio
@@ -135,12 +135,12 @@ class TestStoragePersistence:
             text="Hello, world!",
         )
 
-        created_message = await storage.create_message(message)
+        created_message = await storage.create_message(session_id="session_1", message=message)
 
         assert created_message.id == "msg_1", "Message ID mismatch"
         assert created_message.text == "Hello, world!", "Text mismatch"
 
-        message_file = temp_storage_dir / "storage" / "messages" / "msg_1.json"
+        message_file = temp_storage_dir / "storage" / "message" / "session_1" / "msg_1"
         assert message_file.exists(), "Message file not created"
 
     @pytest.mark.asyncio
@@ -170,16 +170,17 @@ class TestStoragePersistence:
         part = TextPart(
             id="part_1",
             message_id="msg_1",
-            type="text",
+            session_id="session_1",
+            part_type="text",
             text="Part content",
         )
 
-        created_part = await storage.create_part(part)
+        created_part = await storage.create_part(message_id="msg_1", part=part)
 
         assert created_part.id == "part_1", "Part ID mismatch"
         assert created_part.text == "Part content", "Text mismatch"
 
-        part_file = temp_storage_dir / "storage" / "parts" / "part_1.json"
+        part_file = temp_storage_dir / "storage" / "part" / "msg_1" / "part_1"
         assert part_file.exists(), "Part file not created"
 
 
