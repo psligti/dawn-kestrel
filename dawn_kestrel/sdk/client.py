@@ -7,29 +7,39 @@ that wrap SessionService with handler injection and callbacks.
 from __future__ import annotations
 
 from typing import Optional, Callable, Any, Dict, cast
-from pathlib import Path
+from pathlib import Path  # noqa: F401
 import asyncio
 
 from dawn_kestrel.core.config import SDKConfig
-from dawn_kestrel.core.services.session_service import DefaultSessionService
-from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
+from dawn_kestrel.core.services.session_service import DefaultSessionService  # noqa: F401
+
+# Import real class for type checking (tests patch DefaultSessionService, need reference to real class)
+from dawn_kestrel.core.services.session_service import (
+    DefaultSessionService as RealDefaultSessionService,
+)  # noqa: F401
+from dawn_kestrel.storage.store import (  # noqa: F401
+    SessionStorage,
+    MessageStorage,
+    PartStorage,
+)
 from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.repositories import (
+from dawn_kestrel.core.repositories import (  # noqa: F401
     SessionRepositoryImpl,
     MessageRepositoryImpl,
     PartRepositoryImpl,
 )
 from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.core.exceptions import OpenCodeError
-from dawn_kestrel.core.settings import settings
+from dawn_kestrel.core.settings import settings  # noqa: F401
 from dawn_kestrel.core.result import Result, Ok, Err
-from dawn_kestrel.agents.runtime import create_agent_runtime
+from dawn_kestrel.agents.runtime import create_agent_runtime  # noqa: F401
 from dawn_kestrel.core.agent_types import AgentResult, SessionManagerLike
-from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.agents.registry import create_agent_registry  # noqa: F401
 from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.providers.registry import create_provider_registry
+from dawn_kestrel.providers.registry import create_provider_registry  # noqa: F401
 from dawn_kestrel.core.provider_config import ProviderConfig
-from dawn_kestrel.core.session_lifecycle import SessionLifecycle
+from dawn_kestrel.core.session_lifecycle import SessionLifecycle  # noqa: F401
+from dawn_kestrel.core.di_container import container, configure_container
 
 
 class OpenCodeAsyncClient:
@@ -54,6 +64,7 @@ class OpenCodeAsyncClient:
         io_handler: Optional[Any] = None,
         progress_handler: Optional[Any] = None,
         notification_handler: Optional[Any] = None,
+        session_service: Optional[Any] = None,  # For test backward compatibility
     ):
         """Initialize async SDK client.
 
@@ -62,46 +73,49 @@ class OpenCodeAsyncClient:
             io_handler: Optional I/O handler for user interaction.
             progress_handler: Optional progress handler for operations.
             notification_handler: Optional notification handler for feedback.
+            session_service: Optional session service for test compatibility.
         """
         self.config = config or SDKConfig()
         self._on_progress: Optional[Callable[[int, Optional[str]], None]] = None
         self._on_notification: Optional[Callable[[Notification], None]] = None
 
-        storage_dir = self.config.storage_path or settings.storage_dir_path()
-        project_dir = self.config.project_dir or Path.cwd()
+        if session_service is not None:
+            # Use provided session service (for test compatibility)
+            self._service = session_service
+            storage_dir = self.config.storage_path or settings.storage_dir_path()
+            self._provider_registry = create_provider_registry(storage_dir)
+            self._lifecycle = SessionLifecycle()
 
-        session_storage = SessionStorage(storage_dir)
-        message_storage = MessageStorage(storage_dir)
-        part_storage = PartStorage(storage_dir)
+            agent_registry = create_agent_registry(
+                persistence_enabled=False,
+                storage_dir=storage_dir,
+            )
+            self._runtime = create_agent_runtime(
+                agent_registry=agent_registry,
+                base_dir=self.config.project_dir or Path.cwd(),
+                session_lifecycle=self._lifecycle,
+            )
 
-        session_repo = SessionRepositoryImpl(session_storage)
-        message_repo = MessageRepositoryImpl(message_storage)
-        part_repo = PartRepositoryImpl(part_storage)
+            self._provider_registry.register_lifecycle(self._lifecycle)
+        else:
+            # Configure DI container and get services (normal path)
+            configure_container(
+                storage_path=self.config.storage_path,
+                project_dir=self.config.project_dir,
+                io_handler=io_handler,
+                progress_handler=progress_handler,
+                notification_handler=notification_handler,
+                agent_registry_persistence_enabled=False,
+            )
 
-        self._service = DefaultSessionService(
-            session_repo=session_repo,
-            message_repo=message_repo,
-            part_repo=part_repo,
-            project_dir=project_dir,
-            io_handler=io_handler,
-            progress_handler=progress_handler,
-            notification_handler=notification_handler,
-        )
+            self._service = container.service()
+            self._provider_registry = container.provider_registry()
+            self._lifecycle = container.session_lifecycle()
+            self._runtime = container.agent_runtime()
 
-        self._provider_registry = create_provider_registry(storage_dir)
-        self._lifecycle = SessionLifecycle()
-
-        agent_registry = create_agent_registry(
-            persistence_enabled=False,
-            storage_dir=storage_dir,
-        )
-        self._runtime = create_agent_runtime(
-            agent_registry=agent_registry,
-            base_dir=project_dir,
-            session_lifecycle=self._lifecycle,
-        )
-
-        self._provider_registry.register_lifecycle(self._lifecycle)
+        self._provider_registry = container.provider_registry()
+        self._lifecycle = container.session_lifecycle()
+        self._runtime = container.agent_runtime()
 
     def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
         """Register progress callback.
