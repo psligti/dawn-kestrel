@@ -1228,3 +1228,20 @@ def get_allowed_tools(self) -> List[str] | list[str]:
   3. It only has methods: `verify()`, `_extract_search_terms()`, `_grep_files()`
   4. Tests that call non-existent methods will fail at runtime with AttributeError
   5. Backward compatibility tests may need updates when fixture types change
+
+### Test Fix: test_integration_review_pipeline.py - Remove executor parameter (2026-02-10)
+- **Problem**: Tests in test_integration_review_pipeline.py failed because LintingReviewer and UnitTestsReviewer were instantiated with non-existent `executor` parameter
+- **Root cause**: Tests used old API from before architecture refactor - BaseReviewerAgent.__init__() only accepts `verifier` parameter, not `executor` or `repo_root`
+- **Fix Applied**:
+  1. Removed `executor=AsyncExecutor()` from LintingReviewer() instantiation (line 80)
+  2. Removed `executor=SyncExecutor(), repo_root=str(tmp_path)` from UnitTestsReviewer() instantiation (line 81)
+  3. Changed to: `LintingReviewer()` and `UnitTestsReviewer()`
+- **Verification**:
+  - `uv run pytest tests/review/test_integration_review_pipeline.py -q` → 1 passed (100%)
+  - LSP diagnostics clean for test_integration_review_pipeline.py
+- **Key learnings**:
+  1. Reviewer constructor signature: BaseReviewerAgent.__init__(verifier: FindingsVerifier | None = None) - only accepts verifier parameter
+  2. Executor pattern removed: Old `executor` parameter from pre-refactor API no longer exists in reviewer agents
+  3. All reviewers inherit from BaseReviewerAgent and don't override __init__(), so they all use same signature
+  4. Test fixtures at lines 24-49 (AsyncExecutor and SyncExecutor classes) are now unused and can be removed
+  5. When fixing test constructor calls, check the actual class signature - don't rely on outdated patterns
