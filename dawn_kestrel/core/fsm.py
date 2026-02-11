@@ -18,7 +18,7 @@ import inspect
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Protocol, runtime_checkable, Optional
+from typing import Any, Callable, Protocol, runtime_checkable, Optional, Union
 
 from dawn_kestrel.core.mediator import Event, EventMediator, EventType
 from dawn_kestrel.core.observer import Observer
@@ -62,7 +62,7 @@ class FSM(Protocol):
         ...
 
     async def transition_to(
-        self, new_state: str, context: FSMContext | None = None
+        self, new_state: str, context: Optional[FSMContext] = None
     ) -> Result[None]:
         """Transition FSM to new state.
 
@@ -107,9 +107,9 @@ class FSMConfig:
     initial_state: str = "idle"
     states: set[str] = field(default_factory=set)
     transitions: dict[tuple[str, str], TransitionConfig] = field(default_factory=dict)
-    on_transition: Callable[[str, str, FSMContext], Result[None]] | None = None
-    after_transition: Callable[[str, str, FSMContext], Result[None]] | None = None
-    on_error: Callable[[str, str, Err, FSMContext], None] | None = None
+    on_transition: Optional[Callable[[str, str, FSMContext], Result[None]]] = None
+    after_transition: Optional[Callable[[str, str, FSMContext], Result[None]]] = None
+    on_error: Optional[Callable[[str, str, Err, FSMContext], None]] = None
 
 
 @dataclass
@@ -150,9 +150,9 @@ class TransitionConfig:
 
     from_state: str
     to_state: str
-    guards: list[Callable[[FSMContext], bool]] | None = None
-    on_enter: Callable[[FSMContext], Result[None]] | None = None
-    on_exit: Callable[[FSMContext], Result[None]] | None = None
+    guards: Optional[list[Callable[[FSMContext], bool]]] = None
+    on_enter: Optional[Callable[[FSMContext], Result[None]]] = None
+    on_exit: Optional[Callable[[FSMContext], Result[None]]] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -172,10 +172,10 @@ class FSMReliabilityConfig:
         enabled: Whether reliability wrappers are enabled (default: True).
     """
 
-    circuit_breaker: CircuitBreaker | None = None
-    retry_executor: RetryExecutor | None = None
-    rate_limiter: RateLimiter | None = None
-    bulkhead: Bulkhead | None = None
+    circuit_breaker: Optional[CircuitBreaker] = None
+    retry_executor: Optional[RetryExecutor] = None
+    rate_limiter: Optional[RateLimiter] = None
+    bulkhead: Optional[Bulkhead] = None
     enabled: bool = True
 
 
@@ -205,13 +205,13 @@ class FSMImpl:
         initial_state: str,
         valid_states: set[str],
         valid_transitions: dict[str, set[str]],
-        fsm_id: str | None = None,
+        fsm_id: Optional[str] = None,
         repository: Any = None,
         mediator: Any = None,
-        observers: list[Observer] | None = None,
-        entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
-        exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
-        reliability_config: FSMReliabilityConfig | None = None,
+        observers: Optional[list[Observer]] = None,
+        entry_hooks: Optional[dict[str, Callable[[FSMContext], Result[None]]]] = None,
+        exit_hooks: Optional[dict[str, Callable[[FSMContext], Result[None]]]] = None,
+        reliability_config: Optional[FSMReliabilityConfig] = None,
     ):
         """Initialize FSM with configurable states and transitions.
 
@@ -245,7 +245,7 @@ class FSMImpl:
         self._observers: set[Observer] = set(observers) if observers else set()
         self._entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] = entry_hooks or {}
         self._exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] = exit_hooks or {}
-        self._reliability_config: FSMReliabilityConfig | None = reliability_config
+        self._reliability_config: Optional[FSMReliabilityConfig] = reliability_config
 
     async def get_state(self) -> str:
         """Get current state of FSM.
@@ -270,7 +270,7 @@ class FSMImpl:
         return to_state in self._valid_transitions[from_state]
 
     async def transition_to(
-        self, new_state: str, context: FSMContext | None = None
+        self, new_state: str, context: Optional[FSMContext] = None
     ) -> Result[TransitionCommand]:
         """Transition FSM to new state.
 
@@ -497,7 +497,7 @@ class FSMBuilder:
         self._repository: Any = None
         self._mediator: Any = None
         self._observers: list[Any] = []
-        self._reliability_config: FSMReliabilityConfig | None = None
+        self._reliability_config: Optional[FSMReliabilityConfig] = None
 
     def with_state(self, state: str) -> FSMBuilder:
         """Add a valid state.
