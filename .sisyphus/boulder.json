@@ -1,8 +1,8 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/fsm-security-production-ready.md",
-  "started_at": "2026-02-10T20:23:43.360Z",
-  "session_ids": ["ses_3b6c69e02ffe0skCY81o8dAgPN", "ses_3b67498feffeOqCTz3DoMx1S3T", "ses_3b6100a23ffeE5d7cPlfg9iRFL", "ses_3b622571effeFQOQvEhN34J9", "ses_3b61749bffeT5BDwpnKQlus1B", "ses_3b61025f745ffe84L288xHQGaqHw", "ses_3b60a1143ffeE5d7cPlfg9iRFL", "ses_3b61c64bffeX4fMcQVVEiU33Z", "ses_3b61e7571ffe84L288xHQGaqHw"],
-  "plan_name": "fsm-security-production-ready",
-  "completed_at": "2026-02-10T23:59:00.000Z",
-  "plan_status": "COMPLETED"
+  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/python39-compatibility-fix.md",
+  "started_at": "2026-02-11T17:50:56.478Z",
+  "session_ids": ["ses_3b2311da3ffeeoCtqp3eDBqDtF", "ses_3b228d294ffeElV1UUIR1uD4h3"],
+  "plan_name": "python39-compatibility-fix",
+  "status": "COMPLETE",
+  "completed_at": "2026-02-11T18:15:00.000Z"
 }
