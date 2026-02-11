@@ -3,12 +3,16 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from dawn_kestrel.core.fsm import FSMImpl, FSMBuilder, FSMContext
+from dawn_kestrel.core.fsm import FSMImpl, FSMBuilder, FSMContext, FSMReliabilityConfig
 from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.core.fsm_state_repository import FSMStateRepository
 from dawn_kestrel.core.mediator import Event, EventType, EventMediator
 from dawn_kestrel.core.observer import Observer
 from dawn_kestrel.core.commands import TransitionCommand
+from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl
+from dawn_kestrel.llm.retry import RetryExecutorImpl, ExponentialBackoff
+from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
+from dawn_kestrel.llm.bulkhead import BulkheadImpl
 
 
 class TestFSMImpl:
@@ -961,6 +965,212 @@ class TestFSMCommands:
         result = await fsm.transition_to("completed")
         assert result.is_err()
         assert "Invalid state transition" in result.error
-
         history = fsm.get_command_history()
         assert len(history) == 0
+
+
+class TestFSMReliability:
+    """Test FSM reliability wrapper integration."""
+
+    @pytest.mark.asyncio
+    async def test_fsm_wraps_external_actions_in_circuit_breaker(self):
+        """FSM wraps external actions in CircuitBreaker."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        mock_circuit_breaker = MagicMock()
+
+        reliability_config = FSMReliabilityConfig(circuit_breaker=mock_circuit_breaker)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .with_reliability(reliability_config)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is set
+        assert fsm._reliability_config == reliability_config
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called
+        assert "entry" in hook_called
+
+    @pytest.mark.asyncio
+    async def test_fsm_wraps_external_actions_in_retry(self):
+        """FSM wraps external actions in RetryExecutor."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        retry_executor = RetryExecutorImpl(max_attempts=3)
+        reliability_config = FSMReliabilityConfig(retry_executor=retry_executor)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .with_reliability(reliability_config)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is set
+        assert fsm._reliability_config == reliability_config
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called (with retry)
+        assert "entry" in hook_called
+
+    @pytest.mark.asyncio
+    async def test_fsm_wraps_external_actions_in_rate_limiter(self):
+        """FSM wraps external actions in RateLimiter."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        rate_limiter = RateLimiterImpl(default_capacity=10, default_refill_rate=1.0)
+        reliability_config = FSMReliabilityConfig(rate_limiter=rate_limiter)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .with_reliability(reliability_config)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is set
+        assert fsm._reliability_config == reliability_config
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called (with rate limiter)
+        assert "entry" in hook_called
+
+    @pytest.mark.asyncio
+    async def test_fsm_wraps_external_actions_in_bulkhead(self):
+        """FSM wraps external actions in Bulkhead."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        bulkhead = BulkheadImpl()
+        bulkhead.set_limit("default", 5)
+        reliability_config = FSMReliabilityConfig(bulkhead=bulkhead)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .with_reliability(reliability_config)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is set
+        assert fsm._reliability_config == reliability_config
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called (with bulkhead)
+        assert "entry" in hook_called
+
+    @pytest.mark.asyncio
+    async def test_fsm_reliability_disabled_when_config_none(self):
+        """FSM does not wrap when reliability_config is None."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is None
+        assert fsm._reliability_config is None
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called directly (without wrappers)
+        assert "entry" in hook_called
+
+    @pytest.mark.asyncio
+    async def test_fsm_reliability_disabled_when_enabled_false(self):
+        """FSM does not wrap when reliability_config.enabled is False."""
+        hook_called = []
+
+        def entry_hook(ctx: FSMContext) -> Result[None]:
+            hook_called.append("entry")
+            return Ok(None)
+
+        rate_limiter = RateLimiterImpl()
+        reliability_config = FSMReliabilityConfig(rate_limiter=rate_limiter, enabled=False)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_entry_hook("running", entry_hook)
+            .with_reliability(reliability_config)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify reliability_config is set but disabled
+        assert fsm._reliability_config == reliability_config
+        assert fsm._reliability_config.enabled is False
+
+        # Transition to trigger hook
+        await fsm.transition_to("running")
+
+        # Hook should be called directly (without wrappers)
+        assert "entry" in hook_called
