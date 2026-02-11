@@ -13,11 +13,17 @@ Key components:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Protocol, runtime_checkable
 
+from dawn_kestrel.core.mediator import Event, EventMediator, EventType
+from dawn_kestrel.core.observer import Observer
 from dawn_kestrel.core.result import Result, Ok, Err
+
+
+logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -170,6 +176,11 @@ class FSMImpl:
         valid_states: set[str],
         valid_transitions: dict[str, set[str]],
         fsm_id: str | None = None,
+        repository: Any = None,
+        mediator: Any = None,
+        observers: list[Observer] | None = None,
+        entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
     ):
         """Initialize FSM with configurable states and transitions.
 
@@ -178,6 +189,11 @@ class FSMImpl:
             valid_states: Set of valid state identifiers.
             valid_transitions: Dictionary mapping from_state to set of valid to_states.
             fsm_id: Optional unique identifier for this FSM instance.
+            repository: Optional FSMStateRepository for state persistence.
+            mediator: Optional EventMediator for event publishing.
+            observers: Optional list of observers for state change notifications.
+            entry_hooks: Optional dict mapping state names to entry hooks.
+            exit_hooks: Optional dict mapping state names to exit hooks.
 
         Raises:
             ValueError: If initial_state is not in valid_states.
@@ -192,6 +208,11 @@ class FSMImpl:
         self._valid_transitions = valid_transitions
         self._fsm_id = fsm_id or f"fsm_{id(self)}"
         self._command_history: list[dict[str, Any]] = []
+        self._repository = repository
+        self._mediator = mediator
+        self._observers: set[Observer] = set(observers) if observers else set()
+        self._entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] = entry_hooks or {}
+        self._exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] = exit_hooks or {}
 
     async def get_state(self) -> str:
         """Get current state of FSM.
@@ -235,7 +256,96 @@ class FSMImpl:
             )
 
         from_state = self._state
+
+        exit_hook = self._exit_hooks.get(from_state)
+        if exit_hook:
+            exit_metadata = {"state": from_state, "fsm_id": self._fsm_id}
+            if context:
+                exit_metadata.update(context.metadata)
+            exit_context = FSMContext(
+                timestamp=datetime.now(),
+                source=f"fsm.{self._fsm_id}",
+                metadata=exit_metadata,
+            )
+            if context and context.user_data:
+                exit_context.user_data = context.user_data.copy()
+            try:
+                exit_result = exit_hook(exit_context)
+                if exit_result.is_err():
+                    logger.error(
+                        f"Exit hook failed for state {from_state} in FSM {self._fsm_id}: {exit_result.error}"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Exit hook raised exception for state {from_state} in FSM {self._fsm_id}: {e}"
+                )
+
         self._state = new_state
+
+        entry_hook = self._entry_hooks.get(new_state)
+        if entry_hook:
+            entry_metadata = {"state": new_state, "fsm_id": self._fsm_id}
+            if context:
+                entry_metadata.update(context.metadata)
+            entry_context = FSMContext(
+                timestamp=datetime.now(),
+                source=f"fsm.{self._fsm_id}",
+                metadata=entry_metadata,
+            )
+            if context and context.user_data:
+                entry_context.user_data = context.user_data.copy()
+            try:
+                entry_result = entry_hook(entry_context)
+                if entry_result.is_err():
+                    logger.error(
+                        f"Entry hook failed for state {new_state} in FSM {self._fsm_id}: {entry_result.error}"
+                    )
+            except Exception as e:
+                logger.error(
+                    f"Entry hook raised exception for state {new_state} in FSM {self._fsm_id}: {e}"
+                )
+
+        if self._repository:
+            persist_result = await self._repository.set_state(self._fsm_id, new_state)
+            if persist_result.is_err():
+                error_msg = persist_result.error
+                logger.error(f"Failed to persist FSM state for {self._fsm_id}: {error_msg}")
+                return Err(
+                    f"Failed to persist state: {error_msg}",
+                    code="PERSISTENCE_ERROR",
+                )
+
+        if self._mediator:
+            event = Event(
+                event_type=EventType.DOMAIN,
+                source=self._fsm_id,
+                data={
+                    "fsm_id": self._fsm_id,
+                    "from_state": from_state,
+                    "to_state": new_state,
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
+            publish_result = await self._mediator.publish(event)
+            if publish_result.is_err():
+                error_msg = publish_result.error
+                logger.error(
+                    f"Failed to publish state change event for FSM {self._fsm_id}: {error_msg}"
+                )
+
+        # Notify observers of state change
+        if self._observers:
+            event_data = {
+                "fsm_id": self._fsm_id,
+                "from_state": from_state,
+                "to_state": new_state,
+                "timestamp": datetime.now().isoformat(),
+            }
+            for observer in self._observers:
+                try:
+                    await observer.on_notify(self, event_data)
+                except Exception as e:
+                    logger.error(f"Observer error for FSM {self._fsm_id}: {e}")
 
         self._command_history.append(
             {
@@ -254,6 +364,25 @@ class FSMImpl:
             List of dictionaries containing transition audit data.
         """
         return self._command_history.copy()
+
+    async def register_observer(self, observer: Observer) -> None:
+        """Register observer for state change notifications.
+
+        Args:
+            observer: Observer to register.
+        """
+        self._observers.add(observer)
+
+    async def unregister_observer(self, observer: Observer) -> None:
+        """Unregister observer from state change notifications.
+
+        Safe to call even if observer not registered.
+
+        Args:
+            observer: Observer to remove.
+        """
+        if observer in self._observers:
+            self._observers.remove(observer)
 
 
 class FSMBuilder:
@@ -497,5 +626,10 @@ class FSMBuilder:
             initial_state=initial_state,
             valid_states=self._states,
             valid_transitions=self._transitions,
+            repository=self._repository,
+            mediator=self._mediator,
+            observers=self._observers,
+            entry_hooks=self._entry_hooks,
+            exit_hooks=self._exit_hooks,
         )
         return Ok(fsm)
