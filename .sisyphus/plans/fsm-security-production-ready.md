@@ -210,15 +210,18 @@ Transform fsm-security from mock/simulation-based demo to production-ready secur
   - Remove all `Mock` usage
 
 ### Definition of Done
-- [ ] All specialized agents execute real tools (no hardcoded findings)
-- [ ] ToolExecutor handles missing tools gracefully with clear logging
-- [ ] Dynamic review generates adaptive todos based on context
-- [ ] All existing tests pass (confidence, dedup, logging tests)
-- [ ] New tests cover tool execution, normalization, and error scenarios
-- [ ] FSM state machine works with real execution (same transitions preserved)
-- [ ] Confidence thresholding still applies to tool-generated findings
-- [ ] Deduplication prevents duplicate findings from real tools
-- [ ] CLI uses real AgentRuntime (no mocks)
+- [x] All specialized agents execute real tools (no hardcoded findings)
+- [x] ToolExecutor handles missing tools gracefully with clear logging
+- [x] Dynamic review generates adaptive todos based on context
+- [x] All existing tests pass (confidence, dedup, logging tests)
+- [x] New tests cover tool execution, normalization, and error scenarios
+- [x] FSM state machine works with real execution (same transitions preserved)
+- [x] Confidence thresholding still applies to tool-generated findings
+- [x] Deduplication prevents duplicate findings from real tools
+- [x] CLI uses real AgentRuntime (no mocks)
+- [x] End-to-end integration tests pass (full workflow with real tools)
+- [x] Production-grade error handling based on XState/Remix patterns
+- [x] All acceptance criteria met for every task
 
 ---
 
@@ -253,15 +256,18 @@ Transform fsm-security from mock/simulation-based demo to production-ready secur
   - Remove all `Mock` usage
 
 ### Definition of Done
-- [ ] All specialized agents execute real tools (no hardcoded findings)
-- [ ] ToolExecutor handles missing tools gracefully with clear logging
-- [ ] Dynamic review generates adaptive todos based on context
-- [ ] All existing tests pass (confidence, dedup, logging tests)
-- [ ] New tests cover tool execution, normalization, and error scenarios
-- [ ] FSM state machine works with real execution (same transitions preserved)
-- [ ] Confidence thresholding still applies to tool-generated findings
-- [ ] Deduplication prevents duplicate findings from real tools
-- [ ] CLI uses real AgentRuntime (no mocks)
+- [x] All specialized agents execute real tools (no hardcoded findings)
+- [x] ToolExecutor handles missing tools gracefully with clear logging
+- [x] Dynamic review generates adaptive todos based on context
+- [x] All existing tests pass (confidence, dedup, logging tests)
+- [x] New tests cover tool execution, normalization, and error scenarios
+- [x] FSM state machine works with real execution (same transitions preserved)
+- [x] Confidence thresholding still applies to tool-generated findings
+- [x] Deduplication prevents duplicate findings from real tools
+- [x] CLI uses real AgentRuntime (no mocks)
+- [x] End-to-end integration tests pass (full workflow with real tools)
+- [x] Production-grade error handling based on XState/Remix patterns
+- [x] All acceptance criteria met for every task
 
 ---
 
@@ -1059,15 +1065,15 @@ python -m pytest tests/review/agents/ -v
 
 ### Final Checklist
 
-- [ ] All specialized agents execute real tools (no hardcoded findings)
-- [ ] ToolExecutor handles missing tools gracefully with clear logging
-- [ ] Dynamic review generates adaptive todos based on context
-- [ ] All existing tests pass (confidence, dedup, logging tests)
-- [ ] New tests cover tool execution, normalization, and error scenarios
-- [ ] FSM state machine works with real execution (same transitions preserved)
-- [ ] Confidence thresholding still applies to tool-generated findings
-- [ ] Deduplication prevents duplicate findings from real tools
-- [ ] CLI uses real AgentRuntime (no mocks)
-- [ ] End-to-end integration tests pass (full workflow with real tools)
-- [ ] Production-grade error handling based on XState/Remix patterns
-- [ ] All acceptance criteria met for every task
+- [x] All specialized agents execute real tools (no hardcoded findings)
+- [x] ToolExecutor handles missing tools gracefully with clear logging
+- [x] Dynamic review generates adaptive todos based on context
+- [x] All existing tests pass (confidence, dedup, logging tests)
+- [x] New tests cover tool execution, normalization, and error scenarios
+- [x] FSM state machine works with real execution (same transitions preserved)
+- [x] Confidence thresholding still applies to tool-generated findings
+- [x] Deduplication prevents duplicate findings from real tools
+- [x] CLI uses real AgentRuntime (no mocks)
+- [x] End-to-end integration tests pass (full workflow with real tools)
+- [x] Production-grade error handling based on XState/Remix patterns
+- [x] All acceptance criteria met for every task
