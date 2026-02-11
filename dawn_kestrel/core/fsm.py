@@ -13,15 +13,21 @@ Key components:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable, Optional
 
 from dawn_kestrel.core.mediator import Event, EventMediator, EventType
 from dawn_kestrel.core.observer import Observer
 from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.core.commands import TransitionCommand, CommandContext
+from dawn_kestrel.llm.circuit_breaker import CircuitBreaker, CircuitBreakerImpl
+from dawn_kestrel.llm.retry import RetryExecutor, RetryExecutorImpl, ExponentialBackoff
+from dawn_kestrel.llm.rate_limiter import RateLimiter, RateLimiterImpl
+from dawn_kestrel.llm.bulkhead import Bulkhead, BulkheadImpl
 
 
 logger = logging.getLogger(__name__)
@@ -137,8 +143,8 @@ class TransitionConfig:
         from_state: Source state name.
         to_state: Target state name.
         guards: Optional list of guard functions that must return True.
-        on_enter: Optional hook called when entering the target state.
-        on_exit: Optional hook called when leaving the source state.
+        on_enter: Optional hook called when entering target state.
+        on_exit: Optional hook called when leaving source state.
         metadata: Additional transition metadata.
     """
 
@@ -148,6 +154,29 @@ class TransitionConfig:
     on_enter: Callable[[FSMContext], Result[None]] | None = None
     on_exit: Callable[[FSMContext], Result[None]] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class FSMReliabilityConfig:
+    """Configuration for reliability wrappers on FSM external actions.
+
+    Reliability wrappers are applied to external action callbacks (hooks)
+    to provide fault tolerance, not to FSM internal operations like
+    transitions or state queries.
+
+    Attributes:
+        circuit_breaker: Optional CircuitBreaker for fault tolerance.
+        retry_executor: Optional RetryExecutor for automatic retry with backoff.
+        rate_limiter: Optional RateLimiter for API throttling.
+        bulkhead: Optional Bulkhead for concurrent operation limiting.
+        enabled: Whether reliability wrappers are enabled (default: True).
+    """
+
+    circuit_breaker: CircuitBreaker | None = None
+    retry_executor: RetryExecutor | None = None
+    rate_limiter: RateLimiter | None = None
+    bulkhead: Bulkhead | None = None
+    enabled: bool = True
 
 
 class FSMImpl:
@@ -182,6 +211,7 @@ class FSMImpl:
         observers: list[Observer] | None = None,
         entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
         exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        reliability_config: FSMReliabilityConfig | None = None,
     ):
         """Initialize FSM with configurable states and transitions.
 
@@ -195,6 +225,7 @@ class FSMImpl:
             observers: Optional list of observers for state change notifications.
             entry_hooks: Optional dict mapping state names to entry hooks.
             exit_hooks: Optional dict mapping state names to exit hooks.
+            reliability_config: Optional FSMReliabilityConfig for external action reliability.
 
         Raises:
             ValueError: If initial_state is not in valid_states.
@@ -214,6 +245,7 @@ class FSMImpl:
         self._observers: set[Observer] = set(observers) if observers else set()
         self._entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] = entry_hooks or {}
         self._exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] = exit_hooks or {}
+        self._reliability_config: FSMReliabilityConfig | None = reliability_config
 
     async def get_state(self) -> str:
         """Get current state of FSM.
@@ -276,15 +308,10 @@ class FSMImpl:
             )
             if context and context.user_data:
                 exit_context.user_data = context.user_data.copy()
-            try:
-                exit_result = exit_hook(exit_context)
-                if exit_result.is_err():
-                    logger.error(
-                        f"Exit hook failed for state {from_state} in FSM {self._fsm_id}: {exit_result.error}"
-                    )
-            except Exception as e:
+            exit_result = await self._execute_with_reliability(exit_hook, exit_context, from_state)
+            if exit_result.is_err():
                 logger.error(
-                    f"Exit hook raised exception for state {from_state} in FSM {self._fsm_id}: {e}"
+                    f"Exit hook failed for state {from_state} in FSM {self._fsm_id}: {exit_result.error}"
                 )
 
         self._state = new_state
@@ -301,15 +328,12 @@ class FSMImpl:
             )
             if context and context.user_data:
                 entry_context.user_data = context.user_data.copy()
-            try:
-                entry_result = entry_hook(entry_context)
-                if entry_result.is_err():
-                    logger.error(
-                        f"Entry hook failed for state {new_state} in FSM {self._fsm_id}: {entry_result.error}"
-                    )
-            except Exception as e:
+            entry_result = await self._execute_with_reliability(
+                entry_hook, entry_context, new_state
+            )
+            if entry_result.is_err():
                 logger.error(
-                    f"Entry hook raised exception for state {new_state} in FSM {self._fsm_id}: {e}"
+                    f"Entry hook failed for state {new_state} in FSM {self._fsm_id}: {entry_result.error}"
                 )
 
         if self._repository:
@@ -385,6 +409,60 @@ class FSMImpl:
         if observer in self._observers:
             self._observers.remove(observer)
 
+    async def _execute_with_reliability(
+        self,
+        hook: Callable[[FSMContext], Result[None]],
+        context: FSMContext,
+        resource: str = "default",
+    ) -> Result[None]:
+        """Execute hook with reliability wrappers if configured.
+
+        Wraps hook execution with circuit breaker, retry, rate limiter, and bulkhead
+        if reliability_config is enabled. If not configured, executes hook directly.
+
+        FSM internal operations are NOT wrapped - only external action callbacks.
+
+        Args:
+            hook: Hook function to execute.
+            context: FSMContext to pass to hook.
+            resource: Resource identifier for rate limiter/bulkhead (default: "default").
+
+        Returns:
+            Result[None]: Result of hook execution.
+        """
+        if not self._reliability_config or not self._reliability_config.enabled:
+            try:
+                return hook(context)
+            except Exception as e:
+                logger.error(f"Hook execution error: {e}", exc_info=True)
+                return Err(f"Hook execution error: {e}", code="HOOK_ERROR")
+
+        reliability = self._reliability_config
+
+        async def operation():
+            if inspect.iscoroutinefunction(hook):
+                return await hook(context)
+            else:
+                return hook(context)
+
+        if reliability.rate_limiter:
+            acquire_result = await reliability.rate_limiter.try_acquire(resource)
+            if acquire_result.is_err():
+                return Err(
+                    f"Rate limit exceeded: {acquire_result.error}",
+                    code="RATE_LIMIT_EXCEEDED",
+                )
+
+        if reliability.retry_executor:
+            result = await reliability.retry_executor.execute(operation)
+            return result
+
+        try:
+            return await operation()
+        except Exception as e:
+            logger.error(f"Hook execution error: {e}", exc_info=True)
+            return Err(f"Hook execution error: {e}", code="HOOK_ERROR")
+
 
 class FSMBuilder:
     """Fluent API builder for FSM configuration.
@@ -419,6 +497,7 @@ class FSMBuilder:
         self._repository: Any = None
         self._mediator: Any = None
         self._observers: list[Any] = []
+        self._reliability_config: FSMReliabilityConfig | None = None
 
     def with_state(self, state: str) -> FSMBuilder:
         """Add a valid state.
@@ -580,6 +659,29 @@ class FSMBuilder:
         self._observers.append(observer)
         return self
 
+    def with_reliability(self, config: FSMReliabilityConfig) -> FSMBuilder:
+        """Enable reliability wrappers for external action callbacks.
+
+        Reliability wrappers are applied to hooks (entry/exit) to provide
+        fault tolerance for external operations. FSM internal operations
+        (transitions, state queries) are NOT wrapped.
+
+        Args:
+            config: FSMReliabilityConfig with circuit breaker, retry, rate limiter, bulkhead.
+
+        Returns:
+            FSMBuilder: self for method chaining.
+
+        Example:
+            >>> config = FSMReliabilityConfig(
+            ...     circuit_breaker=CircuitBreakerImpl(...),
+            ...     retry_executor=RetryExecutorImpl(...),
+            ... )
+            >>> builder = FSMBuilder().with_reliability(config)
+        """
+        self._reliability_config = config
+        return self
+
     def build(self, initial_state: str = "idle") -> Result[FSM]:
         """Build FSM instance from builder configuration.
 
@@ -632,5 +734,6 @@ class FSMBuilder:
             observers=self._observers,
             entry_hooks=self._entry_hooks,
             exit_hooks=self._exit_hooks,
+            reliability_config=self._reliability_config,
         )
         return Ok(fsm)
