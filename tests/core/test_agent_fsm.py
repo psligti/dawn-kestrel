@@ -1,6 +1,7 @@
 """Tests for AgentFSM (agent finite state machine)."""
 
 import pytest
+import warnings
 from dawn_kestrel.core.result import Result, Ok, Err
 
 
@@ -394,3 +395,35 @@ class TestAgentFSMErrorHandling:
 
         default_value = "default"
         assert result.unwrap_or(default_value) == default_value
+
+
+class TestAgentFSMDeprecation:
+    """Test AgentFSM deprecation warnings."""
+
+    def test_agent_fsm_impl_emits_deprecation_warning(self):
+        """AgentFSMImpl emits DeprecationWarning when instantiated."""
+        from dawn_kestrel.core.agent_fsm import AgentFSMImpl
+
+        with pytest.warns(DeprecationWarning, match="AgentFSMImpl is deprecated"):
+            AgentFSMImpl("idle")
+
+    def test_agent_fsm_impl_warning_mentions_facade_create_fsm(self):
+        """Deprecation warning mentions Facade.create_fsm."""
+        from dawn_kestrel.core.agent_fsm import AgentFSMImpl
+
+        with pytest.warns(DeprecationWarning, match="Facade.create_fsm"):
+            AgentFSMImpl("idle")
+
+    def test_review_fsm_impl_emits_deprecation_warning(self):
+        """ReviewFSMImpl emits DeprecationWarning when instantiated."""
+        from dawn_kestrel.agents.review.fsm_security import ReviewFSMImpl
+
+        with pytest.warns(DeprecationWarning, match="ReviewFSMImpl is deprecated"):
+            ReviewFSMImpl("idle")
+
+    def test_review_fsm_impl_warning_mentions_facade_create_fsm(self):
+        """ReviewFSM deprecation warning mentions Facade.create_fsm."""
+        from dawn_kestrel.agents.review.fsm_security import ReviewFSMImpl
+
+        with pytest.warns(DeprecationWarning, match="Facade.create_fsm"):
+            ReviewFSMImpl("idle")

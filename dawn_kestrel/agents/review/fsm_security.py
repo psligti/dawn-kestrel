@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any, Set, TYPE_CHECKING
@@ -48,9 +49,19 @@ if TYPE_CHECKING:
 
 
 class ReviewFSMImpl:
-    """Custom FSM for SecurityReviewerAgent with custom states."""
+    """Custom FSM for SecurityReviewerAgent with custom states.
+
+    DEPRECATED: This class is deprecated. Use Facade.create_fsm() instead.
+    See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    """
 
     def __init__(self, initial_state: str = "idle"):
+        warnings.warn(
+            "ReviewFSMImpl is deprecated. Use Facade.create_fsm() instead. "
+            "See dawn_kestrel.core.facade.Facade for creating FSM instances.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._state = initial_state
 
     async def get_state(self) -> str:
