@@ -8,6 +8,7 @@ from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.core.fsm_state_repository import FSMStateRepository
 from dawn_kestrel.core.mediator import Event, EventType, EventMediator
 from dawn_kestrel.core.observer import Observer
+from dawn_kestrel.core.commands import TransitionCommand
 
 
 class TestFSMImpl:
@@ -103,7 +104,8 @@ class TestFSMImpl:
 
         assert await fsm.is_transition_valid("unknown", "running") is False
 
-    def test_fsm_impl_get_command_history_returns_audit_trail(self):
+    @pytest.mark.asyncio
+    async def test_fsm_impl_get_command_history_returns_audit_trail(self):
         """get_command_history returns list of executed transitions."""
         valid_states = {"idle", "running", "completed"}
         valid_transitions = {"idle": {"running"}, "running": {"completed"}}
@@ -113,25 +115,25 @@ class TestFSMImpl:
 
         assert len(history) == 0
 
-    def test_fsm_impl_command_history_includes_fsm_id_and_states(self):
+        await fsm.transition_to("running")
+        history = fsm.get_command_history()
+        assert len(history) == 1
+        assert isinstance(history[0], TransitionCommand)
+
+    @pytest.mark.asyncio
+    async def test_fsm_impl_command_history_includes_fsm_id_and_states(self):
         """Command history includes fsm_id and state information."""
         valid_states = {"idle", "running", "completed"}
         valid_transitions = {"idle": {"running"}, "running": {"completed"}}
 
         fsm = FSMImpl("idle", valid_states, valid_transitions, fsm_id="test-fsm-123")
-        fsm._command_history.append(
-            {
-                "fsm_id": fsm._fsm_id,
-                "from_state": "idle",
-                "to_state": "running",
-            }
-        )
+        await fsm.transition_to("running")
 
         history = fsm.get_command_history()
         assert len(history) == 1
-        assert history[0]["fsm_id"] == "test-fsm-123"
-        assert history[0]["from_state"] == "idle"
-        assert history[0]["to_state"] == "running"
+        assert history[0].fsm_id == "test-fsm-123"
+        assert history[0].from_state == "idle"
+        assert history[0].to_state == "running"
 
     def test_fsm_impl_generates_unique_fsm_id_if_not_provided(self):
         """FSM generates unique ID if not provided."""
@@ -856,3 +858,109 @@ class TestFSMHooks:
         transition_result = await fsm.transition_to("running")
         assert transition_result.is_ok()
         assert fsm._state == "running"
+
+
+class TestFSMCommands:
+    """Test FSM command-based transitions with audit logging."""
+
+    @pytest.mark.asyncio
+    async def test_transition_command_created(self):
+        """FSM creates TransitionCommand for each state transition."""
+        valid_states = {"idle", "running", "completed"}
+        valid_transitions = {"idle": {"running"}, "running": {"completed"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions, fsm_id="test-fsm")
+        result = await fsm.transition_to("running")
+
+        assert result.is_ok()
+        command = result.unwrap()
+        assert isinstance(command, TransitionCommand)
+        assert command.fsm_id == "test-fsm"
+        assert command.from_state == "idle"
+        assert command.to_state == "running"
+        assert command.name == "transition"
+
+    @pytest.mark.asyncio
+    async def test_transition_command_executes(self):
+        """TransitionCommand execute() returns target state."""
+        valid_states = {"idle", "running"}
+        valid_transitions = {"idle": {"running"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions)
+        result = await fsm.transition_to("running")
+
+        assert result.is_ok()
+        command = result.unwrap()
+        execute_result = await command.execute(FSMContext())
+        assert execute_result.is_ok()
+        assert execute_result.unwrap() == "running"
+        assert fsm._state == "running"
+
+    @pytest.mark.asyncio
+    async def test_command_provenance_includes_audit_data(self):
+        """TransitionCommand get_provenance() returns complete audit data."""
+        valid_states = {"idle", "running"}
+        valid_transitions = {"idle": {"running"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions, fsm_id="audit-fsm")
+        result = await fsm.transition_to("running")
+
+        assert result.is_ok()
+        command = result.unwrap()
+        provenance_result = await command.get_provenance()
+
+        assert provenance_result.is_ok()
+        provenance = provenance_result.unwrap()
+        assert provenance["command"] == "transition"
+        assert provenance["fsm_id"] == "audit-fsm"
+        assert provenance["from_state"] == "idle"
+        assert provenance["to_state"] == "running"
+        assert "created_at" in provenance
+        assert "can_undo" in provenance
+        assert provenance["can_undo"] is False
+
+    @pytest.mark.asyncio
+    async def test_command_history_accessible(self):
+        """get_command_history() returns list of executed commands."""
+        valid_states = {"idle", "running", "completed"}
+        valid_transitions = {"idle": {"running"}, "running": {"completed"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions, fsm_id="history-fsm")
+
+        history = fsm.get_command_history()
+        assert len(history) == 0
+
+        await fsm.transition_to("running")
+        history = fsm.get_command_history()
+        assert len(history) == 1
+        assert isinstance(history[0], TransitionCommand)
+        assert history[0].from_state == "idle"
+        assert history[0].to_state == "running"
+
+        await fsm.transition_to("completed")
+        history = fsm.get_command_history()
+        assert len(history) == 2
+        assert history[0].from_state == "idle"
+        assert history[0].to_state == "running"
+        assert history[1].from_state == "running"
+        assert history[1].to_state == "completed"
+
+    def test_transition_command_cannot_undo(self):
+        """TransitionCommand does not support undo."""
+        command = TransitionCommand(fsm_id="test", from_state="idle", to_state="running")
+        assert command.can_undo() is False
+
+    @pytest.mark.asyncio
+    async def test_invalid_transition_no_command_created(self):
+        """Invalid transitions do not create commands."""
+        valid_states = {"idle", "running"}
+        valid_transitions = {"idle": {"running"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions)
+
+        result = await fsm.transition_to("completed")
+        assert result.is_err()
+        assert "Invalid state transition" in result.error
+
+        history = fsm.get_command_history()
+        assert len(history) == 0
