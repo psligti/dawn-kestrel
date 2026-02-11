@@ -1,24 +1,8 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/dawn-kestrel-refactor.md",
-  "started_at": "2026-02-09T04:52:51.346Z",
-  "completed_at": "2026-02-09T22:00:00.000Z",
-  "session_ids": [
-    "ses_3bf4135f9ffejxmIKIlqWYKTOo",
-    "ses_3bd107f69ffeMjRib4kWfS9zqg",
-    "ses_3bc02a126ffeN6AmoDhPIyJ6Wj",
-    "ses_3bae1a995ffeNklFQqmZ9kLa5V",
-    "ses_3badcf91bffehUoCgjwMVBFIvq",
-    "ses_3bacde7b1ffejr3wrl3dhiqz1r",
-    "ses_3bac15a6bffePqxJ3Akd7p4dVK",
-    "ses_3babbca36ffe4srf4YMN5ZOiGz",
-    "ses_3baab2f03ffemqmmlK76sw7TX3",
-    "ses_3ba35f3b0ffeBgDI8F4cwlZzoy",
-    "ses_3ba2e02cbffeGI2mR2XpzncdUA",
-    "ses_3ba1733efffe3NMeu1gXXjwifZ",
-    "ses_3ba0bc5ceffeBf9Gz4ImsF2xuF",
-    "ses_3ba072fa6ffeQMqfT7S73GWLh0",
-    "ses_3b9f31624ffekDvnDWK0V5TGnC"
-  ],
-  "plan_name": "dawn-kestrel-refactor",
-  "status": "completed"
+  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/fsm-security-production-ready.md",
+  "started_at": "2026-02-10T20:23:43.360Z",
+  "session_ids": ["ses_3b6c69e02ffe0skCY81o8dAgPN", "ses_3b67498feffeOqCTz3DoMx1S3T", "ses_3b6100a23ffeE5d7cPlfg9iRFL", "ses_3b622571effeFQOQvEhN34J9", "ses_3b61749bffeT5BDwpnKQlus1B", "ses_3b61025f745ffe84L288xHQGaqHw", "ses_3b60a1143ffeE5d7cPlfg9iRFL", "ses_3b61c64bffeX4fMcQVVEiU33Z", "ses_3b61e7571ffe84L288xHQGaqHw"],
+  "plan_name": "fsm-security-production-ready",
+  "completed_at": "2026-02-10T23:59:00.000Z",
+  "plan_status": "COMPLETED"
 }
