@@ -15,6 +15,12 @@ This document describes the 21 design patterns implemented across the Dawn Kestr
   - [7. Facade Pattern](#7-facade-pattern)
   - [8. Mediator Pattern](#8-mediator-pattern)
   - [9. Registry Pattern](#9-registry-pattern)
+  - [10. Command Pattern](#10-command-pattern)
+  - [11. Decorator/Proxy Pattern](#11-decoratorproxy-pattern)
+  - [12. Null Object Pattern](#12-null-object-pattern)
+  - [13. Strategy Pattern](#13-strategy-pattern)
+  - [14. Observer Pattern](#14-observer-pattern)
+  - [15. State (FSM) Pattern](#15-state-fsm-pattern)
 - [Behavioral Patterns](#behavioral-patterns)
   - [10. Command Pattern](#10-command-pattern)
   - [11. Decorator/Proxy Pattern](#11-decoratorproxy-pattern)
@@ -30,6 +36,8 @@ This document describes the 21 design patterns implemented across the Dawn Kestr
   - [20. Configuration Object Pattern](#20-configuration-object-pattern)
 - [Structural Patterns](#structural-patterns)
   - [21. Composite Pattern](#21-composite-pattern)
+- [Builder Patterns](#builder-patterns)
+  - [22. FSM Builder Pattern](#22-fsm-builder-pattern)
 - [Pattern Integration](#pattern-integration)
 - [Migration Notes](#migration-notes)
 - [Testing](#testing)
@@ -1647,6 +1655,474 @@ await queue.process_next()  # Processes second command
 
 ---
 
+## Builder Patterns
+
+## Builder Patterns
+
+### 22. FSM Builder Pattern
+
+**Purpose/Problem:**
+Provides a fluent, configurable builder pattern for Finite State Machines with comprehensive pattern integration. Simplifies FSM creation while integrating 12 design patterns (Result, Command, Mediator, Observer, Repository, Circuit Breaker, Retry, Rate Limiter, Bulkhead, Facade, DI Container) and supporting workflow FSMs for agent orchestration.
+
+**Implementation Details:**
+- Protocol: `FSM` with `get_state()`, `transition_to()`, `is_transition_valid()` methods
+- Implementation: `FSMImpl` with configurable states, transitions, hooks, guards, and optional integrations
+- Builder: `FSMBuilder` with fluent API (`with_state()`, `with_transition()`, `with_entry_hook()`, `with_exit_hook()`, `with_guard()`, `with_persistence()`, `with_mediator()`, `with_observer()`, `with_reliability()`)
+- Data structures: `FSMConfig`, `FSMContext`, `TransitionConfig`, `FSMReliabilityConfig`
+- Entry/exit hooks with log-and-continue error handling
+- Guard conditions for transition validation
+- State persistence via `FSMStateRepository` (Repository pattern)
+- Event publishing via `EventMediator` (Mediator pattern)
+- Observer pattern for state change notifications
+- Command pattern with audit logging (`TransitionCommand`)
+- Reliability wrappers for external action callbacks (Circuit Breaker, Retry, Rate Limiter, Bulkhead)
+
+**Code Location:**
+- `dawn_kestrel/core/fsm.py` - FSM protocol, FSMImpl, FSMBuilder
+- `dawn_kestrel/core/fsm_state_repository.py` - FSMStateRepository for persistence
+
+**FSM Protocol:**
+```python
+@runtime_checkable
+class FSM(Protocol):
+    """Protocol for finite state machine.
+
+    State machine manages state transitions with validation,
+    ensuring only valid transitions are executed.
+    """
+
+    async def get_state(self) -> str:
+        """Get current state of FSM."""
+        ...
+
+    async def transition_to(
+        self, new_state: str, context: FSMContext | None = None
+    ) -> Result[None]:
+        """Transition FSM to new state."""
+        ...
+
+    async def is_transition_valid(self, from_state: str, to_state: str) -> bool:
+        """Check if transition from one state to another is valid."""
+        ...
+```
+
+**FSMImpl API:**
+```python
+class FSMImpl:
+    """Generic finite state machine implementation.
+
+    Manages state transitions with explicit validation and Result-based
+    error handling. States and transitions are configurable via constructor
+    parameters (typically set by FSMBuilder).
+
+    Thread Safety:
+        This implementation is NOT thread-safe. For concurrent access,
+        use a thread-safe implementation with locks.
+    """
+
+    def __init__(
+        self,
+        initial_state: str,
+        valid_states: set[str],
+        valid_transitions: dict[str, set[str]],
+        fsm_id: str | None = None,
+        repository: Any = None,              # FSMStateRepository for persistence
+        mediator: Any = None,                # EventMediator for events
+        observers: list[Observer] | None = None,  # Observer pattern
+        entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        reliability_config: FSMReliabilityConfig | None = None,  # Reliability wrappers
+    ):
+        """Initialize FSM with configurable states and transitions."""
+
+    async def get_state(self) -> str:
+        """Get current state of FSM."""
+
+    async def is_transition_valid(self, from_state: str, to_state: str) -> bool:
+        """Check if transition from one state to another is valid."""
+
+    async def transition_to(
+        self, new_state: str, context: FSMContext | None = None
+    ) -> Result[TransitionCommand]:
+        """Transition FSM to new state.
+
+        Returns Result[TransitionCommand] for audit logging.
+        """
+
+    def get_command_history(self) -> list[TransitionCommand]:
+        """Get audit history of executed state transitions."""
+
+    async def register_observer(self, observer: Observer) -> None:
+        """Register observer for state change notifications."""
+
+    async def unregister_observer(self, observer: Observer) -> None:
+        """Unregister observer from state change notifications."""
+```
+
+**FSMBuilder Fluent API:**
+```python
+class FSMBuilder:
+    """Fluent API builder for FSM configuration.
+
+    All builder methods return self for method chaining.
+    """
+
+    def with_state(self, state: str) -> FSMBuilder:
+        """Add a valid state.
+
+        Example:
+            >>> builder = FSMBuilder().with_state("idle").with_state("running")
+        """
+
+    def with_transition(self, from_state: str, to_state: str) -> FSMBuilder:
+        """Add a valid transition.
+
+        Example:
+            >>> builder = FSMBuilder().with_transition("idle", "running")
+        """
+
+    def with_entry_hook(self, state: str, hook: Callable[[FSMContext], Result[None]]) -> FSMBuilder:
+        """Add an entry hook for a state.
+
+        Hook is called when entering state. Hook failures are logged
+        and do not block transitions.
+
+        Example:
+            >>> async def on_enter(ctx: FSMContext) -> Result[None]:
+            ...     print(f"Entering state: {ctx.state}")
+            ...     return Ok(None)
+            >>> builder = FSMBuilder().with_entry_hook("running", on_enter)
+        """
+
+    def with_exit_hook(self, state: str, hook: Callable[[FSMContext], Result[None]]) -> FSMBuilder:
+        """Add an exit hook for a state.
+
+        Hook is called when exiting state. Hook failures are logged
+        and do not block transitions.
+        """
+
+    def with_guard(
+        self,
+        from_state: str,
+        to_state: str,
+        guard: Callable[[FSMContext], Result[bool]],
+    ) -> FSMBuilder:
+        """Add a guard condition for a transition.
+
+        Guard is called before transition execution. If guard returns
+        False or Err, transition is rejected.
+        """
+
+    def with_persistence(self, repository: Any) -> FSMBuilder:
+        """Enable state persistence.
+
+        Repository must implement set_state(fsm_id, state) method.
+        State is persisted after each successful transition.
+        """
+
+    def with_mediator(self, mediator: Any) -> FSMBuilder:
+        """Enable event publishing via Mediator.
+
+        Mediator must implement publish(event) method.
+        State change events are published after each transition.
+        """
+
+    def with_observer(self, observer: Any) -> FSMBuilder:
+        """Add an observer for state changes.
+
+        Observer must implement on_notify(observable, event) method.
+        Observers are notified after each successful transition.
+        """
+
+    def with_reliability(self, config: FSMReliabilityConfig) -> FSMBuilder:
+        """Enable reliability wrappers for external action callbacks.
+
+        Reliability wrappers are applied to hooks (entry/exit) to provide
+        fault tolerance for external operations. FSM internal operations
+        (transitions, state queries) are NOT wrapped.
+        """
+
+    def build(self, initial_state: str = "idle") -> Result[FSM]:
+        """Build FSM instance from builder configuration.
+
+        Validates configuration before creating FSM.
+        Returns Result[FSM]: Ok with FSM instance, Err if configuration invalid.
+        """
+```
+
+**Pattern Integration:**
+
+The FSM Builder Pattern integrates 12 design patterns:
+
+1. **Result Pattern**: All methods return `Result[T]` for explicit error handling
+   - `transition_to()` returns `Result[TransitionCommand]`
+   - `build()` returns `Result[FSM]`
+   - Hooks return `Result[None]` for error handling
+
+2. **Command Pattern**: `TransitionCommand` encapsulates state transitions
+   - Audit trail via `get_command_history()`
+   - Provenance tracking with `fsm_id`, `from_state`, `to_state`, `timestamp`
+
+3. **Mediator Pattern**: Event publishing via `EventMediator`
+   - State change events published after each transition
+   - Event data includes `fsm_id`, `from_state`, `to_state`, `timestamp`
+
+4. **Observer Pattern**: Observers subscribe to state changes
+   - `register_observer()` / `unregister_observer()` methods
+   - Observers notified after each successful transition
+   - Safe observer unregistration during notification
+
+5. **Repository Pattern**: `FSMStateRepository` for state persistence
+   - Immediate persistence per transition (not Unit of Work)
+   - Repository methods return `Result[T]`
+
+6. **Reliability Wrappers**: External action callbacks wrapped for fault tolerance
+   - `CircuitBreaker`: Prevents cascading failures
+   - `RetryExecutor`: Handles transient errors with backoff
+   - `RateLimiter`: Prevents API throttling (token bucket)
+   - `Bulkhead`: Limits concurrent operations (semaphores)
+   - Applied via `FSMReliabilityConfig` to hooks only
+
+7. **DI Container Integration**: Facade can create FSMs via `Facade.create_fsm()`
+   - Dependencies wired through DI container
+   - Repository, mediator, observers injected
+
+8. **Facade Pattern**: Simplified API over complex subsystems
+   - `Facade.create_fsm()` provides easy FSM creation
+   - Hides builder complexity from end users
+
+**Code Examples:**
+
+**Basic FSM with Builder:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder
+
+# Create simple FSM with builder
+result = (FSMBuilder()
+    .with_state("idle")
+    .with_state("running")
+    .with_state("completed")
+    .with_transition("idle", "running")
+    .with_transition("running", "completed")
+    .build(initial_state="idle"))
+
+if result.is_ok():
+    fsm = result.unwrap()
+    print(f"Initial state: {await fsm.get_state()}")  # "idle"
+    
+    # Transition to running
+    result = await fsm.transition_to("running")
+    if result.is_ok():
+        print(f"New state: {await fsm.get_state()}")  # "running"
+```
+
+**FSM with Entry/Exit Hooks:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder, FSMContext
+
+async def on_enter_running(ctx: FSMContext) -> Result[None]:
+    print(f"Entering running state at {ctx.timestamp}")
+    return Ok(None)
+
+async def on_exit_idle(ctx: FSMContext) -> Result[None]:
+    print(f"Exiting idle state from {ctx.source}")
+    return Ok(None)
+
+result = (FSMBuilder()
+    .with_state("idle")
+    .with_state("running")
+    .with_transition("idle", "running")
+    .with_entry_hook("running", on_enter_running)
+    .with_exit_hook("idle", on_exit_idle)
+    .build(initial_state="idle"))
+```
+
+**FSM with Guard Conditions:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder, FSMContext
+
+async def can_start(ctx: FSMContext) -> Result[bool]:
+    # Guard: check if resources are available
+    has_resources = ctx.user_data.get("resources_available", False)
+    if has_resources:
+        return Ok(True)
+    return Err("Resources not available", code="INSUFFICIENT_RESOURCES")
+
+result = (FSMBuilder()
+    .with_state("idle")
+    .with_state("running")
+    .with_transition("idle", "running")
+    .with_guard("idle", "running", can_start)
+    .build(initial_state="idle"))
+
+# Transition without resources
+ctx = FSMContext(user_data={"resources_available": False})
+result = await fsm.transition_to("running", context=ctx)
+if result.is_err():
+    print(f"Transition blocked: {result.error}")  # "Resources not available"
+```
+
+**FSM with Persistence, Mediator, Observers:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder, FSMContext
+from dawn_kestrel.core.mediator import EventMediatorImpl
+from dawn_kestrel.core.observer import StateChangeObserver
+
+# Create integrations
+repository = FSMStateRepositoryImpl(storage)
+mediator = EventMediatorImpl()
+observer = StateChangeObserver(name="fsm_watcher")
+
+# Build FSM with all integrations
+result = (FSMBuilder()
+    .with_state("idle")
+    .with_state("running")
+    .with_state("completed")
+    .with_transition("idle", "running")
+    .with_transition("running", "completed")
+    .with_persistence(repository)
+    .with_mediator(mediator)
+    .with_observer(observer)
+    .build(initial_state="idle"))
+
+# State is persisted to repository, events published to mediator, observers notified
+await fsm.transition_to("running")
+```
+
+**FSM with Reliability Wrappers:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder, FSMReliabilityConfig
+from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl
+from dawn_kestrel.llm.retry import RetryExecutorImpl, ExponentialBackoff
+
+# Create reliability wrappers
+circuit_breaker = CircuitBreakerImpl(
+    failure_threshold=5,
+    timeout_seconds=60,
+)
+retry_executor = RetryExecutorImpl(
+    max_attempts=3,
+    backoff=ExponentialBackoff(base_delay_ms=100, max_delay_ms=5000),
+)
+
+reliability_config = FSMReliabilityConfig(
+    circuit_breaker=circuit_breaker,
+    retry_executor=retry_executor,
+    enabled=True,
+)
+
+# Build FSM with reliability
+result = (FSMBuilder()
+    .with_state("idle")
+    .with_state("running")
+    .with_transition("idle", "running")
+    .with_entry_hook("running", async_external_action_hook)
+    .with_reliability(reliability_config)
+    .build(initial_state="idle"))
+
+# Entry hooks wrapped with circuit breaker + retry for fault tolerance
+await fsm.transition_to("running")
+```
+
+**Workflow FSM Phases:**
+
+The FSM Builder Pattern supports workflow FSMs for agent orchestration with these phases:
+
+```
+Workflow FSM States:
+intake → plan → act → synthesize → check → done
+
+Sub-loop:
+plan → act → synthesize → check → (plan again OR done)
+```
+
+**Phase Semantics (LLM-prompted phases):**
+- **intake**: Capture initial intent + constraints + initial evidence snapshot
+- **plan**: Generate/modify/prioritize todos
+- **act**: Use tools to perform work against top-priority todos
+- **synthesize**: Review/merge results and update todo statuses
+- **check**: Decide whether to continue loop; enforce stop conditions
+- **done**: Emit final result + stop reason
+
+**Stop Conditions (must be supported):**
+- success/intent met
+- no new info / stagnation
+- budget reached (iterations/tool calls/wall time)
+- human input required (blocking question)
+- risk threshold exceeded
+
+Each phase MUST be implemented as an LLM call (prompt + structured output), with code-level enforcement for hard budgets regardless of LLM response.
+
+**Workflow FSM Example:**
+```python
+from dawn_kestrel.core.fsm import FSMBuilder
+
+# Define workflow FSM states
+workflow_states = {
+    "intake", "plan", "act", "synthesize", "check", "done"
+}
+
+# Define workflow transitions
+workflow_transitions = {
+    "intake": {"plan"},
+    "plan": {"act"},
+    "act": {"synthesize"},
+    "synthesize": {"check"},
+    "check": {"plan", "done"},  # Sub-loop: check → plan again OR done
+}
+
+# Build workflow FSM with builder
+result = (FSMBuilder()
+    .with_state("intake")
+    .with_state("plan")
+    .with_state("act")
+    .with_state("synthesize")
+    .with_state("check")
+    .with_state("done")
+    .with_transition("intake", "plan")
+    .with_transition("plan", "act")
+    .with_transition("act", "synthesize")
+    .with_transition("synthesize", "check")
+    .with_transition("check", "plan")   # Continue loop
+    .with_transition("check", "done")   # Exit loop
+    .build(initial_state="intake"))
+
+if result.is_ok():
+    workflow_fsm = result.unwrap()
+    # Run workflow loop: intake → plan → act → synthesize → check → (plan again) OR done
+```
+
+**When to Use:**
+- When you need a configurable state machine with explicit transitions
+- When you want to integrate multiple patterns (Result, Command, Mediator, Observer, Repository)
+- When you need state persistence for recovery
+- When you need fault tolerance for external actions
+- When you want workflow FSMs for agent orchestration (intake/plan/act/synthesize/check/done)
+- When you need fluent API for complex FSM configuration
+
+**Benefits:**
+- **Fluent API**: Method chaining for readable FSM configuration
+- **Pattern Integration**: 12 patterns integrated seamlessly
+- **Explicit State Validation**: Prevents invalid transitions
+- **Audit Logging**: Command pattern tracks all transitions
+- **Event Publishing**: Mediator pattern for loose coupling
+- **State Persistence**: Repository pattern for recovery
+- **Fault Tolerance**: Reliability wrappers for external actions
+- **Observer Support**: State change notifications
+- **Result-Based**: All operations return `Result[T]` for explicit error handling
+- **Workflow Support**: Built-in support for workflow FSMs with LLM-prompted phases
+
+**Integration:**
+- Works with all reliability patterns (Circuit Breaker, Retry, Rate Limiter, Bulkhead)
+- Integrates with DI container for dependency injection
+- Facade pattern provides simplified API
+- Command pattern provides audit trail
+- Mediator pattern enables event-driven architecture
+- Observer pattern enables state change notifications
+- Repository pattern enables state persistence
+
+---
+
 ## Pattern Integration Diagrams
 
 ### Reliability Stack
@@ -1747,7 +2223,7 @@ UnitOfWork.commit()
 
 ### How Patterns Work Together
 
-The 21 patterns in Dawn Kestrel are designed to integrate seamlessly:
+The 22 patterns in Dawn Kestrel are designed to integrate seamlessly:
 
 **Reliability Stack:**
 1. **Rate Limiter** (token bucket) - First layer, prevents API overload
@@ -1938,7 +2414,7 @@ Common test patterns used across all pattern tests:
 
 ## Conclusion
 
-The 21 design patterns implemented in Dawn Kestrel provide:
+The 22 design patterns implemented in Dawn Kestrel provide:
 
 1. **Explicit Error Handling**: Result pattern eliminates exception scattering
 2. **Fault Tolerance**: Reliability stack prevents cascading failures
@@ -1947,6 +2423,7 @@ The 21 design patterns implemented in Dawn Kestrel provide:
 5. **Extensibility**: Plugin system enables third-party extensions
 6. **Type Safety**: Protocol-based design with runtime checking
 7. **Composition**: Patterns integrate seamlessly for complex operations
+8. **Workflow Orchestration**: FSM Builder pattern enables complex workflow management with LLM-prompted phases
 
 These patterns work together to provide excellent composition and eliminate blast exposure across the codebase.
 
