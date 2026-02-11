@@ -21,6 +21,7 @@ from typing import Any, Callable, Protocol, runtime_checkable
 from dawn_kestrel.core.mediator import Event, EventMediator, EventType
 from dawn_kestrel.core.observer import Observer
 from dawn_kestrel.core.result import Result, Ok, Err
+from dawn_kestrel.core.commands import TransitionCommand, CommandContext
 
 
 logger = logging.getLogger(__name__)
@@ -207,7 +208,7 @@ class FSMImpl:
         self._valid_states = valid_states
         self._valid_transitions = valid_transitions
         self._fsm_id = fsm_id or f"fsm_{id(self)}"
-        self._command_history: list[dict[str, Any]] = []
+        self._command_history: list[Any] = []
         self._repository = repository
         self._mediator = mediator
         self._observers: set[Observer] = set(observers) if observers else set()
@@ -238,7 +239,7 @@ class FSMImpl:
 
     async def transition_to(
         self, new_state: str, context: FSMContext | None = None
-    ) -> Result[None]:
+    ) -> Result[TransitionCommand]:
         """Transition FSM to new state.
 
         Args:
@@ -246,7 +247,7 @@ class FSMImpl:
             context: Optional context passed to hooks and guards.
 
         Returns:
-            Result[None]: Ok on successful transition, Err if transition invalid.
+            Result[TransitionCommand]: Ok with command on success, Err if transition invalid.
         """
         if not await self.is_transition_valid(self._state, new_state):
             return Err(
@@ -256,6 +257,12 @@ class FSMImpl:
             )
 
         from_state = self._state
+
+        command = TransitionCommand(
+            fsm_id=self._fsm_id,
+            from_state=from_state,
+            to_state=new_state,
+        )
 
         exit_hook = self._exit_hooks.get(from_state)
         if exit_hook:
@@ -347,23 +354,17 @@ class FSMImpl:
                 except Exception as e:
                     logger.error(f"Observer error for FSM {self._fsm_id}: {e}")
 
-        self._command_history.append(
-            {
-                "fsm_id": self._fsm_id,
-                "from_state": from_state,
-                "to_state": new_state,
-            }
-        )
+        self._command_history.append(command)
 
-        return Ok(None)
+        return Ok(command)
 
-    def get_command_history(self) -> list[dict[str, Any]]:
+    def get_command_history(self) -> list[TransitionCommand]:
         """Get audit history of executed state transitions.
 
         Returns:
-            List of dictionaries containing transition audit data.
+            List of TransitionCommand objects containing transition audit data.
         """
-        return self._command_history.copy()
+        return list(self._command_history)
 
     async def register_observer(self, observer: Observer) -> None:
         """Register observer for state change notifications.
