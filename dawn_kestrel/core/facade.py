@@ -32,6 +32,7 @@ from dawn_kestrel.core.agent_types import AgentResult
 from dawn_kestrel.core.provider_config import ProviderConfig
 from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.core.di_container import Container
+from dawn_kestrel.core.fsm import FSM
 
 
 @runtime_checkable
@@ -142,6 +143,28 @@ class Facade(Protocol):
 
         Returns:
             Result with registered ProviderConfig on success, or Err on failure.
+        """
+
+    @abstractmethod
+    async def get_fsm_state(self, fsm_id: str) -> Result[str]:
+        """Get the current state of an FSM instance.
+
+        Args:
+            fsm_id: Unique identifier for the FSM instance.
+
+        Returns:
+            Result with current state string on success, or Err on failure.
+        """
+
+    @abstractmethod
+    async def create_fsm(self, initial_state: str) -> Result[FSM]:
+        """Create a new FSM instance with default configuration.
+
+        Args:
+            initial_state: Initial state for the FSM.
+
+        Returns:
+            Result with FSM instance on success, or Err on failure.
         """
 
 
@@ -357,3 +380,49 @@ class FacadeImpl:
             return Err(f"Failed to register provider: {e}", code="ValueError")
         except Exception as e:
             return Err(f"Failed to register provider: {e}", code="SessionError")
+
+    async def get_fsm_state(self, fsm_id: str) -> Result[str]:
+        """Get the current state of an FSM instance.
+
+        Args:
+            fsm_id: Unique identifier for the FSM instance.
+
+        Returns:
+            Result with current state string on success, or Err on failure.
+        """
+        try:
+            fsm_repository = self._container.fsm_repository()
+            result = await fsm_repository.get_state(fsm_id)
+
+            if result.is_err():
+                err_result = cast(Any, result)
+                return Err(f"Failed to get FSM state: {err_result.error}", code="FSMError")
+
+            return result
+
+        except Exception as e:
+            return Err(f"Failed to get FSM state: {e}", code="FSMError")
+
+    async def create_fsm(self, initial_state: str) -> Result[FSM]:
+        """Create a new FSM instance with default configuration.
+
+        Args:
+            initial_state: Initial state for the FSM.
+
+        Returns:
+            Result with FSM instance on success, or Err on failure.
+        """
+        try:
+            fsm_builder = self._container.fsm_builder()
+
+            # Build FSM with initial state and default empty configuration
+            fsm_result = fsm_builder.with_state(initial_state).build(initial_state=initial_state)
+
+            if fsm_result.is_err():
+                err_result = cast(Any, fsm_result)
+                return Err(f"Failed to create FSM: {err_result.error}", code="FSMError")
+
+            return fsm_result
+
+        except Exception as e:
+            return Err(f"Failed to create FSM: {e}", code="FSMError")
