@@ -17,10 +17,15 @@ State Machine Design:
 - Valid transitions defined in VALID_TRANSITIONS
 - All transitions return Result types (Ok/Err) for explicit error handling
 - Protocol-based design enables multiple implementations
+
+DEPRECATED:
+    The AgentFSMImpl class is deprecated. Use Facade.create_fsm() instead.
+    See Facade class for creating FSM instances.
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Protocol, runtime_checkable
 
 from dawn_kestrel.core.result import Result, Ok, Err
@@ -72,6 +77,9 @@ class AgentFSM(Protocol):
 class AgentFSMImpl:
     """Agent finite state machine implementation.
 
+    DEPRECATED: This class is deprecated. Use Facade.create_fsm() instead.
+    See dawn_kestrel.core.facade.Facade for creating FSM instances.
+
     Manages agent lifecycle with explicit state transitions
     and validation to prevent invalid state changes.
 
@@ -121,6 +129,12 @@ class AgentFSMImpl:
         Raises:
             ValueError: If initial_state is not in VALID_STATES.
         """
+        warnings.warn(
+            "AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. "
+            "See dawn_kestrel.core.facade.Facade for creating FSM instances.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if initial_state not in self.VALID_STATES:
             raise ValueError(
                 f"Invalid initial state: {initial_state}. "
