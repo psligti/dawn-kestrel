@@ -648,7 +648,7 @@ class TestFSMHooks:
         entry_called = []
 
         def entry_hook(ctx: FSMContext) -> Result[None]:
-            entry_called.append(ctx.state)
+            entry_called.append(ctx.metadata["state"])
             return Ok(None)
 
         result = (
@@ -675,7 +675,7 @@ class TestFSMHooks:
         exit_called = []
 
         def exit_hook(ctx: FSMContext) -> Result[None]:
-            exit_called.append(ctx.state)
+            exit_called.append(ctx.metadata["state"])
             return Ok(None)
 
         result = (
@@ -799,16 +799,14 @@ class TestFSMHooks:
         # Check exit hook context
         exit_type, exit_ctx = contexts_received[0]
         assert exit_type == "exit"
-        assert exit_ctx.state == "idle"
-        assert exit_ctx.fsm_id in exit_ctx.metadata
         assert exit_ctx.metadata["state"] == "idle"
+        assert "fsm_id" in exit_ctx.metadata
 
         # Check entry hook context
         entry_type, entry_ctx = contexts_received[1]
         assert entry_type == "entry"
-        assert entry_ctx.state == "running"
-        assert entry_ctx.fsm_id in entry_ctx.metadata
         assert entry_ctx.metadata["state"] == "running"
+        assert "fsm_id" in entry_ctx.metadata
 
     @pytest.mark.asyncio
     async def test_hooks_with_user_data(self):
