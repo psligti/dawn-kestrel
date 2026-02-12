@@ -349,10 +349,15 @@ def review(
     - Dynamic todo creation based on exploration
     - Iterative review with additional task generation
     - Final security assessment
+    - LLM-powered analysis (when configured)
 
     Required tools (can be installed automatically with --install-tools):
     - git: For diff and changed files
     - uv: For tool installation (if using --install-tools)
+
+    Optional LLM configuration:
+    - Requires dawn-kestrel account configuration with API key
+    - LLM enhances analysis, pattern detection, and assessment generation
     """
 
     async def run_review() -> None:
@@ -400,10 +405,38 @@ def review(
             )
             raise click.ClickException("Could not import SecurityReviewerAgent")
 
+        llm_client = None
+        try:
+            from dawn_kestrel.llm import LLMClient
+            from dawn_kestrel.core.settings import settings
+
+            default_account = settings.get_default_account()
+            if default_account:
+                provider_id = default_account.provider_id
+                model = default_account.model
+                api_key = default_account.api_key.get_secret_value()
+
+                llm_client = LLMClient(
+                    provider_id=provider_id,
+                    model=model,
+                    api_key=api_key,
+                )
+                if verbose:
+                    console.print(f"[dim]LLM client initialized: {provider_id} / {model}[/dim]")
+            else:
+                console.print(
+                    "[yellow]Warning: No default account configured - LLM features disabled[/yellow]"
+                )
+                console.print("[dim]Configure account with: dawn-kestrel account add[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to initialize LLM client: {e}[/yellow]")
+            console.print("[dim]Continuing without LLM features[/dim]")
+
         # Create security reviewer agent
         reviewer = SecurityReviewerAgent(
             orchestrator=orchestrator,
             session_id=session_id,
+            llm_client=llm_client,
         )
 
         # Set max iterations
