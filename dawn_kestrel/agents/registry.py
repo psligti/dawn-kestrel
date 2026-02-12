@@ -51,19 +51,21 @@ class AgentRegistry:
         self.persistence_enabled = persistence_enabled
         self.storage_dir = storage_dir
         self._agents: Dict[str, Agent] = {}
-
-        self._seed_builtin_agents()
+        self._seeded: bool = False
 
         if persistence_enabled:
             self._initialize_persistence()
 
     def _seed_builtin_agents(self) -> None:
         """Seed registry with built-in agents from plugin discovery"""
+        if self._seeded:
+            logger.debug("Agents already seeded, skipping")
+            return
+
         try:
             plugins = asyncio.run(load_agents())
-        except RuntimeError:
-            # Event loop already running (in async context), skip seeding
-            logger.warning("Cannot seed builtin agents: event loop already running")
+        except Exception as e:
+            logger.warning(f"Failed to load builtin agents: {type(e).__name__}: {e}")
             return
 
         for name, agent_plugin in plugins.items():
@@ -71,7 +73,8 @@ class AgentRegistry:
             if agent:
                 self._register_internal(agent)
 
-        logger.debug(f"Seeded registry with {len(self._agents)} built-in agents from plugins")
+        self._seeded = True
+        logger.info(f"Seeded registry with {len(self._agents)} built-in agents from plugins")
 
     def _load_agent_from_plugin(self, name: str, agent_plugin) -> Optional[Agent]:
         """
@@ -225,6 +228,12 @@ class AgentRegistry:
         async with aiofiles.open(agent_path, mode="w") as f:
             await f.write(json.dumps(agent_data, indent=2, ensure_ascii=False))
 
+    def _ensure_seeded(self) -> None:
+        """Ensure builtin agents are loaded before accessing them."""
+        if not self._seeded:
+            logger.debug("Lazy seeding builtin agents...")
+            self._seed_builtin_agents()
+
     def get_agent(self, name: str) -> Optional[Agent]:
         """
         Get agent by name (case-insensitive).
@@ -235,6 +244,7 @@ class AgentRegistry:
         Returns:
             Agent if found, None otherwise
         """
+        self._ensure_seeded()
         normalized_name = self._normalize_name(name)
         return self._agents.get(normalized_name)
 
@@ -248,6 +258,7 @@ class AgentRegistry:
         Returns:
             List of agents
         """
+        self._ensure_seeded()
         agents = list(self._agents.values())
 
         if not include_hidden:
