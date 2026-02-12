@@ -87,7 +87,7 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
     return plugins
 
 
-def load_tools() -> Dict[str, Any]:
+async def load_tools() -> Dict[str, Any]:
     """
     Load tool plugins from dawn_kestrel.tools entry points.
 
@@ -97,7 +97,7 @@ def load_tools() -> Dict[str, Any]:
         Dictionary mapping tool names to tool instances
 
     Example:
-        >>> tools = load_tools()
+        >>> tools = await load_tools()
         >>> bash_tool = tools.get('bash')
     """
     tools = _load_plugins("dawn_kestrel.tools", "tool")
@@ -185,75 +185,68 @@ def load_providers() -> Dict[str, Any]:
 
 
 def _load_providers_fallback() -> Dict[str, Any]:
-    from dawn_kestrel.providers import (
-        AnthropicProvider,
-        OpenAIProvider,
-        ZAIProvider,
-        ZAICodingPlanProvider,
-    )
+    # Import inside function to avoid circular dependency at module load time
+    # Only import providers from separate modules; inline providers in __init__.py
+    # are automatically available when providers module is imported
+    from dawn_kestrel.providers.zai import ZAIProvider
+    from dawn_kestrel.providers.zai_coding_plan import ZAICodingPlanProvider
+
+    # For inline providers (Anthropic, OpenAI), import __init__ module directly
+    # but only within this function to avoid circular dependency
+    import dawn_kestrel.providers as providers_module
 
     return {
-        "anthropic": AnthropicProvider,
-        "openai": OpenAIProvider,
+        "anthropic": providers_module.AnthropicProvider,
+        "openai": providers_module.OpenAIProvider,
         "zai": ZAIProvider,
         "zai_coding_plan": ZAICodingPlanProvider,
     }
 
 
-def load_agents() -> Dict[str, Any]:
+async def load_agents() -> Dict[str, Any]:
     """
     Load agent plugins from dawn_kestrel.agents entry points.
 
-    Falls back to direct imports if entry points are not available.
-
     Returns:
         Dictionary mapping agent names to agent instances or factories
-
-    Example:
-        >>> agents = load_agents()
-        >>> orchestrator = agents.get('orchestrator')
     """
     agents = _load_plugins("dawn_kestrel.agents", "agent")
-
     if not agents:
-        logger.info("No agents found via entry points, using fallback direct imports")
+        logger.info("No agents found via entry points, using fallback imports")
         agents = _load_agents_fallback()
 
+    logger.info(f"Loaded {len(agents)} agents via plugin discovery")
     return agents
 
 
 def _load_agents_fallback() -> Dict[str, Any]:
+    """Fallback to load agents if entry points are not available."""
     from dawn_kestrel.agents.builtin import (
         BUILD_AGENT,
         PLAN_AGENT,
         GENERAL_AGENT,
     )
-    from dawn_kestrel.agents.bolt_merlin.orchestrator import create_orchestrator_agent
-    from dawn_kestrel.agents.bolt_merlin.master_orchestrator import create_master_orchestrator_agent
-    from dawn_kestrel.agents.bolt_merlin.consultant import create_consultant_agent
-    from dawn_kestrel.agents.bolt_merlin.librarian import create_librarian_agent
-    from dawn_kestrel.agents.bolt_merlin.explore import create_explore_agent
-    from dawn_kestrel.agents.bolt_merlin.multimodal_looker import create_multimodal_looker_agent
-    from dawn_kestrel.agents.bolt_merlin.autonomous_worker import create_autonomous_worker_agent
-    from dawn_kestrel.agents.bolt_merlin.pre_planning import create_pre_planning_agent
-    from dawn_kestrel.agents.bolt_merlin.plan_validator import create_plan_validator_agent
-    from dawn_kestrel.agents.bolt_merlin.planner import create_planner_agent
 
-    return {
-        "build": BUILD_AGENT,
-        "plan": PLAN_AGENT,
-        "general": GENERAL_AGENT,
-        "orchestrator": create_orchestrator_agent,
-        "master_orchestrator": create_master_orchestrator_agent,
-        "consultant": create_consultant_agent,
-        "librarian": create_librarian_agent,
-        "explore": create_explore_agent,
-        "multimodal_looker": create_multimodal_looker_agent,
-        "autonomous_worker": create_autonomous_worker_agent,
-        "pre_planning": create_pre_planning_agent,
-        "plan_validator": create_plan_validator_agent,
-        "planner": create_planner_agent,
+    # Try to load bolt_merlin agents for enhanced functionality
+    try:
+        from dawn_kestrel.agents.bolt_merlin.orchestrator import create_orchestrator_agent
+
+        bolt_merlin_agents = {
+            "orchestrator": create_orchestrator_agent(),
+        }
+    except ImportError as e:
+        logger.warning(f"Bolt Merlin package not available, skipping bolt_merlin agents: {e}")
+
+    builtin_agents = {
+        agent.name: agent
+        for agent in [
+            BUILD_AGENT,
+            PLAN_AGENT,
+            GENERAL_AGENT,
+        ]
     }
+
+    return {**builtin_agents}
 
 
 def get_plugin_version(entry_point: EntryPoint) -> Optional[str]:
