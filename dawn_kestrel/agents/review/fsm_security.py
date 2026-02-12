@@ -42,6 +42,7 @@ from dawn_kestrel.core.agent_task import TaskStatus, create_agent_task
 from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.agents.orchestrator import AgentOrchestrator
 from dawn_kestrel.agents.review.utils.redaction import format_log_with_redaction
+from dawn_kestrel.llm import LLMRequestOptions
 
 # For type hints (avoid circular import)
 if TYPE_CHECKING:
@@ -1107,22 +1108,22 @@ If no additional todos are needed, return an empty proposed_todos array.
                 subagent_task: Optional[SubagentTask] = None
 
                 if agent_name == "secret_scanner":
-                    agent = SecretsScannerAgent()
+                    agent = SecretsScannerAgent(llm_client=self.llm_client)
                     subagent_task = agent.execute(repo_root, files)
                 elif agent_name == "injection_scanner":
-                    agent = InjectionScannerAgent()
+                    agent = InjectionScannerAgent(llm_client=self.llm_client)
                     subagent_task = agent.execute(repo_root, files)
                 elif agent_name == "auth_reviewer":
-                    agent = AuthReviewerAgent()
+                    agent = AuthReviewerAgent(llm_client=self.llm_client)
                     subagent_task = await agent.execute(repo_root, files)
                 elif agent_name == "dependency_auditor":
-                    agent = DependencyAuditorAgent()
+                    agent = DependencyAuditorAgent(llm_client=self.llm_client)
                     subagent_task = agent.execute(repo_root, files)
                 elif agent_name == "crypto_scanner":
-                    agent = CryptoScannerAgent()
+                    agent = CryptoScannerAgent(llm_client=self.llm_client)
                     subagent_task = agent.execute(repo_root, files)
                 elif agent_name == "config_scanner":
-                    agent = ConfigScannerAgent()
+                    agent = ConfigScannerAgent(llm_client=self.llm_client)
                     subagent_task = agent.execute(repo_root, files)
                 else:
                     self.logger.warning(
@@ -1248,6 +1249,140 @@ Be thorough. Report ALL potential issues, even low-severity ones.
 
         self.logger.info("[DELEGATING_INVESTIGATION] All subagent tasks completed")
 
+    async def _analyze_findings_with_llm(self, findings: List[SecurityFinding]) -> Dict[str, Any]:
+        """
+        Analyze findings using LLM to identify patterns, priorities, and need for more tasks.
+
+        Args:
+            findings: List of SecurityFinding objects to analyze
+
+        Returns:
+            Dictionary with analysis results:
+            - needs_more_tasks: bool - Whether additional review tasks are needed
+            - patterns: List[str] - Identified patterns across findings
+            - summary: str - Summary of analysis
+        """
+        self.logger.info("[LLM_ANALYSIS] Analyzing findings with LLM for pattern detection...")
+
+        if not findings:
+            self.logger.info("[LLM_ANALYSIS] No findings to analyze")
+            return {
+                "needs_more_tasks": False,
+                "patterns": [],
+                "summary": "No findings available for analysis",
+            }
+
+        findings_summary = ""
+        for i, finding in enumerate(findings[:30], 1):
+            findings_summary += f"""
+{i}. {finding.severity.upper()}: {finding.title}
+   File: {finding.file_path}:{finding.line_number}
+   Description: {finding.description[:200]}...
+   Requires Review: {finding.requires_review}
+"""
+        if len(findings) > 30:
+            findings_summary += f"\n... and {len(findings) - 30} more findings\n"
+
+        prompt = f"""You are a security review orchestrator analyzing investigation findings.
+
+CONTEXT:
+You have received {len(findings)} security findings from subagent investigations.
+
+FINDINGS SUMMARY:
+{findings_summary}
+
+ANALYSIS TASK:
+Review these findings and provide a structured analysis:
+
+1. PATTERN IDENTIFICATION:
+   - Identify common patterns across findings (e.g., "multiple SQL injection issues in API endpoints")
+   - Group related findings (e.g., same vulnerability class in similar files)
+   - Note systemic issues (e.g., missing input validation across multiple modules)
+
+2. PRIORITY ASSESSMENT:
+   - Count findings by severity: critical, high, medium, low
+   - Identify which findings require immediate attention
+   - Flag any findings that seem false positives or need verification
+
+3. TASK PLANNING:
+   - Determine if additional review tasks are needed
+   - Consider:
+     * Are there critical/high findings that require deep analysis?
+     * Are there patterns that suggest a broader security issue?
+     * Are there findings marked as "requires_review" that need investigation?
+   - If yes, explain what type of additional tasks would help (e.g., deep dive on specific vulnerability class)
+
+OUTPUT FORMAT:
+Return a JSON object with:
+{{
+  "needs_more_tasks": true/false,
+  "patterns": ["pattern 1", "pattern 2", ...],
+  "priority_summary": "Summary of critical/high findings",
+  "recommended_tasks": ["task 1", "task 2", ...],
+  "summary": "Brief summary of overall security posture"
+}}
+
+Be thorough and specific in your analysis.
+"""
+
+        try:
+            from dawn_kestrel.llm import LLMRequestOptions
+
+            response = await self.llm_client.complete(
+                messages=[{"role": "user", "content": prompt}],
+                options=LLMRequestOptions(
+                    temperature=0.3,
+                    max_tokens=1500,
+                ),
+            )
+
+            import json
+
+            try:
+                llm_result = json.loads(response.text)
+                needs_more_tasks = llm_result.get("needs_more_tasks", False)
+                patterns = llm_result.get("patterns", [])
+                priority_summary = llm_result.get("priority_summary", "")
+                recommended_tasks = llm_result.get("recommended_tasks", [])
+                summary = llm_result.get("summary", "LLM analysis completed")
+
+                self.logger.info(
+                    f"[LLM_ANALYSIS] Analysis complete - needs_more_tasks={needs_more_tasks}, "
+                    f"patterns={len(patterns)}, recommended_tasks={len(recommended_tasks)}"
+                )
+
+                if patterns:
+                    self.logger.info(
+                        f"[LLM_ANALYSIS] Patterns identified: {', '.join(patterns[:3])}"
+                    )
+                if priority_summary:
+                    self.logger.info(f"[LLM_ANALYSIS] Priority: {priority_summary[:100]}...")
+
+                return {
+                    "needs_more_tasks": needs_more_tasks,
+                    "patterns": patterns,
+                    "priority_summary": priority_summary,
+                    "recommended_tasks": recommended_tasks,
+                    "summary": summary,
+                }
+
+            except json.JSONDecodeError as e:
+                self.logger.warning(f"[LLM_ANALYSIS] Failed to parse LLM response as JSON: {e}")
+                self.logger.debug(f"[LLM_ANALYSIS] LLM response: {response.text[:500]}")
+                return {
+                    "needs_more_tasks": False,
+                    "patterns": [],
+                    "summary": "LLM response parsing failed",
+                }
+
+        except Exception as e:
+            self.logger.warning(f"[LLM_ANALYSIS] LLM analysis failed: {e}")
+            return {
+                "needs_more_tasks": False,
+                "patterns": [],
+                "summary": "LLM analysis unavailable",
+            }
+
     async def _review_investigation_results(self) -> bool:
         """
         REVIEWING_RESULTS state handler.
@@ -1296,6 +1431,23 @@ Be thorough. Report ALL potential issues, even low-severity ones.
                 self.processed_task_ids.add(task.todo_id)
 
         self.logger.info(f"[REVIEWING_RESULTS] Total findings so far: {len(self.findings)}")
+
+        if self.llm_client and self.findings:
+            try:
+                llm_analysis = await self._analyze_findings_with_llm(self.findings)
+                if llm_analysis.get("needs_more_tasks", False):
+                    needs_more_tasks = True
+                    self.logger.info(
+                        f"[REVIEWING_RESULTS] LLM analysis indicates more tasks needed"
+                    )
+                    if llm_analysis.get("patterns"):
+                        self.logger.info(
+                            f"[REVIEWING_RESULTS] Patterns: {llm_analysis['patterns'][:3]}"
+                        )
+            except Exception as e:
+                self.logger.warning(
+                    f"[REVIEWING_RESULTS] LLM analysis failed, using rule-based: {e}"
+                )
 
         # Check if all todos are complete
         completed_count = sum(1 for t in self.todos.values() if t.status == TodoStatus.COMPLETED)

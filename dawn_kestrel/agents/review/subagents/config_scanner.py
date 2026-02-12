@@ -17,10 +17,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 from dawn_kestrel.agents.review.tools import ToolExecutor
+
+if TYPE_CHECKING:
+    from dawn_kestrel.llm import LLMClient
 
 
 logger = logging.getLogger(__name__)
@@ -111,14 +114,21 @@ class ConfigScannerAgent:
     Returns SubagentTask-compatible result with findings and summary.
     """
 
-    def __init__(self, tool_executor: Optional[ToolExecutor] = None):
+    def __init__(
+        self,
+        tool_executor: Optional[ToolExecutor] = None,
+        llm_client: Optional["LLMClient"] = None,
+    ):
         """Initialize ConfigScannerAgent.
 
         Args:
             tool_executor: ToolExecutor for running grep.
-                          If None, creates a new instance.
+                           If None, creates a new instance.
+            llm_client: LLMClient for potential LLM-based analysis.
+                       Currently not used, kept for future enhancement.
         """
         self.tool_executor = tool_executor or ToolExecutor()
+        self.llm_client = llm_client
         self.logger = logger
 
     def execute(self, repo_root: str, files: Optional[List[str]] = None) -> SubagentTask:
