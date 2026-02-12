@@ -464,9 +464,7 @@ class SecurityReviewerAgent:
             )
 
         # Create initial todos based on exploration (use dynamic method with LLM discovery if available)
-        await self._create_dynamic_todos(
-            llm_client=None
-        )  # Pass None for rule-only mode, can be enhanced later
+        await self._create_dynamic_todos(llm_client=self.llm_client)
 
         self.logger.info(f"[INITIAL_EXPLORATION] Created {len(self.todos)} initial todos")
 
