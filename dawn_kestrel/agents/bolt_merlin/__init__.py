@@ -35,7 +35,17 @@ from .explore import create_explore_agent
 from .frontend_ui_engineer import create_frontend_ui_ux_skill
 from .multimodal_looker import create_multimodal_looker_agent
 
-# Re-export all agent factory functions
+# Import registry functions
+from .registry import (
+    get_bolt_merlin_agents,
+    get_bolt_merlin_agent_names,
+    get_bolt_merlin_agent,
+    clear_agent_cache,
+    register_bolt_merlin_agent,
+    get_bolt_merlin_agent_descriptions,
+)
+
+# Re-export all agent factory functions and registry functions
 __all__ = [
     "create_orchestrator_agent",
     "create_master_orchestrator_agent",
@@ -48,4 +58,10 @@ __all__ = [
     "create_explore_agent",
     "create_frontend_ui_ux_skill",
     "create_multimodal_looker_agent",
+    "get_bolt_merlin_agents",
+    "get_bolt_merlin_agent_names",
+    "get_bolt_merlin_agent",
+    "clear_agent_cache",
+    "register_bolt_merlin_agent",
+    "get_bolt_merlin_agent_descriptions",
 ]
