@@ -398,7 +398,7 @@ Parallel Speedup: ~60% faster than sequential
   - Message: `feat(agents): add FSM integration to AgentBuilder`
   - Files: dawn_kestrel/agents/agent_config.py, tests/agents/test_agent_config.py
 
-- [ ] 6. Recreate orchestrator Agent with FSM
+- [x] 6. Recreate orchestrator Agent with FSM
 
   **What to do**:
   - Update `dawn_kestrel/agents/bolt_merlin/orchestrator/__init__.py`
@@ -434,7 +434,7 @@ Parallel Speedup: ~60% faster than sequential
   - Message: `feat(agents): recreate orchestrator with AgentBuilder and FSM`
   - Files: dawn_kestrel/agents/bolt_merlin/orchestrator/__init__.py
 
-- [ ] 7-16. Recreate Remaining 10 Agents with FSM
+- [x] 7-16. Recreate Remaining 10 Agents with FSM
 
   **Agents to update (same pattern as Task 6)**:
   - Task 7: master_orchestrator

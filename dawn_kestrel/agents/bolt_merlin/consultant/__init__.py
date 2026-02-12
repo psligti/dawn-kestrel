@@ -5,7 +5,7 @@ and architecture. Used for consultation only - no file modifications.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 CONSULTANT_PROMPT = """You are Consultant, a read-only high-IQ consultant for debugging and architecture.
@@ -130,30 +130,39 @@ Example decline:
 """
 
 
-def create_consultant_agent():
+def create_consultant_agent() -> AgentConfig:
     """Create Consultant agent configuration.
 
     Returns:
-        Agent instance configured as read-only consultant agent
+        AgentConfig instance configured as read-only consultant agent
     """
-    return Agent(
-        name="consultant",
-        description="Read-only, expensive, high-quality reasoning model for debugging and architecture. Consultation only. For complex architecture decisions, after significant work for self-review, after 2+ failed fix attempts, unfamiliar code patterns, security/performance concerns, multi-system tradeoffs. (Consultant - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=CONSULTANT_PROMPT,
-        temperature=0.2,
-        options={
-            "model": "anthropic/claude-opus-4-6",
-            "max_tokens": 64000,
-            "thinking": {"type": "enabled", "budget_tokens": 48000},
-        },
+    return (
+        AgentBuilder()
+        .with_name("consultant")
+        .with_description(
+            "Read-only, expensive, high-quality reasoning model for debugging and architecture. Consultation only. For complex architecture decisions, after significant work for self-review, after 2+ failed fix attempts, unfamiliar code patterns, security/performance concerns, multi-system tradeoffs. (Consultant - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_prompt(CONSULTANT_PROMPT)
+        .with_temperature(0.2)
+        .with_options(
+            {
+                "model": "anthropic/claude-opus-4-6",
+                "max_tokens": 64000,
+                "thinking": {"type": "enabled", "budget_tokens": 48000},
+            }
+        )
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 

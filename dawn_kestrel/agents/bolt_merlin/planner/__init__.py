@@ -6,7 +6,7 @@ who stole fire from the gods and gave it to humanity.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 PLANNER_PROMPT = """You are Planner, a strategic planning agent. Your job is to create comprehensive work plans that are clear, atomic, and executable.
@@ -238,24 +238,33 @@ def create_planner_agent():
     """Create Planner agent configuration.
 
     Returns:
-        Agent instance configured as strategic planning agent
+        AgentConfig configured as strategic planning agent
     """
-    return Agent(
-        name="planner",
-        description="Strategic planning agent that creates comprehensive work plans, breaks down tasks into atomic steps, identifies dependencies, and organizes for efficient execution. (Planner - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=PLANNER_PROMPT,
-        temperature=0.2,
-        options={
-            "thinking": {"type": "enabled", "budget_tokens": 32000},
-        },
+    return (
+        AgentBuilder()
+        .with_name("planner")
+        .with_description(
+            "Strategic planning agent that creates comprehensive work plans, breaks down tasks into atomic steps, identifies dependencies, and organizes for efficient execution. (Planner - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_native(True)
+        .with_default_fsms()
+        .with_prompt(PLANNER_PROMPT)
+        .with_temperature(0.2)
+        .with_options(
+            {
+                "thinking": {"type": "enabled", "budget_tokens": 32000},
+            }
+        )
+        .build()
     )
 
 

@@ -6,8 +6,7 @@ Humans roll their boulder every day too. Orchestrator works like a senior engine
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 ORCHESTRATOR_PROMPT = """<Role>
@@ -624,29 +623,38 @@ If the user's approach seems problematic:
 """
 
 
-def create_orchestrator_agent():
+def create_orchestrator_agent() -> AgentConfig:
     """Create Orchestrator agent configuration.
 
     Returns:
-        Agent instance configured as main orchestrator agent
+        AgentConfig instance configured as main orchestrator agent
     """
-    return Agent(
-        name="orchestrator",
-        description="Powerful AI Agent with orchestration capabilities from Bolt Merlin. Main orchestrator that delegates specialized work, manages parallel execution, and coordinates multi-agent workflows. (Orchestrator - Bolt Merlin)",
-        mode="primary",
-        permission=[
-            {"permission": "*", "pattern": "*", "action": "allow"},
-            {"permission": "question", "pattern": "*", "action": "allow"},
-            {"permission": "plan_enter", "pattern": "*", "action": "allow"},
-        ],
-        native=True,
-        prompt=ORCHESTRATOR_PROMPT,
-        temperature=0.1,
-        options={
-            "model": "anthropic/claude-opus-4-6",
-            "max_tokens": 64000,
-            "thinking": {"type": "enabled", "budget_tokens": 32000},
-        },
+    return (
+        AgentBuilder()
+        .with_name("orchestrator")
+        .with_description(
+            "Powerful AI Agent with orchestration capabilities from Bolt Merlin. Main orchestrator that delegates specialized work, manages parallel execution, and coordinates multi-agent workflows. (Orchestrator - Bolt Merlin)"
+        )
+        .with_mode("primary")
+        .with_permission(
+            [
+                {"permission": "*", "pattern": "*", "action": "allow"},
+                {"permission": "question", "pattern": "*", "action": "allow"},
+                {"permission": "plan_enter", "pattern": "*", "action": "allow"},
+            ]
+        )
+        .with_prompt(ORCHESTRATOR_PROMPT)
+        .with_temperature(0.1)
+        .with_options(
+            {
+                "model": "anthropic/claude-opus-4-6",
+                "max_tokens": 64000,
+                "thinking": {"type": "enabled", "budget_tokens": 32000},
+            }
+        )
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 

@@ -5,8 +5,7 @@ beyond raw text. Extracts specific information or summaries.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 MULTIMODAL_LOOKER_PROMPT = """You interpret media files that cannot be read as plain text.
@@ -50,20 +49,23 @@ Your output goes straight to the main agent for continued work.
 
 def create_multimodal_looker_agent():
     """Create Multimodal Looker agent configuration.
-    
+
     Returns:
-        Agent instance configured as a media analysis agent
+        AgentConfig instance configured as a media analysis agent
     """
-    return Agent(
-        name="multimodal_looker",
-        description="Analyze media files (PDFs, images, diagrams) that require interpretation beyond raw text. Extracts specific information or summaries from documents, describes visual content. Use when you need analyzed/extracted data rather than literal file contents. (Multimodal-Looker - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "read", "pattern": "*", "action": "allow"},
-        ],
-        native=True,
-        prompt=MULTIMODAL_LOOKER_PROMPT,
-        temperature=0.1,
+    return (
+        AgentBuilder()
+        .with_name("multimodal_looker")
+        .with_description(
+            "Analyze media files (PDFs, images, diagrams) that require interpretation beyond raw text. Extracts specific information or summaries from documents, describes visual content. Use when you need analyzed/extracted data rather than literal file contents. (Multimodal-Looker - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission([{"permission": "read", "pattern": "*", "action": "allow"}])
+        .with_prompt(MULTIMODAL_LOOKER_PROMPT)
+        .with_temperature(0.1)
+        .with_options({"native": True})
+        .with_default_fsms()
+        .build()
     )
 
 

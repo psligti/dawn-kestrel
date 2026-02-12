@@ -5,7 +5,7 @@ Autonomous deep worker with goal-oriented execution.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 HEPH_AESTUS_PROMPT = """You are Hephaestus, an autonomous deep worker for software engineering.
@@ -43,22 +43,28 @@ Your job is to SOLVE problems, not report them.
 
 
 # Create Hephaestus Agent
-def create_autonomous_worker_agent() -> Agent:
+def create_autonomous_worker_agent() -> AgentConfig:
     """Create a Hephaestus agent instance."""
-    return Agent(
-        name="autonomous_worker",
-        description="Autonomous deep worker, goal-oriented execution. Powered by GPT 5.2 Codex with medium reasoning effort.",
-        mode="primary",
-        permission=[
-            {"permission": "*", "pattern": "*", "action": "allow"},
-            {"permission": "write", "pattern": "*", "action": "allow"},
-            {"permission": "edit", "pattern": "*", "action": "allow"},
-            {"permission": "task", "pattern": "*", "action": "allow"},
-        ],
-        native=True,
-        temperature=0.3,
-        prompt=HEPH_AESTUS_PROMPT,
-        options={"thinking": {"type": "enabled", "budget_tokens": 32000}},
+    return (
+        AgentBuilder()
+        .with_name("autonomous_worker")
+        .with_description(
+            "Autonomous deep worker, goal-oriented execution. Powered by GPT 5.2 Codex with medium reasoning effort."
+        )
+        .with_mode("primary")
+        .with_permission(
+            [
+                {"permission": "*", "pattern": "*", "action": "allow"},
+                {"permission": "write", "pattern": "*", "action": "allow"},
+                {"permission": "edit", "pattern": "*", "action": "allow"},
+                {"permission": "task", "pattern": "*", "action": "allow"},
+            ]
+        )
+        .with_temperature(0.3)
+        .with_prompt(HEPH_AESTUS_PROMPT)
+        .with_options({"thinking": {"type": "enabled", "budget_tokens": 32000}})
+        .with_default_fsms()
+        .build()
     )
 
 

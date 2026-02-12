@@ -6,7 +6,8 @@ Master Orchestrator orchestrates all agents and manages overall workflow.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
+from dawn_kestrel.core.result import Result
 
 
 MASTER_ORCHESTRATOR_PROMPT = """You are Master Orchestrator, the master orchestrator. Your job is to coordinate all agents and manage the overall workflow across the entire Dawn Kestrel ecosystem.
@@ -312,29 +313,42 @@ If delegation fails:
 """
 
 
-def create_master_orchestrator_agent():
+def create_master_orchestrator_agent() -> AgentConfig:
     """Create Master Orchestrator agent configuration.
 
     Returns:
-        Agent instance configured as master orchestrator
+        AgentConfig configured as master orchestrator
     """
-    return Agent(
-        name="master_orchestrator",
-        description="Master orchestrator that coordinates all agents and manages overall workflow across the Dawn Kestrel ecosystem. Handles agent selection, parallel execution, task delegation, and verification. (Master Orchestrator - Bolt Merlin)",
-        mode="primary",
-        permission=[
-            {"permission": "*", "pattern": "*", "action": "allow"},
-            {"permission": "task", "pattern": "*", "action": "allow"},
-        ],
-        native=True,
-        prompt=MASTER_ORCHESTRATOR_PROMPT,
-        temperature=0.1,
-        options={
-            "model": "anthropic/claude-opus-4-6",
-            "max_tokens": 64000,
-            "thinking": {"type": "enabled", "budget_tokens": 48000},
-        },
+    result: Result[AgentConfig] = (
+        AgentBuilder()
+        .with_name("master_orchestrator")
+        .with_description(
+            "Master orchestrator that coordinates all agents and manages overall workflow across the Dawn Kestrel ecosystem. Handles agent selection, parallel execution, task delegation, and verification. (Master Orchestrator - Bolt Merlin)"
+        )
+        .with_mode("primary")
+        .with_permission(
+            [
+                {"permission": "*", "pattern": "*", "action": "allow"},
+                {"permission": "task", "pattern": "*", "action": "allow"},
+            ]
+        )
+        .with_default_fsms()
+        .with_prompt(MASTER_ORCHESTRATOR_PROMPT)
+        .with_temperature(0.1)
+        .with_options(
+            {
+                "model": "anthropic/claude-opus-4-6",
+                "max_tokens": 64000,
+                "thinking": {"type": "enabled", "budget_tokens": 48000},
+            }
+        )
+        .build()
     )
+
+    if result.is_err():
+        raise ValueError("Failed to create master orchestrator agent")
+
+    return result.unwrap()
 
 
 __all__ = ["create_master_orchestrator_agent"]

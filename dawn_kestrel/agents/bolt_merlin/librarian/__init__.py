@@ -7,7 +7,7 @@ and real-world implementation examples.
 
 from __future__ import annotations
 from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 LIBRARIAN_PROMPT = """# THE LIBRARIAN
@@ -307,25 +307,33 @@ grep_app_searchGitHub(query: "useQuery")
 """
 
 
-def create_librarian_agent():
+def create_librarian_agent() -> AgentConfig:
     """Create Librarian agent configuration.
-    
+
     Returns:
-        Agent instance configured as a codebase understanding agent
+        AgentConfig instance configured as a codebase understanding agent
     """
-    return Agent(
-        name="librarian",
-        description="Specialized codebase understanding agent for multi-repository analysis, searching remote codebases, retrieving official documentation, and finding implementation examples using GitHub CLI, Context7, and Web Search. MUST BE USED when users ask to look up code in remote repositories, explain library internals, or find usage examples in open source. (Librarian - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=LIBRARIAN_PROMPT,
-        temperature=0.1,
+    return (
+        AgentBuilder()
+        .with_name("librarian")
+        .with_description(
+            "Specialized codebase understanding agent for multi-repository analysis, searching remote codebases, retrieving official documentation, and finding implementation examples using GitHub CLI, Context7, and Web Search. MUST BE USED when users ask to look up code in remote repositories, explain library internals, or find usage examples in open source. (Librarian - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_native(True)
+        .with_prompt(LIBRARIAN_PROMPT)
+        .with_temperature(0.1)
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 

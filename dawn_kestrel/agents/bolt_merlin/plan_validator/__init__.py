@@ -7,8 +7,7 @@ in everything—even works of gods themselves.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 PLAN_VALIDATOR_PROMPT = """You are a **practical** work plan reviewer. Your goal is simple: verify that plan is **executable** and **references are valid**.
@@ -183,29 +182,40 @@ If REJECT:
 **Response Language**: Match language of the plan content.
 """
 
-def create_plan_validator_agent():
+
+def create_plan_validator_agent() -> AgentConfig:
     """Create Plan Validator agent configuration.
-    
+
     Returns:
-        Agent instance configured as a plan reviewer
+        AgentConfig instance configured as a plan reviewer
     """
-    return Agent(
-        name="plan_validator",
-        description="Expert reviewer for evaluating work plans against rigorous clarity, verifiability, and completeness standards. (Plan Validator - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=PLAN_VALIDATOR_PROMPT,
-        temperature=0.1,
-        options={
-            "model": "anthropic/claude-opus-4-6",
-            "thinking": {"type": "enabled", "budget_tokens": 32000},
-        },
+    return (
+        AgentBuilder()
+        .with_name("plan_validator")
+        .with_description(
+            "Expert reviewer for evaluating work plans against rigorous clarity, verifiability, and completeness standards. (Plan Validator - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_prompt(PLAN_VALIDATOR_PROMPT)
+        .with_temperature(0.1)
+        .with_options(
+            {
+                "model": "anthropic/claude-opus-4-6",
+                "thinking": {"type": "enabled", "budget_tokens": 32000},
+            }
+        )
+        .with_native(True)
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 
