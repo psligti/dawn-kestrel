@@ -1498,6 +1498,138 @@ Be thorough and specific in your analysis.
             f"[CREATING_REVIEW_TASKS] Created {review_todo_id - 100} additional review todos"
         )
 
+    async def _generate_assessment_with_llm(
+        self, filtered_findings: List[SecurityFinding]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate security assessment using LLM for overall severity, merge recommendation, summary, and notes.
+
+        Args:
+            filtered_findings: List of SecurityFinding objects (already filtered by confidence threshold)
+
+        Returns:
+            Dictionary with assessment data compatible with SecurityAssessment, or None on error.
+            Keys: overall_severity, merge_recommendation, summary, notes
+        """
+        self.logger.info("[LLM_ASSESSMENT] Generating security assessment with LLM...")
+
+        if not filtered_findings:
+            self.logger.info("[LLM_ASSESSMENT] No findings to assess")
+            return None
+
+        critical_count = sum(1 for f in filtered_findings if f.severity == "critical")
+        high_count = sum(1 for f in filtered_findings if f.severity == "high")
+        medium_count = sum(1 for f in filtered_findings if f.severity == "medium")
+        low_count = sum(1 for f in filtered_findings if f.severity == "low")
+
+        findings_summary = ""
+        for i, finding in enumerate(filtered_findings[:30], 1):
+            findings_summary += f"""
+{i}. {finding.severity.upper()}: {finding.title}
+   File: {finding.file_path}:{finding.line_number}
+   Description: {finding.description[:200]}...
+   Requires Review: {finding.requires_review}
+   Confidence: {finding.confidence_score}
+"""
+        if len(filtered_findings) > 30:
+            findings_summary += f"\n... and {len(filtered_findings) - 30} more findings\n"
+
+        review_context = f"""Review completed in {self.iteration_count} iteration(s)
+{len(self.todos)} todos created and processed
+{len(self.subagent_tasks)} subagent tasks delegated
+Confidence threshold: {self.confidence_threshold}"""
+
+        prompt = f"""You are a security review lead providing final assessment on a code change.
+
+REVIEW CONTEXT:
+{review_context}
+
+FINDINGS SUMMARY:
+{findings_summary}
+
+SEVERITY COUNTS:
+Critical: {critical_count}
+High: {high_count}
+Medium: {medium_count}
+Low: {low_count}
+Total: {len(filtered_findings)}
+
+ASSESSMENT TASK:
+Review these findings and provide a final security assessment:
+
+1. DETERMINE OVERALL SEVERITY:
+   - Based on the highest severity findings present
+   - Consider the quantity and quality of findings
+   - Choose one: "critical", "high", "medium", "low"
+
+2. DETERMINE MERGE RECOMMENDATION:
+   - "block": Critical or high-severity vulnerabilities that must be fixed before merging
+   - "needs_changes": Medium-severity issues that should be addressed before merging
+   - "approve": Only low-severity findings or no findings, safe to merge
+   - Consider business context and risk tolerance when making this decision
+
+3. WRITE SUMMARY:
+   - Concise summary (2-3 sentences) of the security review results
+   - Mention key findings and their severity
+   - Include the merge recommendation
+
+4. GENERATE NOTES:
+   - List 3-5 key observations or recommendations
+   - Highlight patterns or systemic issues
+   - Note any findings requiring additional review
+   - Mention positive findings (if any)
+
+OUTPUT FORMAT:
+Return a JSON object with:
+{{
+  "overall_severity": "critical|high|medium|low",
+  "merge_recommendation": "block|needs_changes|approve",
+  "summary": "Concise summary of security review",
+  "notes": ["note 1", "note 2", ...]
+}}
+
+Be precise and actionable in your assessment.
+"""
+
+        try:
+            response = await self.llm_client.complete(
+                messages=[{"role": "user", "content": prompt}],
+                options=LLMRequestOptions(
+                    temperature=0.3,
+                    max_tokens=1500,
+                ),
+            )
+
+            import json
+
+            try:
+                llm_result = json.loads(response.text)
+                overall_severity = llm_result.get("overall_severity", "low")
+                merge_recommendation = llm_result.get("merge_recommendation", "approve")
+                summary = llm_result.get("summary", "LLM security assessment completed")
+                notes = llm_result.get("notes", [])
+
+                self.logger.info(
+                    f"[LLM_ASSESSMENT] Assessment generated: severity={overall_severity}, "
+                    f"recommendation={merge_recommendation}, notes={len(notes)}"
+                )
+
+                return {
+                    "overall_severity": overall_severity,
+                    "merge_recommendation": merge_recommendation,
+                    "summary": summary,
+                    "notes": notes,
+                }
+
+            except json.JSONDecodeError as e:
+                self.logger.warning(f"[LLM_ASSESSMENT] Failed to parse LLM response as JSON: {e}")
+                self.logger.debug(f"[LLM_ASSESSMENT] LLM response: {response.text[:500]}")
+                return None
+
+        except Exception as e:
+            self.logger.warning(f"[LLM_ASSESSMENT] LLM assessment generation failed: {e}")
+            return None
+
     async def _generate_final_assessment(self) -> SecurityAssessment:
         """
         FINAL_ASSESSMENT state handler.
@@ -1540,38 +1672,71 @@ Be thorough and specific in your analysis.
             f"[FINAL_ASSESSMENT] Filtered out {filtered_out_count} findings below confidence threshold"
         )
 
-        # Count findings by severity (only those passing threshold)
-        critical_count = sum(1 for f in filtered_findings if f.severity == "critical")
-        high_count = sum(1 for f in filtered_findings if f.severity == "high")
-        medium_count = sum(1 for f in filtered_findings if f.severity == "medium")
-        low_count = sum(1 for f in filtered_findings if f.severity == "low")
+        llm_assessment = None
+        if self.llm_client and filtered_findings:
+            llm_assessment = await self._generate_assessment_with_llm(filtered_findings)
 
-        # Determine overall severity
-        if critical_count > 0:
-            overall_severity = "critical"
-        elif high_count > 0:
-            overall_severity = "high"
-        elif medium_count > 0:
-            overall_severity = "medium"
+        if llm_assessment:
+            overall_severity = llm_assessment.get("overall_severity", "low")
+            merge_recommendation = llm_assessment.get("merge_recommendation", "approve")
+            summary = llm_assessment.get("summary", "LLM security assessment completed")
+            notes = llm_assessment.get("notes", [])
+
+            critical_count = sum(1 for f in filtered_findings if f.severity == "critical")
+            high_count = sum(1 for f in filtered_findings if f.severity == "high")
+            medium_count = sum(1 for f in filtered_findings if f.severity == "medium")
+            low_count = sum(1 for f in filtered_findings if f.severity == "low")
+
+            notes.extend(
+                [
+                    f"Review completed in {self.iteration_count} iteration(s)",
+                    f"{len(self.todos)} todos created and processed",
+                    f"{len(self.subagent_tasks)} subagent tasks delegated",
+                    f"Confidence threshold: {self.confidence_threshold}",
+                    f"Filtered out {filtered_out_count} findings below threshold",
+                ]
+            )
+
+            self.logger.info("[FINAL_ASSESSMENT] Using LLM-generated assessment")
         else:
-            overall_severity = "low"
+            critical_count = sum(1 for f in filtered_findings if f.severity == "critical")
+            high_count = sum(1 for f in filtered_findings if f.severity == "high")
+            medium_count = sum(1 for f in filtered_findings if f.severity == "medium")
+            low_count = sum(1 for f in filtered_findings if f.severity == "low")
 
-        # Determine merge recommendation
-        if critical_count > 0 or high_count > 0:
-            merge_recommendation = "block"
-        elif medium_count > 0:
-            merge_recommendation = "needs_changes"
-        else:
-            merge_recommendation = "approve"
+            if critical_count > 0:
+                overall_severity = "critical"
+            elif high_count > 0:
+                overall_severity = "high"
+            elif medium_count > 0:
+                overall_severity = "medium"
+            else:
+                overall_severity = "low"
 
-        # Build summary
-        summary_parts = [
-            f"Security review completed with {len(filtered_findings)} findings (filtered out {filtered_out_count} below confidence threshold).",
-            f"Critical: {critical_count}, High: {high_count}, Medium: {medium_count}, Low: {low_count}.",
-            f"Overall severity: {overall_severity}",
-            f"Merge recommendation: {merge_recommendation}",
-        ]
-        summary = " ".join(summary_parts)
+            if critical_count > 0 or high_count > 0:
+                merge_recommendation = "block"
+            elif medium_count > 0:
+                merge_recommendation = "needs_changes"
+            else:
+                merge_recommendation = "approve"
+
+            summary_parts = [
+                f"Security review completed with {len(filtered_findings)} findings (filtered out {filtered_out_count} below confidence threshold).",
+                f"Critical: {critical_count}, High: {high_count}, Medium: {medium_count}, Low: {low_count}.",
+                f"Overall severity: {overall_severity}",
+                f"Merge recommendation: {merge_recommendation}",
+            ]
+            summary = " ".join(summary_parts)
+
+            notes = [
+                f"Review completed in {self.iteration_count} iteration(s)",
+                f"{len(self.todos)} todos created and processed",
+                f"{len(self.subagent_tasks)} subagent tasks delegated",
+                f"Confidence threshold: {self.confidence_threshold}",
+                f"Filtered out {filtered_out_count} findings below threshold",
+            ]
+
+            self.logger.info("[FINAL_ASSESSMENT] Using rule-based assessment")
 
         assessment = SecurityAssessment(
             overall_severity=overall_severity,
@@ -1583,13 +1748,7 @@ Be thorough and specific in your analysis.
             merge_recommendation=merge_recommendation,
             findings=filtered_findings,
             summary=summary,
-            notes=[
-                f"Review completed in {self.iteration_count} iteration(s)",
-                f"{len(self.todos)} todos created and processed",
-                f"{len(self.subagent_tasks)} subagent tasks delegated",
-                f"Confidence threshold: {self.confidence_threshold}",
-                f"Filtered out {filtered_out_count} findings below threshold",
-            ],
+            notes=notes,
         )
 
         self.logger.info("[FINAL_ASSESSMENT] Assessment generated:")
