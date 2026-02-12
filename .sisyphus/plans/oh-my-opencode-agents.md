@@ -316,7 +316,7 @@ Parallel Speedup: ~60% faster than sequential
   - Message: `feat(agents): add AgentWorkflowFSM`
   - Files: dawn_kestrel/agents/agent_workflow_fsm.py, tests/agents/test_agent_workflow_fsm.py
 
-- [ ] 4. Create AgentBuilder Fluent API
+- [x] 4. Create AgentBuilder Fluent API
 
   **What to do**:
   - Create AgentBuilder class in `dawn_kestrel/agents/agent_config.py`
@@ -360,7 +360,7 @@ Parallel Speedup: ~60% faster than sequential
   - Message: `feat(agents): add AgentBuilder fluent API`
   - Files: dawn_kestrel/agents/agent_config.py, tests/agents/test_agent_config.py
 
-- [ ] 5. Add FSM Integration to AgentBuilder
+- [x] 5. Add FSM Integration to AgentBuilder
 
   **What to do**:
   - Add .with_lifecycle_fsm(fsm: FSM) → AgentBuilder
