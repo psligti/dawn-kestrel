@@ -257,17 +257,23 @@ class SecurityReviewerAgent:
     }
 
     def __init__(
-        self, orchestrator: AgentOrchestrator, session_id: str, confidence_threshold: float = 0.50
+        self,
+        orchestrator: AgentOrchestrator,
+        session_id: str,
+        llm_client: Optional["LLMClient"] = None,
+        confidence_threshold: float = 0.50,
     ):
         """Initialize security reviewer agent.
 
         Args:
             orchestrator: AgentOrchestrator for task delegation
             session_id: Session ID for tracking
+            llm_client: LLMClient for dynamic todo discovery. If None, agent operates in rule-only mode.
             confidence_threshold: Minimum confidence score (0.0-1.0) for finding inclusion (default 0.50)
         """
         self.orchestrator = orchestrator
         self.session_id = session_id
+        self.llm_client = llm_client
         self.confidence_threshold = confidence_threshold
 
         self.fsm = ReviewFSMImpl(initial_state=ReviewState.IDLE.value)
@@ -1229,165 +1235,6 @@ Return findings as a JSON object with:
 Be thorough. Report ALL potential issues, even low-severity ones.
 """
         return prompt
-
-    async def _simulate_subagent_execution(self, task: SubagentTask):
-        await asyncio.sleep(0.5)
-
-        if "secret" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_001",
-                        "severity": "critical",
-                        "title": "Potential AWS access key found",
-                        "description": "Found pattern resembling AWS access key in code",
-                        "evidence": "AWS_ACCESS_KEY_ID='AKIAIOSFODNN7EXAMPLE'",
-                        "file_path": "config.py",
-                        "line_number": 42,
-                        "recommendation": "Remove hardcoded credentials. Use environment variables or secret manager.",
-                        "requires_review": True,
-                    }
-                ],
-                "summary": "Scanned for secrets and found 1 critical issue.",
-            }
-        elif "injection" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_002",
-                        "severity": "high",
-                        "title": "SQL injection risk",
-                        "description": "User input used directly in SQL query without sanitization",
-                        "evidence": f"query = f'SELECT * FROM users WHERE id = {{user_id}}'",
-                        "file_path": "api/users.py",
-                        "line_number": 156,
-                        "recommendation": "Use parameterized queries or an ORM.",
-                        "requires_review": True,
-                    },
-                    {
-                        "id": "sec_003",
-                        "severity": "high",
-                        "title": "XSS vulnerability",
-                        "description": "User input rendered without sanitization",
-                        "evidence": "return f'<div>{user_input}</div>'",
-                        "file_path": "views.py",
-                        "line_number": 89,
-                        "recommendation": "Use template escaping or HTML sanitization.",
-                        "requires_review": True,
-                    },
-                ],
-                "summary": "Scanned for injection vulnerabilities and found 2 high-severity issues.",
-            }
-        elif "unsafe_function" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_004",
-                        "severity": "high",
-                        "title": "Use of dangerous eval() function",
-                        "description": "Code uses eval() on user input",
-                        "evidence": "result = eval(user_data)",
-                        "file_path": "utils.py",
-                        "line_number": 45,
-                        "recommendation": "Replace eval() with safe alternatives or strict validation.",
-                        "requires_review": True,
-                    }
-                ],
-                "summary": "Scanned for unsafe functions and found 1 high-severity issue.",
-            }
-        elif "crypto" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_005",
-                        "severity": "medium",
-                        "title": "Weak cryptography detected",
-                        "description": "Using MD5 which is cryptographically broken",
-                        "evidence": "hashlib.md5(data).hexdigest()",
-                        "file_path": "hashing.py",
-                        "line_number": 23,
-                        "recommendation": "Use SHA-256 or stronger hash functions.",
-                        "requires_review": False,
-                    }
-                ],
-                "summary": "Reviewed cryptography usage and found 1 medium-severity issue.",
-            }
-        elif "config" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_006",
-                        "severity": "medium",
-                        "title": "Debug mode enabled in production",
-                        "description": "DEBUG setting is True which may expose sensitive information",
-                        "evidence": "DEBUG = True",
-                        "file_path": "settings.py",
-                        "line_number": 15,
-                        "recommendation": "Set DEBUG=False in production environments.",
-                        "requires_review": False,
-                    }
-                ],
-                "summary": "Reviewed security configuration and found 1 medium-severity issue.",
-            }
-        elif "pattern" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_007",
-                        "severity": "low",
-                        "title": "Print statement in production code",
-                        "description": "Debug print statement that may leak information",
-                        "evidence": "print(f'Debug: {sensitive_data}')",
-                        "file_path": "main.py",
-                        "line_number": 112,
-                        "recommendation": "Remove or replace with proper logging.",
-                        "requires_review": False,
-                    }
-                ],
-                "summary": "Scanned diff for security patterns and found 1 low-severity issue.",
-            }
-        elif "auth" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_008",
-                        "severity": "high",
-                        "title": "Missing JWT expiration check",
-                        "description": "JWT token validation does not check expiration",
-                        "evidence": "if verify_token(token):  # No exp check",
-                        "file_path": "auth/middleware.py",
-                        "line_number": 87,
-                        "recommendation": "Add token expiration validation in verify_token function.",
-                        "requires_review": True,
-                    }
-                ],
-                "summary": "Reviewed auth code and found 1 high-severity issue.",
-            }
-        elif "dependency" in task.agent_name:
-            task.result = {
-                "findings": [
-                    {
-                        "id": "sec_009",
-                        "severity": "medium",
-                        "title": "Outdated dependency with known CVE",
-                        "description": "requests==2.25.0 has known vulnerabilities",
-                        "evidence": "requests==2.25.0 in requirements.txt",
-                        "file_path": "requirements.txt",
-                        "line_number": 23,
-                        "recommendation": "Update to requests>=2.31.0",
-                        "requires_review": False,
-                    }
-                ],
-                "summary": "Audited dependencies and found 1 medium-severity issue.",
-            }
-        else:
-            task.result = {
-                "findings": [],
-                "summary": f"No security issues found in {task.agent_name} investigation.",
-            }
-
-        task.status = TaskStatus.COMPLETED
-        self.logger.info(f"[DELEGATING_INVESTIGATION] Task {task.task_id} completed")
 
     async def _wait_for_investigation_tasks(self):
         """Wait for all delegated tasks to complete."""
