@@ -463,7 +463,7 @@ Parallel Speedup: ~60% faster than sequential
   - Message: `feat(agents): recreate all bolt_merlin agents with AgentBuilder and FSM`
   - Files: dawn_kestrel/agents/bolt_merlin/*/__init__.py
 
-- [ ] 17. Create Integration Tests
+- [x] 17. Create Integration Tests
 
   **What to do**:
   - Create `tests/agents/test_bolt_merlin_fsm.py`
