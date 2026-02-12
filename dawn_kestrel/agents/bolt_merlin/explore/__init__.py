@@ -6,8 +6,7 @@ Uses contextual grep to search codebases intelligently.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 EXPLORE_PROMPT = """You are a codebase search specialist. Your job: find files and code, return actionable results.
@@ -94,25 +93,33 @@ Use the right tool for the job:
 Flood with parallel calls. Cross-validate findings across multiple tools.
 """
 
-def create_explore_agent():
+
+def create_explore_agent() -> AgentConfig:
     """Create Explore agent configuration.
-    
+
     Returns:
-        Agent instance configured as a codebase search specialist
+        AgentConfig instance configured as a codebase search specialist
     """
-    return Agent(
-        name="explore",
-        description="Contextual grep for codebases. Answers 'Where is X?', 'Which file has Y?', 'Find code that does Z'. Fire multiple in parallel for broad searches. Specify thoroughness: 'quick' for basic, 'medium' for moderate, 'very thorough' for comprehensive analysis. (Explore - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=EXPLORE_PROMPT,
-        temperature=0.1,
+    return (
+        AgentBuilder()
+        .with_name("explore")
+        .with_description(
+            "Contextual grep for codebases. Answers 'Where is X?', 'Which file has Y?', 'Find code that does Z'. Fire multiple in parallel for broad searches. Specify thoroughness: 'quick' for basic, 'medium' for moderate, 'very thorough' for comprehensive analysis. (Explore - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_prompt(EXPLORE_PROMPT)
+        .with_temperature(0.1)
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 

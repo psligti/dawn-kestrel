@@ -6,8 +6,7 @@ cohesive, and emotionally engaging interfaces.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 FRONTEND_UI_UX_SKILL = """# Role: Designer-Turned-Developer
@@ -95,15 +94,33 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 """
 
 
-def create_frontend_ui_ux_skill():
+def create_frontend_ui_ux_skill() -> AgentConfig:
     """Create Frontend UI/UX skill configuration.
-    
+
     Returns:
-        Skill definition for frontend UI/UX expertise
+        AgentConfig instance configured as a frontend UI/UX skill agent
     """
-    # Skills are not Agents - they're prompt templates
-    # This will be loaded as a skill definition, not as an Agent instance
-    return FRONTEND_UI_UX_SKILL
+    return (
+        AgentBuilder()
+        .with_name("frontend-ui-ux")
+        .with_description(
+            "Designer-turned-developer who crafts stunning UI/UX even without design mockups. Uses aesthetic principles and design systems thinking to create beautiful, cohesive, and emotionally engaging interfaces. (Frontend UI/UX - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_prompt(FRONTEND_UI_UX_SKILL)
+        .with_temperature(0.1)
+        .with_default_fsms()
+        .build()
+        .unwrap()
+    )
 
 
 __all__ = ["create_frontend_ui_ux_skill"]

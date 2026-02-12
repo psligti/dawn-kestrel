@@ -6,7 +6,7 @@ goddess of wisdom and deep thought.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 
 PRE_PLANNING_PROMPT = """You are Pre-Planning, a pre-planning consultant. Your job is to analyze requests and identify hidden intentions, ambiguities, and potential AI failure points BEFORE any planning or execution begins.
@@ -231,28 +231,37 @@ Every analysis must:
 """
 
 
-def create_pre_planning_agent():
+def create_pre_planning_agent() -> AgentConfig:
     """Create Pre-Planning agent configuration.
 
     Returns:
-        Agent instance configured as pre-planning consultant
+        AgentConfig instance configured as pre-planning consultant
     """
-    return Agent(
-        name="pre_planning",
-        description="Pre-planning analysis agent that analyzes requests to identify hidden intentions, ambiguities, and AI failure points. Consulted before planning begins to ensure requests are clear, complete, and unambiguous. (Pre-Planning - Bolt Merlin)",
-        mode="subagent",
-        permission=[
-            {"permission": "write", "pattern": "*", "action": "deny"},
-            {"permission": "edit", "pattern": "*", "action": "deny"},
-            {"permission": "task", "pattern": "*", "action": "deny"},
-            {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
-        ],
-        native=True,
-        prompt=PRE_PLANNING_PROMPT,
-        temperature=0.2,
-        options={
-            "thinking": {"type": "enabled", "budget_tokens": 32000},
-        },
+    return (
+        AgentBuilder()
+        .with_name("pre_planning")
+        .with_description(
+            "Pre-planning analysis agent that analyzes requests to identify hidden intentions, ambiguities, and AI failure points. Consulted before planning begins to ensure requests are clear, complete, and unambiguous. (Pre-Planning - Bolt Merlin)"
+        )
+        .with_mode("subagent")
+        .with_permission(
+            [
+                {"permission": "write", "pattern": "*", "action": "deny"},
+                {"permission": "edit", "pattern": "*", "action": "deny"},
+                {"permission": "task", "pattern": "*", "action": "deny"},
+                {"permission": "call_omo_agent", "pattern": "*", "action": "deny"},
+            ]
+        )
+        .with_prompt(PRE_PLANNING_PROMPT)
+        .with_temperature(0.2)
+        .with_options(
+            {
+                "thinking": {"type": "enabled", "budget_tokens": 32000},
+            }
+        )
+        .with_default_fsms()
+        .build()
+        .unwrap()
     )
 
 
