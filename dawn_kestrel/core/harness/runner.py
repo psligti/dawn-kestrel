@@ -8,6 +8,7 @@ This module provides two runner implementations:
 1. AgentRunner - Generic agent runner with ContextBuilder
 2. SimpleReviewAgentRunner - Simple runner for review agents (no ContextBuilder required)
 """
+
 from __future__ import annotations
 
 import logging
@@ -477,8 +478,7 @@ class SimpleReviewAgentRunner:
         )
 
         logger.info(
-            f"[{self.agent_name}] Calling LLM: "
-            f"temperature={self.temperature}, top_p={self.top_p}"
+            f"[{self.agent_name}] Calling LLM: temperature={self.temperature}, top_p={self.top_p}"
         )
 
         response = await llm_client.complete(messages=messages, options=options)
@@ -486,9 +486,7 @@ class SimpleReviewAgentRunner:
         if not response.text or not response.text.strip():
             raise ValueError("Empty response from LLM")
 
-        logger.info(
-            f"[{self.agent_name}] LLM response received: {len(response.text)} chars"
-        )
+        logger.info(f"[{self.agent_name}] LLM response received: {len(response.text)} chars")
 
         return response.text
 

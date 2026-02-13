@@ -41,7 +41,6 @@ def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
     Returns:
         Dictionary mapping ProviderID to provider factory functions/classes
     """
-    # Load built-in providers from entry points
     providers = load_providers()
 
     # Map entry point names to ProviderID enum values
@@ -314,14 +313,29 @@ def get_provider(
     """
     global _provider_factories_cache
 
-    # Load factories (with caching)
+    # Load factories (with caching) - ensure we get actual provider instances
     if _provider_factories_cache is None:
-        _provider_factories_cache = _get_provider_factories()
+        factories = _get_provider_factories()
+    else:
+        factories = _provider_factories_cache
 
-    factory = _provider_factories_cache.get(provider_id)
+    factory = factories.get(provider_id)
     if factory is None:
         return None
-    return factory(api_key)
+
+    # Factory is a callable that returns a provider instance
+    provider = factory(api_key)
+
+    # Validate result is actually a provider instance, not a coroutine
+    import inspect
+
+    if inspect.iscoroutine(provider):
+        # If somehow we still got a coroutine, unwrap it
+        raise ValueError(
+            f"get_provider returned coroutine instead of provider instance: {provider}"
+        )
+
+    return provider
 
 
 async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:

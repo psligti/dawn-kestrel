@@ -321,6 +321,16 @@ asyncio.run(main())
 - [ ] Consider implementing custom handlers if needed
 - [ ] Run your tests to verify functionality
 
+## Further Reading
+
+- **[Dawn Kestrel Architecture](dawn-kestrel-architecture.md)** - Comprehensive documentation of:
+  - Core components (FSM, SDK client, orchestrator, runtime, etc.)
+  - Integration patterns (FSM-driven workflows, parallel execution, etc.)
+  - Data flow examples
+  - Testing strategy
+  - Extensibility points
+  - Glossary of terms
+
 ## Next Steps
 
 - Explore [docs/examples/](docs/examples/) for more detailed examples

@@ -250,6 +250,65 @@ class ExecuteToolCommand(BaseCommand):
             return Err(f"Failed to execute tool: {e}", code="COMMAND_ERROR")
 
 
+class TransitionCommand(BaseCommand):
+    """Command to perform FSM state transition.
+
+    Encapsulates state transition with provenance tracking for audit logging.
+    The actual transition is performed by FSMImpl - this command stores
+    transition data for audit purposes only (no undo/redo capability).
+    """
+
+    def __init__(self, fsm_id: str, from_state: str, to_state: str):
+        """Initialize TransitionCommand.
+
+        Args:
+            fsm_id: Unique identifier for the FSM.
+            from_state: Source state name.
+            to_state: Target state name.
+        """
+        super().__init__(
+            name="transition",
+            description=f"Transition FSM {fsm_id}: {from_state} -> {to_state}",
+        )
+        self.fsm_id = fsm_id
+        self.from_state = from_state
+        self.to_state = to_state
+
+    async def execute(self, context: CommandContext) -> Result[str]:
+        """Execute the command to perform state transition.
+
+        Note: The actual transition is performed by FSMImpl.
+        This method stores the transition data for audit purposes.
+
+        Args:
+            context: Command execution context.
+
+        Returns:
+            Result[str]: Target state name on success, Err on failure.
+        """
+        # The actual transition is performed by FSMImpl
+        # This command stores data for audit logging only
+        return Ok(self.to_state)
+
+    async def get_provenance(self) -> Result[dict[str, Any]]:
+        """Get provenance information about the transition command.
+
+        Returns:
+            Result[dict[str, Any]]: Provenance dict with audit data.
+        """
+        return Ok(
+            {
+                "command": self.name,
+                "description": self.description,
+                "created_at": self.created_at.isoformat(),
+                "can_undo": self.can_undo(),
+                "fsm_id": self.fsm_id,
+                "from_state": self.from_state,
+                "to_state": self.to_state,
+            }
+        )
+
+
 class CommandQueue:
     """Queue for managing command execution with events.
 

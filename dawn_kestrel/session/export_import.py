@@ -1,4 +1,5 @@
 """OpenCode Python - Export/Import Session Management"""
+
 from __future__ import annotations
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -28,26 +29,26 @@ class ExportImportManager:
     ) -> Dict[str, Any]:
         """
         Export a session to file
-        
+
         Args:
             session_id: Session ID to export
             output_path: Path to export to (default: {session_id}.json)
             format: Export format (json, jsonl, jsonl.gz)
-            
+
         Returns:
             Export info (path, format, message_count, size)
         """
         if not output_path:
             output_path = Path.cwd() / f"{session_id}.{format}"
-        
+
         # Get session data
         session = await self.session_manager.get_session(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
-        
+
         # Get all messages and parts
         messages = await self.session_manager.list_messages(session_id)
-        
+
         export_data = {
             "session": {
                 "id": session.id,
@@ -60,7 +61,7 @@ class ExportImportManager:
             },
             "messages": messages,
         }
-        
+
         # Write to file
         if format == "json":
             with open(output_path, "w", encoding="utf-8") as f:
@@ -81,9 +82,9 @@ class ExportImportManager:
                 file_size = f.tell()
         else:
             raise ValueError(f"Unsupported format: {format}")
-        
+
         logger.info(f"Exported session to {output_path} ({file_size} bytes)")
-        
+
         return {
             "path": str(output_path),
             "format": format,
@@ -98,17 +99,17 @@ class ExportImportManager:
     ) -> Dict[str, Any]:
         """
         Import session from file
-        
+
         Args:
             import_path: Path to import from
             project_id: Project ID (for multi-project repos)
-            
+
         Returns:
             Import info (session_id, message_count, imported)
         """
         if not import_path.exists():
             raise FileNotFoundError(f"Import file not found: {import_path}")
-        
+
         # Determine format from extension
         format = "json"
         if import_path.suffix == ".jsonl.gz":
@@ -149,7 +150,7 @@ class ExportImportManager:
         work_dir = Path.cwd()
 
         # Check if session exists
-        existing = await self.session_manager.storage.get_session(session_id)
+        existing = await self.session_manager.storage.get_session(session_id, work_dir.name)
 
         if existing:
             # Update existing session

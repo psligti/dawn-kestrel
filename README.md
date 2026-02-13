@@ -67,6 +67,7 @@ See [Getting Started](docs/getting-started.md) for more details.
 
 - **[Getting Started](docs/getting-started.md)** - Installation and usage guide
 - **[Examples](docs/examples/)** - Code examples for common use cases
+- **[Application Blueprints](docs/application-blueprints.md)** - Build-ready app patterns for coding agents
 - **API Reference** - See docstrings in source code for detailed API documentation
 
 ## License

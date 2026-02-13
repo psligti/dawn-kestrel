@@ -1,0 +1,333 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/parkersligting/develop/pt/worktrees/harness-agent-rework
+configfile: pyproject.toml
+plugins: anyio-4.12.1, asyncio-1.3.0, Faker-40.1.2, cov-7.0.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state PASSED [  3%]
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_invalid_state_raises_valueerror PASSED [  7%]
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_default_initial_state_is_idle PASSED [ 11%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateQuery::test_get_state_returns_current_state PASSED [ 14%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateQuery::test_get_state_does_not_modify_state PASSED [ 18%]
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_valid_transition_returns_true PASSED [ 22%]
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_invalid_transition_returns_false PASSED [ 25%]
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_transition_from_unknown_state_returns_false PASSED [ 29%]
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_all_valid_transitions_are_allowed PASSED [ 33%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_to_valid_state_succeeds PASSED [ 37%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_to_invalid_state_returns_err PASSED [ 40%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_updates_state PASSED [ 44%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_multiple_valid_transitions_work PASSED [ 48%]
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_from_idle_to_completed_fails PASSED [ 51%]
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_from_running_to_idle_fails PASSED [ 55%]
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_to_unknown_state_fails PASSED [ 59%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateConstants::test_valid_states_contains_all_lifecycle_states PASSED [ 62%]
+tests/core/test_agent_fsm.py::TestAgentFSMStateConstants::test_valid_transitions_are_complete PASSED [ 66%]
+tests/core/test_agent_fsm.py::TestAgentFSMProtocol::test_protocol_is_runtime_checkable PASSED [ 70%]
+tests/core/test_agent_fsm.py::TestAgentFSMProtocol::test_implementation_satisfies_protocol PASSED [ 74%]
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_invalid_transition_returns_err_with_code PASSED [ 77%]
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_result_unwrap_raises_on_err PASSED [ 81%]
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_result_unwrap_or_returns_default_on_err PASSED [ 85%]
+tests/core/test_agent_fsm.py::TestAgentFSMDeprecation::test_agent_fsm_impl_emits_deprecation_warning PASSED [ 88%]
+tests/core/test_agent_fsm.py::TestAgentFSMDeprecation::test_agent_fsm_impl_warning_mentions_facade_create_fsm PASSED [ 92%]
+tests/core/test_agent_fsm.py::TestAgentFSMDeprecation::test_review_fsm_impl_emits_deprecation_warning PASSED [ 96%]
+tests/core/test_agent_fsm.py::TestAgentFSMDeprecation::test_review_fsm_impl_warning_mentions_facade_create_fsm PASSED [100%]<unknown>:13: DeprecationWarning: invalid escape sequence '\`'
+/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/dawn_kestrel/agents/bolt_merlin/librarian/__init__.py:13: DeprecationWarning: invalid escape sequence '\`'
+  LIBRARIAN_PROMPT = """# THE LIBRARIAN
+
+
+=============================== warnings summary ===============================
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:15: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:18: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("running")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:21: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("paused")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:24: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("completed")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:27: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("failed")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_valid_state_sets_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:30: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("cancelled")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_init_with_invalid_state_raises_valueerror
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:38: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    AgentFSMImpl("unknown_state")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInitialization::test_default_initial_state_is_idle
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:46: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl()
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateQuery::test_get_state_returns_current_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:58: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("running")
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateQuery::test_get_state_does_not_modify_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:71: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_valid_transition_returns_true
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:87: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_invalid_transition_returns_false
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:116: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_transition_from_unknown_state_returns_false
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:133: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMTransitionValidation::test_all_valid_transitions_are_allowed
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:141: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_to_valid_state_succeeds
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:176: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_to_invalid_state_returns_err
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:188: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_transition_updates_state
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:201: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMStateTransition::test_multiple_valid_transitions_work
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:220: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_from_idle_to_completed_fails
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:252: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_from_running_to_idle_fails
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:264: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("running")
+
+tests/core/test_agent_fsm.py::TestAgentFSMInvalidStates::test_transition_to_unknown_state_fails
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:276: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMProtocol::test_protocol_is_runtime_checkable
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:333: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl()
+
+tests/core/test_agent_fsm.py::TestAgentFSMProtocol::test_implementation_satisfies_protocol
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:341: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_invalid_transition_returns_err_with_code
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:367: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_result_unwrap_raises_on_err
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:380: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+tests/core/test_agent_fsm.py::TestAgentFSMErrorHandling::test_result_unwrap_or_returns_default_on_err
+  /Users/parkersligting/develop/pt/worktrees/harness-agent-rework/tests/core/test_agent_fsm.py:393: DeprecationWarning: AgentFSMImpl is deprecated. Use Facade.create_fsm() instead. See dawn_kestrel.core.facade.Facade for creating FSM instances.
+    fsm = AgentFSMImpl("idle")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.11.14-final-0 _______________
+
+Name                                                               Stmts   Miss  Cover   Missing
+------------------------------------------------------------------------------------------------
+dawn_kestrel/__init__.py                                              35     14    60%   25-26, 33-34, 40-41, 60-64, 69-73
+dawn_kestrel/agents/__init__.py                                      155    114    26%   32-33, 40-43, 47-67, 71-76, 82-86, 92-98, 105-120, 124, 128-142, 146, 150, 154-156, 161, 168-171, 191-223, 233-266, 283-293, 305-324, 335-342
+dawn_kestrel/agents/bolt_merlin/__init__.py                           13     13     0%   23-39
+dawn_kestrel/agents/bolt_merlin/autonomous_worker/__init__.py          6      6     0%   7-65
+dawn_kestrel/agents/bolt_merlin/consultant/__init__.py                 6      6     0%   7-160
+dawn_kestrel/agents/bolt_merlin/explore/__init__.py                    7      7     0%   8-119
+dawn_kestrel/agents/bolt_merlin/frontend_ui_engineer/__init__.py       7      7     0%   8-109
+dawn_kestrel/agents/bolt_merlin/librarian/__init__.py                  7      7     0%   8-332
+dawn_kestrel/agents/bolt_merlin/master_orchestrator/__init__.py        6      6     0%   8-340
+dawn_kestrel/agents/bolt_merlin/multimodal_looker/__init__.py          7      7     0%   7-70
+dawn_kestrel/agents/bolt_merlin/orchestrator/__init__.py               7      7     0%   8-653
+dawn_kestrel/agents/bolt_merlin/plan_validator/__init__.py             7      7     0%   9-212
+dawn_kestrel/agents/bolt_merlin/planner/__init__.py                    6      6     0%   8-262
+dawn_kestrel/agents/bolt_merlin/pre_planning/__init__.py               6      6     0%   8-259
+dawn_kestrel/agents/builtin.py                                        33      7    79%   110, 120-125
+dawn_kestrel/agents/memory_embedder.py                                95     95     0%   2-249
+dawn_kestrel/agents/memory_manager.py                                 50     50     0%   2-137
+dawn_kestrel/agents/memory_summarizer.py                             130    130     0%   2-395
+dawn_kestrel/agents/orchestrator.py                                  142    105    26%   77-81, 111-197, 229-264, 295-323, 337-352, 364-366, 378-379, 388-389, 401-402, 417-423, 432-433, 445-470, 483
+dawn_kestrel/agents/registry.py                                      121     96    21%   51-58, 62-74, 91-104, 108, 117-118, 122-128, 136-162, 177-199, 208-226, 238-239, 251-256, 273-293, 305-306, 323
+dawn_kestrel/agents/review/__init__.py                                 5      0   100%
+dawn_kestrel/agents/review/agents/__init__.py                         12      0   100%
+dawn_kestrel/agents/review/agents/architecture.py                     19      5    74%   30, 34, 84, 88, 104
+dawn_kestrel/agents/review/agents/changelog.py                        19      6    68%   28, 31, 34, 63, 76, 92
+dawn_kestrel/agents/review/agents/dependencies.py                     16      5    69%   48, 52, 56, 70, 86
+dawn_kestrel/agents/review/agents/diff_scoper.py                      17      5    71%   29, 33, 62, 66, 82
+dawn_kestrel/agents/review/agents/documentation.py                    17      5    71%   34, 38, 80, 92, 108
+dawn_kestrel/agents/review/agents/linting.py                          17      5    71%   26, 30, 66, 80, 96
+dawn_kestrel/agents/review/agents/performance.py                      17      5    71%   29, 33, 69, 86, 102
+dawn_kestrel/agents/review/agents/requirements.py                     18      5    72%   49, 53, 57, 61, 77
+dawn_kestrel/agents/review/agents/security.py                         48     32    33%   35, 39, 89, 110, 136-179
+dawn_kestrel/agents/review/agents/telemetry.py                        17      5    71%   29, 33, 71, 82, 98
+dawn_kestrel/agents/review/agents/unit_tests.py                       17      5    71%   27, 65, 69, 73, 89
+dawn_kestrel/agents/review/base.py                                   155    119    23%   25-61, 93-95, 107, 112, 121, 130, 139, 148, 159-170, 181-221, 243, 286-398, 433-441
+dawn_kestrel/agents/review/cli.py                                    195    195     0%   3-456
+dawn_kestrel/agents/review/context_builder.py                         32     18    44%   47, 69, 90-127
+dawn_kestrel/agents/review/contracts.py                              101     21    79%   29, 53-79
+dawn_kestrel/agents/review/discovery.py                              268    234    13%   105-106, 134-178, 202-249, 265-308, 322-375, 390-462, 477-552, 570-597, 611-612, 616-617, 621, 632-650
+dawn_kestrel/agents/review/doc_gen.py                                277    277     0%   7-915
+dawn_kestrel/agents/review/fsm_cli.py                                258    258     0%   10-579
+dawn_kestrel/agents/review/fsm_security.py                           570    464    19%   68, 71-92, 95-105, 163-169, 269-290, 298-299, 310-329, 349-419, 434-465, 472-684, 701-890, 907-1054, 1066-1178, 1189-1231, 1234-1390, 1394-1404, 1415-1460, 1468-1500, 1511-1604, 1615-1697, 1702-1710, 1714
+dawn_kestrel/agents/review/neighbors.py                               77     77     0%   3-130
+dawn_kestrel/agents/review/orchestrator.py                            98     77    21%   44-50, 64-78, 90-187, 199, 210, 221-241, 252-267, 274
+dawn_kestrel/agents/review/pattern_learning.py                       205    205     0%   6-482
+dawn_kestrel/agents/review/pr_facts.py                                86     86     0%   8-215
+dawn_kestrel/agents/review/redaction.py                               27     27     0%   3-102
+dawn_kestrel/agents/review/registry.py                                66     66     0%   21-181
+dawn_kestrel/agents/review/streaming.py                              111     63    43%   80-91, 107, 110, 114, 126-132, 140-145, 157-158, 169-173, 182-183, 195-215, 223-238
+dawn_kestrel/agents/review/subagents/__init__.py                       7      7     0%   3-22
+dawn_kestrel/agents/review/subagents/auth_reviewer.py                 80     80     0%   16-339
+dawn_kestrel/agents/review/subagents/config_scanner.py                67     67     0%   16-344
+dawn_kestrel/agents/review/subagents/crypto_scanner.py                67     67     0%   16-287
+dawn_kestrel/agents/review/subagents/dependency_auditor.py            42     42     0%   16-180
+dawn_kestrel/agents/review/subagents/injection_scanner.py             41     41     0%   16-230
+dawn_kestrel/agents/review/subagents/secrets_scanner.py               62     62     0%   16-245
+dawn_kestrel/agents/review/tools.py                                  245    245     0%   16-639
+dawn_kestrel/agents/review/utils/__init__.py                           0      0   100%
+dawn_kestrel/agents/review/utils/config.py                           214    214     0%   6-404
+dawn_kestrel/agents/review/utils/executor.py                         174    131    25%   86-88, 91-102, 105-120, 123-131, 134-192, 195-205, 208-250, 253-273, 276-297
+dawn_kestrel/agents/review/utils/git.py                               63     51    19%   39-64, 83-101, 117-131, 144-185
+dawn_kestrel/agents/review/utils/redaction.py                         53     45    15%   84-90, 104-141, 154-166, 189-212
+dawn_kestrel/agents/review/verifier.py                                88     78    11%   43, 75-123, 135-164, 188-237
+dawn_kestrel/agents/runtime.py                                       106     84    21%   42-44, 62-289, 309
+dawn_kestrel/agents/state.py                                          37     37     0%   7-159
+dawn_kestrel/agents/tool_execution_tracker.py                         91     74    19%   35-37, 63-88, 106-153, 171-194, 208-219, 227-237, 249
+dawn_kestrel/ai/tool_execution.py                                    113     97    14%   31-35, 47-183, 186, 203-320, 329-338, 342-344, 354
+dawn_kestrel/ai_session.py                                           152    128    16%   39-64, 67-74, 78-80, 86-173, 178-221, 235-291, 295-297, 301-315, 319-334
+dawn_kestrel/benchmarks/__init__.py                                   79     79     0%   13-240
+dawn_kestrel/benchmarks/agent_execution.py                            30     30     0%   10-96
+dawn_kestrel/benchmarks/context_build.py                              40     40     0%   10-148
+dawn_kestrel/benchmarks/memory_search.py                              40     40     0%   10-139
+dawn_kestrel/cli/__init__.py                                           2      2     0%   3-5
+dawn_kestrel/cli/ai_commands.py                                      164    164     0%   8-282
+dawn_kestrel/cli/handlers.py                                          76     76     0%   7-232
+dawn_kestrel/cli/main.py                                             212    212     0%   3-407
+dawn_kestrel/compaction.py                                            99     99     0%   8-192
+dawn_kestrel/context/__init__.py                                       2      0   100%
+dawn_kestrel/context/builder.py                                       84     67    20%   41, 68-83, 105-115, 137, 157-191, 213-234, 255-269, 290, 311-329
+dawn_kestrel/context/pipeline.py                                     102    102     0%   2-279
+dawn_kestrel/core/__init__.py                                          4      0   100%
+dawn_kestrel/core/agent_fsm.py                                        30      1    97%   213
+dawn_kestrel/core/agent_task.py                                       53      5    91%   97, 101, 105, 109, 136
+dawn_kestrel/core/agent_types.py                                      55      0   100%
+dawn_kestrel/core/commands.py                                        101     57    44%   109, 117, 125, 143, 160-165, 176-205, 222-227, 238-250, 269-275, 291, 299, 325-327, 338-355, 366-407
+dawn_kestrel/core/config.py                                           15     15     0%   7-58
+dawn_kestrel/core/decorators.py                                       88     88     0%   15-280
+dawn_kestrel/core/di_container.py                                     57     19    67%   167-169, 215-226, 240-246
+dawn_kestrel/core/event_bus.py                                        77     27    65%   52-60, 69-88, 92-96
+dawn_kestrel/core/exceptions.py                                        7      0   100%
+dawn_kestrel/core/facade.py                                          118    118     0%   25-428
+dawn_kestrel/core/fsm.py                                             207    136    34%   233-248, 256, 268-270, 284-383, 391, 399, 409-410, 433-464, 492-500, 514-515, 530-535, 556-557, 578-579, 605-606, 623-624, 641-642, 659-660, 682-683, 707-739
+dawn_kestrel/core/fsm_state_repository.py                             31     19    39%   61, 65-76, 80-87
+dawn_kestrel/core/harness/__init__.py                                  2      0   100%
+dawn_kestrel/core/harness/runner.py                                  135    103    24%   62-64, 88-107, 128-139, 163-164, 183-187, 205, 235-241, 262-266, 285-292, 306-336, 354-359, 400-406, 410-421, 425-445, 465-491, 510-536
+dawn_kestrel/core/http_client.py                                     106     87    18%   26-29, 43-47, 57, 72, 88, 105-179, 193-234, 241-245, 249-263, 270, 278
+dawn_kestrel/core/mediator.py                                         63     34    46%   57-58, 151, 168-185, 203-207, 226-237, 248-252
+dawn_kestrel/core/metrics.py                                          57     57     0%   14-354
+dawn_kestrel/core/models.py                                          172      1    99%   261
+dawn_kestrel/core/null_object.py                                      31     31     0%   7-158
+dawn_kestrel/core/observer.py                                         61     29    52%   103-105, 119-130, 145-157, 172-177, 186, 217-223, 231, 235, 265-271, 279, 283
+dawn_kestrel/core/plugin_discovery.py                                 92     78    15%   37-87, 103-109, 113-162, 178-184, 188-195, 216-222, 226-242, 275-281, 296-305
+dawn_kestrel/core/provider_config.py                                  34      6    82%   56-57, 66, 88, 109, 147
+dawn_kestrel/core/provider_settings.py                                46      7    85%   73, 92, 118, 128, 137-139
+dawn_kestrel/core/repositories.py                                    140     98    30%   31-53, 214, 218-224, 228-232, 236-240, 244-252, 256-260, 276, 280-288, 292-296, 300-306, 322, 326-333, 337-341, 345-349, 353-358
+dawn_kestrel/core/result.py                                          133     68    49%   36, 41, 46, 55, 67, 72, 86-88, 103-120, 140, 144, 148, 152, 156, 159, 162-164, 167, 187, 195, 207, 213-215, 218-220, 227, 239, 243, 247, 251, 255, 259, 263, 266-268, 271-273, 276, 298, 320-322, 355-364
+dawn_kestrel/core/security/__init__.py                                 2      0   100%
+dawn_kestrel/core/security/input_validation.py                       118     96    19%   22-23, 55-87, 115-166, 190-210, 233-245, 270-295, 312-325, 339-352
+dawn_kestrel/core/services/session_service.py                        185    158    15%   138-199, 210-268, 280-307, 320-363, 372-380, 393-399, 412-438, 468-538
+dawn_kestrel/core/session.py                                         144    109    24%   31-33, 38, 48-73, 77, 85-102, 106-119, 123-124, 135-152, 156-164, 168-178, 182, 186, 190-210, 214-227, 231-246, 251-266, 271-310, 315, 320, 325, 330-339
+dawn_kestrel/core/session_lifecycle.py                               218    175    20%   34, 42, 51, 60, 68, 76, 84, 107-114, 127-128, 141-142, 155-156, 169-170, 183-184, 197-198, 211-212, 227-231, 246-250, 265-269, 284-288, 303-307, 322-326, 341-345, 353-355, 363-365, 374-391, 400-417, 426-444, 453-468, 477-489, 498-510, 519-531, 535-543, 553
+dawn_kestrel/core/settings.py                                        152     71    53%   155, 168, 186-206, 216-224, 228-240, 251-255, 269-282, 300-310, 319, 328, 337, 346, 359, 371-373, 389, 399, 412, 425, 438
+dawn_kestrel/core/strategies.py                                       83     83     0%   12-380
+dawn_kestrel/core/unit_of_work.py                                     72     72     0%   9-227
+dawn_kestrel/interfaces/io.py                                         67      8    88%   218, 221, 224, 227, 234, 237, 240, 247
+dawn_kestrel/llm/__init__.py                                           7      0   100%
+dawn_kestrel/llm/bulkhead.py                                          81     60    26%   127-133, 142, 151, 162, 173, 186-209, 222-240, 262-288
+dawn_kestrel/llm/circuit_breaker.py                                   61     32    48%   194-204, 208, 211, 215, 219, 223-226, 236-241, 251-259
+dawn_kestrel/llm/client.py                                           183    122    33%   70-97, 112-135, 141-154, 168, 207, 231, 244, 288-300, 305-307, 311-321, 343-370, 373, 383-391, 401-430, 455-490, 524-536
+dawn_kestrel/llm/rate_limiter.py                                      74     48    35%   140-146, 154-166, 185-205, 224, 238-243, 291-294, 314, 329-335, 351-352, 363-364, 375-376, 387-396
+dawn_kestrel/llm/reliability.py                                       78     57    27%   161-166, 182, 190, 198, 225-297, 308-313, 322-335
+dawn_kestrel/llm/retry.py                                            104     74    29%   94-97, 103-113, 140-141, 147-148, 170, 176, 278-284, 310-394, 398, 402
+dawn_kestrel/permissions/__init__.py                                   0      0   100%
+dawn_kestrel/permissions/evaluate.py                                  28     14    50%   18-28, 51-60, 88
+dawn_kestrel/provider/__init__.py                                    103    103     0%   2-184
+dawn_kestrel/provider/handler.py                                      40     40     0%   2-84
+dawn_kestrel/provider/stream_types.py                                 67     67     0%   2-133
+dawn_kestrel/providers/__init__.py                                   129    100    22%   45-68, 98-99, 102-134, 143-230, 233, 241-247, 252-253, 256-276, 285-292, 295, 302-304, 324-330, 334-337
+dawn_kestrel/providers/adapters.py                                    84     84     0%   12-315
+dawn_kestrel/providers/base.py                                        88     10    89%   40-43, 53-54, 64-65, 95, 99
+dawn_kestrel/providers/openai.py                                      72     72     0%   7-200
+dawn_kestrel/providers/registry.py                                    95     72    24%   42-47, 56-57, 71-77, 99-114, 126, 135, 154-169, 189-201, 210-213, 225-231, 237-252, 266-271, 280-284, 297
+dawn_kestrel/providers/zai.py                                         11      3    73%   26-27, 30
+dawn_kestrel/providers/zai_base.py                                    82     66    20%   38-40, 45, 49-148, 152-153, 162-167
+dawn_kestrel/providers/zai_coding_plan.py                             11      3    73%   26-27, 30
+dawn_kestrel/review.py                                                48     48     0%   2-157
+dawn_kestrel/sdk/__init__.py                                           8      8     0%   1-11
+dawn_kestrel/sdk/client.py                                           198    198     0%   7-723
+dawn_kestrel/session/__init__.py                                       5      5     0%   2-8
+dawn_kestrel/session/compaction.py                                    96     96     0%   2-204
+dawn_kestrel/session/export_import.py                                 77     77     0%   2-177
+dawn_kestrel/session/fork_revert.py                                  116    116     0%   8-231
+dawn_kestrel/session/import_export.py                                 58     58     0%   7-120
+dawn_kestrel/session/processor.py                                    125    125     0%   2-293
+dawn_kestrel/session/revert.py                                        31     31     0%   2-96
+dawn_kestrel/skills/injector.py                                       35     26    26%   31-32, 51-67, 84-91, 110-118
+dawn_kestrel/skills/loader.py                                         74     47    36%   11-12, 27-30, 52, 56-60, 68-81, 92-118, 129-133, 137-138
+dawn_kestrel/snapshot.py                                             142    142     0%   8-219
+dawn_kestrel/snapshot/__init__.py                                      2      2     0%   3-5
+dawn_kestrel/snapshot/index.py                                        82     82     0%   2-226
+dawn_kestrel/storage/__init__.py                                       0      0   100%
+dawn_kestrel/storage/memory_storage.py                                25     25     0%   2-43
+dawn_kestrel/storage/store.py                                        129     96    26%   20-21, 25-36, 40, 44-51, 55-59, 63-66, 70-75, 79-87, 95-100, 104-112, 116-119, 123-127, 131-132, 140-143, 147-148, 152-160, 168-171, 175-176, 180-181, 185-191
+dawn_kestrel/tools/__init__.py                                        28     18    36%   38-52, 61-72, 81-96
+dawn_kestrel/tools/adapters.py                                        85     85     0%   13-378
+dawn_kestrel/tools/additional.py                                     850    707    17%   42, 50-122, 138-166, 177-206, 214-217, 220-223, 240-344, 362-449, 461-494, 519, 531-578, 590-646, 658-661, 665-669, 685-782, 797-799, 803-866, 872-901, 911-929, 964-973, 997-1104, 1181, 1197-1198, 1210-1320, 1334-1347, 1352-1366, 1370, 1374, 1396-1444, 1462-1522, 1537-1538, 1553-1602, 1614-1700, 1708-1709, 1728-1791, 1821-1959, 1987-1994, 2017-2024, 2055-2133
+dawn_kestrel/tools/builtin.py                                        187    125    33%   43, 55-98, 130-178, 210-234, 266-312, 343-388, 452-520
+dawn_kestrel/tools/framework.py                                       60     23    62%   17-18, 22-25, 29, 33, 37, 64, 73, 81, 101, 124-155
+dawn_kestrel/tools/permission_filter.py                               77     61    21%   34-38, 46-57, 74-91, 104-110, 121-141, 149-170, 181-187
+dawn_kestrel/tools/prompts/__init__.py                                10      1    90%   11
+dawn_kestrel/tools/registry.py                                        47     47     0%   7-99
+dawn_kestrel/tui/__init__.py                                           2      0   100%
+dawn_kestrel/tui/app.py                                              140     96    31%   52-66, 105-143, 147-151, 155-167, 175-177, 182, 186-191, 195-200, 204-220, 224-226, 230-239, 243-272, 276, 280-281, 285-287
+dawn_kestrel/tui/dialogs/__init__.py                                 153    153     0%   3-394
+dawn_kestrel/tui/dialogs/command_palette_dialog.py                    66     66     0%   3-180
+dawn_kestrel/tui/dialogs/model_select_dialog.py                       69     69     0%   3-165
+dawn_kestrel/tui/dialogs/theme_select_dialog.py                       58     58     0%   3-135
+dawn_kestrel/tui/handlers.py                                          38     20    47%   34, 49, 61, 73-75, 87-89, 105, 113-123, 143-144, 153-154, 167, 175-176
+dawn_kestrel/tui/keybindings.py                                        4      4     0%   7-25
+dawn_kestrel/tui/message_view.py                                     114     93    18%   53-55, 58-135, 205-207, 210-240, 244-258, 262
+dawn_kestrel/tui/screens/__init__.py                                   2      0   100%
+dawn_kestrel/tui/screens/context_browser.py                          228    228     0%   12-508
+dawn_kestrel/tui/screens/diff_viewer.py                              225    225     0%   14-457
+dawn_kestrel/tui/screens/message_screen.py                           293    239    18%   151-158, 162-174, 178-181, 185-216, 220-223, 227-232, 236-238, 242-292, 296-385, 389-420, 424-428, 432-473, 477-525, 529-564, 568, 572, 576, 580, 584, 588, 592, 596, 600, 604, 608-639, 643-679, 683
+dawn_kestrel/tui/screens/session_list_screen.py                       58     58     0%   9-112
+dawn_kestrel/tui/widgets/__init__.py                                   3      0   100%
+dawn_kestrel/tui/widgets/footer.py                                    62     37    40%   68-78, 82-105, 109-110, 114-115, 119-120, 124-125, 131, 136, 141, 146
+dawn_kestrel/tui/widgets/header.py                                    46     25    46%   64-72, 76-93, 97-98, 104-105, 109-110, 116, 121, 126
+dawn_kestrel/utils/__init__.py                                         0      0   100%
+dawn_kestrel/utils/json_parser.py                                     18     18     0%   2-65
+------------------------------------------------------------------------------------------------
+TOTAL                                                              14771  11948    19%
+======================= 27 passed, 26 warnings in 0.71s ========================

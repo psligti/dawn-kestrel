@@ -340,6 +340,7 @@ class CheckOutput(pd.BaseModel):
         "budget_exhausted",
         "stagnation",
         "human_required",
+        "risk_threshold",
         "none",
     ] = "none"
     """Reason for stopping (if should_continue is False)"""
@@ -582,11 +583,11 @@ def get_check_output_schema() -> str:
 
 {CheckOutput.model_json_schema()}
 
-CRITICAL RULES:
+ CRITICAL RULES:
 - Include ALL required fields: should_continue
 - Optional fields (stop_reason, confidence, budget_consumed, blocking_question, novelty_detected, stagnation_detected, next_action) have defaults
 - NEVER include extra fields not in this schema (will cause validation errors)
-- stop_reason must be one of: recommendation_ready, blocking_question, budget_exhausted, stagnation, human_required, none
+- stop_reason must be one of: recommendation_ready, blocking_question, budget_exhausted, stagnation, human_required, risk_threshold, none
 - confidence must be between 0.0 and 1.0
 - next_action must be one of: continue, switch_strategy, escalate, commit, stop
 - Return ONLY the JSON object, no other text, no markdown code blocks

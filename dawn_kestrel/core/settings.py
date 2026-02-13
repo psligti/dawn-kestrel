@@ -1,7 +1,7 @@
 """OpenCode Python - Configuration system with Pydantic Settings"""
 
 from __future__ import annotations
-from typing import Optional, Dict
+from typing import Any, Optional, Dict
 from pathlib import Path
 import os
 import warnings

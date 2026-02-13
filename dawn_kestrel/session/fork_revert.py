@@ -16,7 +16,7 @@ from typing import Any
 
 
 def _load_snapshot_file() -> Any:
-    snapshot_path = Path(__file__).parent.parent / 'snapshot.py'
+    snapshot_path = Path(__file__).parent.parent / "snapshot.py"
     spec = importlib.util.spec_from_file_location("snapshot_file", snapshot_path)
     if spec is None:
         raise ImportError(f"Could not load spec for {snapshot_path}")
@@ -32,7 +32,9 @@ GitSnapshot = _load_snapshot_file()
 logger = logging.getLogger(__name__)
 
 
-async def fork_session(session: Session, message_id: str, title: Optional[str] = None) -> Optional[str]:
+async def fork_session(
+    session: Session, message_id: str, title: Optional[str] = None
+) -> Optional[str]:
     """Fork session by creating child from specific message"""
     if not session.project_id:
         logger.error("Cannot fork session without project ID")
@@ -51,25 +53,28 @@ async def fork_session(session: Session, message_id: str, title: Optional[str] =
         parent_id=session.id,
         directory=session.directory,
         title=child_title,
-        version="1.0.0"
+        version="1.0.0",
     )
 
     child_session = await storage.create_session(child_session_data)
 
     logger.info(f"Created child session: {child_session.id} (fork from {message_id[:8]}...)")
-    
+
     from ..core.event_bus import bus, Events
-    
-    await bus.publish(Events.SESSION_CREATED, {
-        "info": {
-            "id": child_session.id,
-            "session_id": child_session.id,
-            "parent_id": session.id,
-            "title": child_session.title,
-            "directory": str(child_session.directory)
-        }
-    })
-    
+
+    await bus.publish(
+        Events.SESSION_CREATED,
+        {
+            "info": {
+                "id": child_session.id,
+                "session_id": child_session.id,
+                "parent_id": session.id,
+                "title": child_session.title,
+                "directory": str(child_session.directory),
+            }
+        },
+    )
+
     return child_session.id
 
 
@@ -87,7 +92,9 @@ async def list_child_sessions(session: Session) -> List[Session]:
     return child_sessions
 
 
-async def revert_session(session: Session, snapshot_id: str, files: Optional[List[str]] = None) -> bool:
+async def revert_session(
+    session: Session, snapshot_id: str, files: Optional[List[str]] = None
+) -> bool:
     """Revert files to previous snapshot state"""
     from ..storage.store import SessionStorage, PartStorage, MessageStorage
 
@@ -111,7 +118,10 @@ async def revert_session(session: Session, snapshot_id: str, files: Optional[Lis
     for msg_data in messages:
         parts = await part_storage.list_parts(msg_data["id"])
         for part_data in parts:
-            if part_data.get("part_type") == "snapshot" and part_data.get("snapshot") == snapshot_id:
+            if (
+                part_data.get("part_type") == "snapshot"
+                and part_data.get("snapshot") == snapshot_id
+            ):
                 target_snapshot_id = part_data.get("id")
                 break
         if target_snapshot_id:
@@ -144,7 +154,7 @@ async def revert_session(session: Session, snapshot_id: str, files: Optional[Lis
         session_id=session.id,
         message_id=session.id,
         part_type="snapshot",
-        snapshot=target_snapshot_id
+        snapshot=target_snapshot_id,
     )
 
     await part_storage.create_part(session.id, create_snapshot_part)
@@ -154,24 +164,27 @@ async def revert_session(session: Session, snapshot_id: str, files: Optional[Lis
         session_id=session.id,
         message_id=session.id,
         part_type="text",
-        text=f"Reverted {len(reverted_files)} files to snapshot {target_snapshot_id}"
+        text=f"Reverted {len(reverted_files)} files to snapshot {target_snapshot_id}",
     )
 
     await part_storage.create_part(session.id, revert_part)
-    
+
     from ..core.event_bus import bus, Events
-    
-    await bus.publish(Events.SESSION_UPDATED, {
-        "info": {
-            "id": session.id,
-            "session_id": session.id,
-            "reverted_files": len(reverted_files),
-            "target_snapshot": target_snapshot_id
-        }
-    })
-    
+
+    await bus.publish(
+        Events.SESSION_UPDATED,
+        {
+            "info": {
+                "id": session.id,
+                "session_id": session.id,
+                "reverted_files": len(reverted_files),
+                "target_snapshot": target_snapshot_id,
+            }
+        },
+    )
+
     logger.info(f"Reverted session {session.id} to snapshot {target_snapshot_id}")
-    
+
     return True
 
 
@@ -185,15 +198,12 @@ async def get_session_tree(session: Session) -> dict[str, Any]:
         if max_depth <= 0:
             return {}
 
-        session_obj = await storage.get_session(session_id)
+        project_id = Path(session.directory).name
+        session_obj = await storage.get_session(session_id, project_id)
         if not session_obj:
             return {}
 
-        tree: dict[str, Any] = {
-            "id": session_id,
-            "title": session_obj.title,
-            "children": []
-        }
+        tree: dict[str, Any] = {"id": session_id, "title": session_obj.title, "children": []}
 
         sessions = await storage.list_sessions(session_obj.project_id)
         children = [s for s in sessions if s.parent_id == session_id]
@@ -221,11 +231,11 @@ async def export_session_tree(session: Session) -> str:
 def _format_tree(sessions: List[dict[str, Any]], indent: str = "") -> str:
     if not sessions:
         return ""
-    
+
     lines = []
     for session in sessions:
         title = session.get("title", "")
         lines.append(f"{indent}• {title}")
         lines.extend(_format_tree(session.get("children", []), indent + "  "))
-    
+
     return "\n".join(lines)

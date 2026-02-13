@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import sys
 from pathlib import Path
 from typing import Any, cast
@@ -13,7 +12,47 @@ import pendulum  # type: ignore[import-not-found]
 from rich.console import Console  # type: ignore[import-not-found]
 from rich.table import Table  # type: ignore[import-not-found]
 
-console = Console()
+console = Console(force_terminal=True, stderr=False)
+
+
+@click.command()
+@click.option(
+    "--directory",
+    "-d",
+    type=click.Path(),
+    help="Project directory (default: current directory)",
+)
+def connect(directory: str | None) -> None:
+    """Configure dawn-kestrel for this project.
+
+    Interactive wizard to set up provider credentials and account configuration.
+    Settings are saved to .dawn-kestrel/config.toml in the project directory.
+    """
+    from dawn_kestrel.cli.commands import connect_command
+
+    if directory:
+        try:
+            import os
+
+            os.chdir(directory)
+        except Exception as e:
+            console.print(f"[red]Error: Failed to change directory: {e}[/red]")
+            sys.exit(1)
+
+    try:
+        asyncio.run(connect_command())
+    except KeyboardInterrupt:
+        console.print()
+        console.print("[yellow]Configuration cancelled.[/yellow]")
+        sys.exit(130)
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+
+        console.print()
+        console.print("[dim]Traceback:[/dim]")
+        console.print(traceback.format_exc())
+        sys.exit(1)
 
 
 def run_async(coro: Any) -> None:
@@ -22,18 +61,6 @@ def run_async(coro: Any) -> None:
         asyncio.run(coro)
     except KeyboardInterrupt:
         sys.exit(0)
-
-
-def _load_review_cli_command(command_name: str) -> Any:
-    """Load review CLI command from module file without package import side effects."""
-    cli_path = Path(__file__).resolve().parent.parent / "agents" / "review" / "cli.py"
-    spec = importlib.util.spec_from_file_location("dawn_kestrel_review_cli", cli_path)
-    if spec is None or spec.loader is None:
-        raise click.ClickException("Unable to load review CLI module")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return getattr(module, command_name)
 
 
 @click.group()
@@ -76,7 +103,10 @@ def list_sessions(directory: str | None) -> None:
         message_repo = MessageRepositoryImpl(message_storage)
         part_repo = PartRepositoryImpl(part_storage)
 
-        work_dir = Path(directory).expanduser() if directory else Path.cwd()
+        if directory:
+            work_dir = Path(directory).expanduser()
+        else:
+            work_dir = Path.cwd()
 
         io_handler = CLIIOHandler()
         progress_handler = CLIProgressHandler()
@@ -317,42 +347,9 @@ def tui() -> None:
     app.run()
 
 
-@click.command(
-    name="review",
-    context_settings={
-        "ignore_unknown_options": True,
-        "allow_extra_args": True,
-        "help_option_names": [],
-    },
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def review_command(args: tuple[str, ...]) -> None:
-    """Run PR review on a git repository."""
-    review = _load_review_cli_command("review")
-
-    review.main(args=list(args), prog_name="dawn-kestrel review", standalone_mode=True)
-
-
-@click.command(
-    name="docs",
-    context_settings={
-        "ignore_unknown_options": True,
-        "allow_extra_args": True,
-        "help_option_names": [],
-    },
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def docs_command(args: tuple[str, ...]) -> None:
-    """Generate review-agent documentation."""
-    docs = _load_review_cli_command("docs")
-
-    docs.main(args=list(args), prog_name="dawn-kestrel docs", standalone_mode=True)
-
-
 cast(Any, cli).add_command(list_sessions)
 cast(Any, cli).add_command(run)
 cast(Any, cli).add_command(export_session)
 cast(Any, cli).add_command(import_session)
 cast(Any, cli).add_command(tui)
-cast(Any, cli).add_command(review_command)
-cast(Any, cli).add_command(docs_command)
+cast(Any, cli).add_command(connect)

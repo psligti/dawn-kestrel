@@ -280,7 +280,7 @@ class LLMClient:
         Args:
             provider_id: Provider identifier (anthropic, openai, etc.)
             model: Model identifier
-            api_key: API key for provider
+            api_key: API key for the provider
             base_url: Custom base URL (optional)
             max_retries: Maximum number of retry attempts
             timeout_seconds: Request timeout in seconds

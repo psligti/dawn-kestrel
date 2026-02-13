@@ -217,16 +217,20 @@ class AgentRuntime:
             logger.info(f"Agent {agent.name} ready for execution")
 
             # Step 5: Create AISession with filtered tools
-            provider_id = options.get("provider", "anthropic")
-            model = options.get("model", "claude-sonnet-4-20250514")
+            default_account = settings.get_default_account()
+            provider_id = options.get(
+                "provider",
+                default_account.provider_id if default_account else settings.provider_default,
+            )
+            model = options.get(
+                "model", default_account.model if default_account else settings.model_default
+            )
 
-            # Determine model from agent or options
             if agent.model and isinstance(agent.model, dict):
                 model = agent.model.get("model", model)
 
             lifecycle = session_lifecycle or self.session_lifecycle
 
-            # Get API key from provider registry or fall back to settings
             api_key = None
             if self.provider_registry:
                 provider_config = await self.provider_registry.get_provider(provider_id)
@@ -234,6 +238,11 @@ class AgentRuntime:
                     api_key = provider_config.api_key
                     if provider_config.model:
                         model = provider_config.model
+
+            if not api_key:
+                api_key_secret = settings.get_api_key_for_provider(provider_id)
+                if api_key_secret:
+                    api_key = api_key_secret.get_secret_value()
 
             ai_session = AISession(
                 session=session,
