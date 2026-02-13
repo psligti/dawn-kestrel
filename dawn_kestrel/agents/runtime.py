@@ -1,6 +1,7 @@
 """
 AgentRuntime - Execute agents with tool filtering and lifecycle management.
 """
+
 from __future__ import annotations
 
 from typing import Dict, Any, List, Optional
@@ -24,6 +25,11 @@ from dawn_kestrel.context.builder import ContextBuilder
 from dawn_kestrel.agents.registry import AgentRegistry
 from dawn_kestrel.agents.builtin import Agent
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle
+from dawn_kestrel.core.settings import settings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dawn_kestrel.providers.registry import ProviderRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +43,12 @@ class AgentRuntime:
         base_dir: Path,
         skill_max_char_budget: Optional[int] = None,
         session_lifecycle: Optional[SessionLifecycle] = None,
+        provider_registry: Optional["ProviderRegistry"] = None,
     ):
         """Initialize AgentRuntime."""
         self.agent_registry = agent_registry
         self.session_lifecycle = session_lifecycle
+        self.provider_registry = provider_registry
         self.context_builder = ContextBuilder(
             base_dir=base_dir,
             skill_max_char_budget=skill_max_char_budget,
@@ -63,48 +71,84 @@ class AgentRuntime:
         options = options or {}
 
         # Step 1: Fetch agent from AgentRegistry
-        agent = self.agent_registry.get_agent(agent_name)
+        agent = await self.agent_registry.get_agent(agent_name)
         if not agent:
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "error": f"Agent not found: {agent_name}"
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {
+                    "session_id": session_id,
+                    "agent_name": agent_name,
+                    "error": f"Agent not found: {agent_name}",
+                },
+            )
             raise ValueError(f"Agent not found: {agent_name}")
 
         # Step 2: Load session from SessionManager
-        session = await session_manager.get_session(session_id)
+        session_or_result = await session_manager.get_session(session_id)
+
+        # Handle both Result[Session | None] and Optional[Session] return types
+        # SessionManagerLike protocol says Optional[Session] but DefaultSessionService returns Result
+        if hasattr(session_or_result, "is_err"):
+            result = session_or_result  # type: ignore[assignment]
+            if result.is_err():  # type: ignore[union-attr]
+                await bus.publish(
+                    Events.AGENT_ERROR,
+                    {
+                        "session_id": session_id,
+                        "agent_name": agent_name,
+                        "error": f"Session lookup failed: {result.error}",  # type: ignore[union-attr]
+                    },
+                )
+                raise ValueError(f"Session lookup failed for {session_id}: {result.error}")  # type: ignore[union-attr]
+            session = result.unwrap()  # type: ignore[union-attr]
+        else:
+            session = session_or_result  # type: ignore[assignment]
+
         if not session:
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "error": f"Session not found: {session_id}"
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {
+                    "session_id": session_id,
+                    "agent_name": agent_name,
+                    "error": f"Session not found: {session_id}",
+                },
+            )
             raise ValueError(f"Session not found: {session_id}")
+
+        assert session is not None  # for type checker
 
         # Validate session metadata
         if not session.project_id:
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "error": f"Session {session_id} has empty project_id"
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {
+                    "session_id": session_id,
+                    "agent_name": agent_name,
+                    "error": f"Session {session_id} has empty project_id",
+                },
+            )
             raise ValueError(f"Session {session_id} has empty project_id")
 
         if not session.directory:
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "error": f"Session {session_id} has empty directory"
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {
+                    "session_id": session_id,
+                    "agent_name": agent_name,
+                    "error": f"Session {session_id} has empty directory",
+                },
+            )
             raise ValueError(f"Session {session_id} has empty directory")
 
         if not session.title:
-            await bus.publish(Events.AGENT_ERROR, {
-                "session_id": session_id,
-                "agent_name": agent_name,
-                "error": f"Session {session_id} has empty title"
-            })
+            await bus.publish(
+                Events.AGENT_ERROR,
+                {
+                    "session_id": session_id,
+                    "agent_name": agent_name,
+                    "error": f"Session {session_id} has empty title",
+                },
+            )
             raise ValueError(f"Session {session_id} has empty title")
 
         # Emit AGENT_INITIALIZED event
@@ -121,7 +165,10 @@ class AgentRuntime:
         lifecycle = session_lifecycle or self.session_lifecycle
         if lifecycle:
             await lifecycle.emit_session_updated(event_data)
-        logger.info(f"Agent {agent.name} initialized for session {session_id}" + (f" (task: {task_id})" if task_id else ""))
+        logger.info(
+            f"Agent {agent.name} initialized for session {session_id}"
+            + (f" (task: {task_id})" if task_id else "")
+        )
 
         try:
             # Step 3: Filter tools via ToolPermissionFilter
@@ -179,10 +226,20 @@ class AgentRuntime:
 
             lifecycle = session_lifecycle or self.session_lifecycle
 
+            # Get API key from provider registry or fall back to settings
+            api_key = None
+            if self.provider_registry:
+                provider_config = await self.provider_registry.get_provider(provider_id)
+                if provider_config and provider_config.api_key:
+                    api_key = provider_config.api_key
+                    if provider_config.model:
+                        model = provider_config.model
+
             ai_session = AISession(
                 session=session,
                 provider_id=provider_id,
                 model=model,
+                api_key=api_key,
                 session_manager=session_manager,
                 tool_registry=filtered_registry,
                 session_lifecycle=lifecycle,
@@ -203,7 +260,10 @@ class AgentRuntime:
             if lifecycle:
                 await lifecycle.emit_session_updated(event_data)
 
-            logger.info(f"Executing agent {agent.name} for session {session_id}" + (f" (task: {task_id})" if task_id else ""))
+            logger.info(
+                f"Executing agent {agent.name} for session {session_id}"
+                + (f" (task: {task_id})" if task_id else "")
+            )
 
             # Step 6: Execute agent
             execution_options: Dict[str, Any] = {
@@ -304,6 +364,7 @@ def create_agent_runtime(
     base_dir: Path,
     skill_max_char_budget: Optional[int] = None,
     session_lifecycle: Optional[SessionLifecycle] = None,
+    provider_registry: Optional["ProviderRegistry"] = None,
 ) -> AgentRuntime:
     """Factory function to create AgentRuntime."""
     return AgentRuntime(
@@ -311,4 +372,5 @@ def create_agent_runtime(
         base_dir=base_dir,
         skill_max_char_budget=skill_max_char_budget,
         session_lifecycle=session_lifecycle,
+        provider_registry=provider_registry,
     )
