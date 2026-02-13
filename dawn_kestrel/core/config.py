@@ -6,7 +6,7 @@ with optional overrides for storage, directories, and handler behavior.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass
@@ -38,8 +38,8 @@ class SDKConfig:
             Effect: notification_handler.show() called if True, no-op if False.
     """
 
-    storage_path: Path | None = None
-    project_dir: Path | None = None
+    storage_path: Optional[Path] = None
+    project_dir: Optional[Path] = None
     auto_confirm: bool = False
     enable_progress: bool = True
     enable_notifications: bool = True

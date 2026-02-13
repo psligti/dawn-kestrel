@@ -1,0 +1,1 @@
+2026-02-10T15:09:52Z - Note: AgentState class already exists in dawn_kestrel/agents/__init__.py; new module dawn_kestrel/agents/state.py may duplicate state representation. Recommend consolidating or exporting to single source of truth; No code changes yet.

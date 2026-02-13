@@ -227,16 +227,6 @@ def _load_agents_fallback() -> Dict[str, Any]:
         GENERAL_AGENT,
     )
 
-    # Try to load bolt_merlin agents for enhanced functionality
-    try:
-        from dawn_kestrel.agents.bolt_merlin.orchestrator import create_orchestrator_agent
-
-        bolt_merlin_agents = {
-            "orchestrator": create_orchestrator_agent(),
-        }
-    except ImportError as e:
-        logger.warning(f"Bolt Merlin package not available, skipping bolt_merlin agents: {e}")
-
     builtin_agents = {
         agent.name: agent
         for agent in [
@@ -246,7 +236,17 @@ def _load_agents_fallback() -> Dict[str, Any]:
         ]
     }
 
-    return {**builtin_agents}
+    # Try to load bolt_merlin agents for enhanced functionality
+    try:
+        from dawn_kestrel.agents.bolt_merlin.registry import get_bolt_merlin_agents
+
+        bolt_merlin_agents = get_bolt_merlin_agents()
+        logger.info(f"Loaded {len(bolt_merlin_agents)} Bolt Merlin agents")
+        return {**builtin_agents, **bolt_merlin_agents}
+
+    except ImportError as e:
+        logger.warning(f"Bolt Merlin package not available, skipping bolt_merlin agents: {e}")
+        return builtin_agents
 
 
 def get_plugin_version(entry_point: EntryPoint) -> Optional[str]:

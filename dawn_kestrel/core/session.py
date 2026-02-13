@@ -1,4 +1,5 @@
 """OpenCode Python - Core Session Management"""
+
 from __future__ import annotations
 from typing import Optional, List, Literal, Dict, Any
 from pathlib import Path
@@ -74,7 +75,7 @@ class SessionManager:
 
     async def get_session(self, session_id: str) -> Optional[Session]:
         """Get a session by ID"""
-        return await self.storage.get_session(session_id)
+        return await self.storage.get_session(session_id, self.project_dir.name)
 
     async def update_session(
         self,
@@ -85,20 +86,20 @@ class SessionManager:
         session = await self.get_session(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
-        
+
         # Update fields
         for key, value in kwargs.items():
             if hasattr(session, key):
                 setattr(session, key, value)
-        
+
         session.time_updated = datetime.now().timestamp()
-        
+
         # Persist
         updated = await self.storage.update_session(session)
-        
+
         # Emit event
         await bus.publish(Events.SESSION_UPDATED, {"session": session.model_dump()})
-        
+
         return session
 
     async def delete_session(self, session_id: str) -> bool:
@@ -140,17 +141,18 @@ class SessionManager:
             text=text,
             **kwargs,
         )
-        
+
         # Persist message
         from dawn_kestrel.storage.store import MessageStorage
+
         message_storage = MessageStorage(self.storage.base_dir)
         await message_storage.create_message(session_id, message)
-        
+
         # Emit event
         await bus.publish(Events.MESSAGE_CREATED, {"message": message.model_dump()})
-        
+
         logger.debug(f"Created message {message.id} in session {session_id}")
-    
+
     async def create_messages(self, session_id: str, messages: List["Message"]) -> None:
         """Create multiple messages in a session with thread safety"""
         async with self._lock:
@@ -200,10 +202,9 @@ class SessionManager:
         deleted = await self.storage.remove(["message", session_id, message_id])
 
         # Emit event
-        await bus.publish(Events.MESSAGE_DELETED, {
-            "session_id": session_id,
-            "message_id": message_id
-        })
+        await bus.publish(
+            Events.MESSAGE_DELETED, {"session_id": session_id, "message_id": message_id}
+        )
 
         logger.info(f"Deleted message {message_id} from session {session_id}")
 
@@ -236,10 +237,9 @@ class SessionManager:
         await part_storage.create_part(part.message_id, part)
 
         # Emit event
-        await bus.publish(Events.MESSAGE_PART_UPDATED, {
-            "message_id": part.message_id,
-            "part_id": part.id
-        })
+        await bus.publish(
+            Events.MESSAGE_PART_UPDATED, {"message_id": part.message_id, "part_id": part.id}
+        )
 
         logger.debug(f"Added part {part.id} to message {part.message_id}")
 
@@ -258,14 +258,16 @@ class SessionManager:
         # Build export data
         export_data = {
             "session": session.model_dump(mode="json"),
-            "messages": [msg.model_dump(mode="json", exclude_none=True) for msg in messages]
+            "messages": [msg.model_dump(mode="json", exclude_none=True) for msg in messages],
         }
 
         logger.info(f"Exported session {session_id} with {len(messages)} messages")
 
         return export_data
 
-    async def import_data(self, session_data: Dict[str, Any], project_id: Optional[str] = None) -> Session:
+    async def import_data(
+        self, session_data: Dict[str, Any], project_id: Optional[str] = None
+    ) -> Session:
         """Import session data (session + messages)"""
 
         session_dict = session_data.get("session", {})
@@ -276,8 +278,8 @@ class SessionManager:
             raise ValueError("Session data missing required fields: id, title")
 
         # Create or update session
-        existing = await self.storage.get_session(session_dict["id"])
         project = project_id or self.project_dir.name
+        existing = await self.storage.get_session(session_dict["id"], project)
 
         if existing:
             # Update existing session
@@ -297,6 +299,7 @@ class SessionManager:
 
         # Import messages
         from dawn_kestrel.core.models import Message
+
         messages = []
         for msg_data in messages_data:
             message = Message(**msg_data)
@@ -328,12 +331,13 @@ class SessionManager:
     def generate_slug(title: str) -> str:
         """Generate URL-friendly slug from title"""
         import re
+
         # Convert to lowercase and replace spaces with hyphens
         slug = title.lower().strip()
         # Replace multiple spaces/hyphens with single hyphen
-        slug = re.sub(r'\s+', '-', slug)
+        slug = re.sub(r"\s+", "-", slug)
         # Remove special characters except alphanumeric, hyphens, and underscores
-        slug = re.sub(r'[^a-z0-9_-]', '', slug)
+        slug = re.sub(r"[^a-z0-9_-]", "", slug)
         # Limit length
         slug = slug[:100]
         return slug

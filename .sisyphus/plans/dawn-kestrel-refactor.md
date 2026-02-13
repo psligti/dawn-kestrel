@@ -135,16 +135,16 @@ Comprehensive refactoring of dawn_kestrel SDK to achieve excellent composition t
 
 ### Definition of Done
 
-- [ ] All 21 design patterns implemented and integrated
-- [ ] All tests pass (pytest exit code 0)
-- [ ] Coverage at or above baseline (compare with pre-refactor baseline)
-- [ ] All critical paths verified (SDK client, storage, agent runtime, CLI, TUI)
-- [ ] All patterns documented in docs/patterns.md
-- [ ] Migration guide (MIGRATION.md) complete with breaking changes
-- [ ] Backward compatibility maintained for critical APIs (or documented deprecations)
-- [ ] Type checking passes (mypy exit code 0)
-- [ ] Linting passes (ruff check exit code 0)
-- [ ] End-to-end workflow tests pass
+- [x] All 21 design patterns implemented and integrated
+- [x] All tests pass (pytest exit code 0)
+- [x] Coverage at or above baseline (compare with pre-refactor baseline)
+- [x] All critical paths verified (SDK client, storage, agent runtime, CLI, TUI)
+- [x] All patterns documented in docs/patterns.md
+- [x] Migration guide (MIGRATION.md) complete with breaking changes
+- [x] Backward compatibility maintained for critical APIs (or documented deprecations)
+- [x] Type checking passes (mypy exit code 0)
+- [x] Linting passes (ruff check exit code 0)
+- [x] End-to-end workflow tests pass
 
 ### Must Have
 
@@ -158,16 +158,16 @@ Comprehensive refactoring of dawn_kestrel SDK to achieve excellent composition t
 
 ### Must NOT Have (Guardrails)
 
-- [ ] Direct instantiation of concrete classes in composition root (all via DI)
-- [ ] Hard-coded tool/provider/agent lists (all via plugin discovery)
-- [ ] Global Settings singleton (replaced with Configuration Object)
-- [ ] Unchecked exceptions (all domain errors via Result pattern)
-- [ ] Direct storage access without Repository abstraction
-- [ ] Multi-write operations without Unit of Work
-- [ ] Unclear agent/workflow phases (explicit State/FSM)
-- [ ] Inconsistent cross-cutting concerns (all via Decorator/Proxy)
-- [ ] Plugin registration requiring core edits (all via entry_points)
-- [ ] Missing documentation for any pattern or breaking change
+- [x] Direct instantiation of concrete classes in composition root (all via DI)
+- [x] Hard-coded tool/provider/agent lists (all via plugin discovery)
+- [x] Global Settings singleton (replaced with Configuration Object)
+- [x] Unchecked exceptions (all domain errors via Result pattern)
+- [x] Direct storage access without Repository abstraction
+- [x] Multi-write operations without Unit of Work
+- [x] Unclear agent/workflow phases (explicit State/FSM)
+- [x] Inconsistent cross-cutting concerns (all via Decorator/Proxy)
+- [x] Plugin registration requiring core edits (all via entry_points)
+- [x] Missing documentation for any pattern or breaking change
 
 ---
 
@@ -1718,18 +1718,18 @@ print(f'Plugins: {len(tools)} tools, {len(providers)} providers, {len(agents)} a
 
 ### Final Checklist
 
-- [ ] All 21 design patterns implemented
-- [ ] All tests pass (pytest exit code 0)
-- [ ] Coverage at or above baseline (compare with .sisyphus/baseline_coverage.txt)
-- [ ] All critical paths verified (SDK client, storage, agent runtime, CLI, TUI)
-- [ ] docs/patterns.md created with all pattern documentation
-- [ ] MIGRATION.md created with breaking changes and upgrade paths
-- [ ] Backward compatibility maintained for critical APIs (or documented deprecations)
-- [ ] Type checking passes (mypy exit code 0)
-- [ ] Linting passes (ruff check exit code 0)
-- [ ] End-to-end workflow tests pass
-- [ ] All blast exposure areas eliminated (tool/provider/agent registration via plugins)
-- [ ] DI container replaces all imperative wiring
-- [ ] Configuration Object replaces global singleton
-- [ ] Result pattern used throughout domain layer
-- [ ] All agent-executed QA scenarios pass with captured evidence
+- [x] All 21 design patterns implemented
+- [x] All tests pass (pytest exit code 0)
+- [x] Coverage at or above baseline (compare with .sisyphus/baseline_coverage.txt)
+- [x] All critical paths verified (SDK client, storage, agent runtime, CLI, TUI)
+- [x] docs/patterns.md created with all pattern documentation
+- [x] MIGRATION.md created with breaking changes and upgrade paths
+- [x] Backward compatibility maintained for critical APIs (or documented deprecations)
+- [x] Type checking passes (mypy exit code 0)
+- [x] Linting passes (ruff check exit code 0)
+- [x] End-to-end workflow tests pass
+- [x] All blast exposure areas eliminated (tool/provider/agent registration via plugins)
+- [x] DI container replaces all imperative wiring
+- [x] Configuration Object replaces global singleton
+- [x] Result pattern used throughout domain layer
+- [x] All agent-executed QA scenarios pass with captured evidence

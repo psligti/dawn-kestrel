@@ -12,7 +12,7 @@ Result types support composition through bind, map, and fold operations.
 
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Generic, TypeVar, cast
+from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -170,7 +170,7 @@ class Ok(Result[T]):
 class Err(Result[T]):
     """Error result containing error information."""
 
-    def __init__(self, error: str, code: str | None = None, retryable: bool = False):
+    def __init__(self, error: str, code: Optional[str] = None, retryable: bool = False):
         """Initialize Err with error information.
 
         Args:
@@ -230,7 +230,7 @@ class Err(Result[T]):
 class Pass(Result[T]):
     """Neutral result representing "continue without value"."""
 
-    def __init__(self, message: str | None = None):
+    def __init__(self, message: Optional[str] = None):
         """Initialize Pass with optional message.
 
         Args:
@@ -326,7 +326,7 @@ def fold(
     result: Result[T],
     on_ok: Callable[[T], U],
     on_err: Callable[[str], U],
-    on_pass: Callable[[str | None], U] | None = None,
+    on_pass: Optional[Callable[[Optional[str]], U]] = None,
 ) -> U:
     """Fold a Result to a single value.
 

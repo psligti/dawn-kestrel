@@ -1,0 +1,5 @@
+app_name = "test"
+
+[accounts.test]
+provider_id = "anthropic"
+api_key = "test-key"

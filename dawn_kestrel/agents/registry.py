@@ -15,7 +15,9 @@ import aiofiles
 import asyncio
 
 from .builtin import Agent
+from .agent_config import AgentConfig
 from dawn_kestrel.core.plugin_discovery import load_agents
+from dawn_kestrel.core.result import Ok
 
 
 logger = logging.getLogger(__name__)
@@ -56,14 +58,14 @@ class AgentRegistry:
         if persistence_enabled:
             self._initialize_persistence()
 
-    def _seed_builtin_agents(self) -> None:
+    async def _seed_builtin_agents(self) -> None:
         """Seed registry with built-in agents from plugin discovery"""
         if self._seeded:
             logger.debug("Agents already seeded, skipping")
             return
 
         try:
-            plugins = asyncio.run(load_agents())
+            plugins = await load_agents()
         except Exception as e:
             logger.warning(f"Failed to load builtin agents: {type(e).__name__}: {e}")
             return
@@ -82,7 +84,9 @@ class AgentRegistry:
 
         The plugin can be:
         - An Agent instance (direct)
-        - A factory function that returns Agent when called
+        - An AgentConfig wrapper around an Agent
+        - A Result[AgentConfig] (from AgentBuilder.build())
+        - A factory function that returns any of the above
 
         Args:
             name: Plugin name
@@ -93,15 +97,35 @@ class AgentRegistry:
         """
         try:
             if callable(agent_plugin):
-                agent = agent_plugin()
+                result = agent_plugin()
             else:
-                agent = agent_plugin
+                result = agent_plugin
 
-            if isinstance(agent, Agent):
-                return agent
+            # Handle Result type (from AgentBuilder.build())
+            if isinstance(result, Ok):
+                agent_config = result.unwrap()
+                return agent_config.agent
+
+            # Handle both Agent and AgentConfig instances
+            if isinstance(result, Agent):
+                return result
+            elif isinstance(result, AgentConfig):
+                return result.agent
             else:
-                logger.warning(f"Plugin '{name}' did not return Agent instance, skipping")
+                result_type = type(result).__name__
+                logger.warning(
+                    f"Plugin '{name}' did not return Agent or AgentConfig instance (got {result_type}), skipping"
+                )
                 return None
+        except Exception as e:
+            logger.error(f"Failed to load agent plugin '{name}': {e}", exc_info=True)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to load agent plugin '{name}': {e}", exc_info=True)
+            return None
+        except Exception as e:
+            logger.error(f"Failed to load agent plugin '{name}': {e}", exc_info=True)
+            return None
         except Exception as e:
             logger.error(f"Failed to load agent plugin '{name}': {e}")
             return None
@@ -228,13 +252,13 @@ class AgentRegistry:
         async with aiofiles.open(agent_path, mode="w") as f:
             await f.write(json.dumps(agent_data, indent=2, ensure_ascii=False))
 
-    def _ensure_seeded(self) -> None:
+    async def _ensure_seeded(self) -> None:
         """Ensure builtin agents are loaded before accessing them."""
         if not self._seeded:
             logger.debug("Lazy seeding builtin agents...")
-            self._seed_builtin_agents()
+            await self._seed_builtin_agents()
 
-    def get_agent(self, name: str) -> Optional[Agent]:
+    async def get_agent(self, name: str) -> Optional[Agent]:
         """
         Get agent by name (case-insensitive).
 
@@ -244,11 +268,11 @@ class AgentRegistry:
         Returns:
             Agent if found, None otherwise
         """
-        self._ensure_seeded()
+        await self._ensure_seeded()
         normalized_name = self._normalize_name(name)
         return self._agents.get(normalized_name)
 
-    def list_agents(self, include_hidden: bool = False) -> List[Agent]:
+    async def list_agents(self, include_hidden: bool = False) -> List[Agent]:
         """
         List all registered agents.
 
@@ -258,7 +282,7 @@ class AgentRegistry:
         Returns:
             List of agents
         """
-        self._ensure_seeded()
+        await self._ensure_seeded()
         agents = list(self._agents.values())
 
         if not include_hidden:

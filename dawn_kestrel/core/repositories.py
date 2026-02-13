@@ -205,18 +205,20 @@ class SessionRepositoryImpl:
     Wraps SessionStorage and returns Result types for explicit error handling.
     """
 
-    def __init__(self, storage: SessionStorage):
+    def __init__(self, storage: SessionStorage, project_id: str):
         """Initialize repository with storage backend.
 
         Args:
             storage: SessionStorage instance to use for data persistence.
+            project_id: Project ID for session operations.
         """
         self._storage = storage
+        self._project_id = project_id
 
     async def get_by_id(self, session_id: str) -> Result[Session]:
         """Get session by ID."""
         try:
-            session = await self._storage.get_session(session_id)
+            session = await self._storage.get_session(session_id, self._project_id)
             if session is None:
                 return Err(f"Session not found: {session_id}", code="NOT_FOUND")
             return Ok(session)
@@ -242,11 +244,7 @@ class SessionRepositoryImpl:
     async def delete(self, session_id: str) -> Result[bool]:
         """Delete session by ID."""
         try:
-            # Need project_id for delete_session, get it first
-            session = await self._storage.get_session(session_id)
-            if session is None:
-                return Ok(False)
-            deleted = await self._storage.delete_session(session_id, session.project_id)
+            deleted = await self._storage.delete_session(session_id, self._project_id)
             return Ok(deleted)
         except Exception as e:
             return Err(f"Failed to delete session: {e}", code="STORAGE_ERROR")

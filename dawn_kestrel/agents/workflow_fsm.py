@@ -43,8 +43,11 @@ from dawn_kestrel.core.fsm import (
     FSMReliabilityConfig,
 )
 from dawn_kestrel.core.result import Result, Ok, Err
+from dawn_kestrel.core.mediator import EventMediator, EventType
 from dawn_kestrel.core.agent_task import AgentTask, TaskStatus, create_agent_task
+from dawn_kestrel.core.agent_types import SessionManagerLike
 from dawn_kestrel.agents.runtime import AgentRuntime
+from dawn_kestrel.tools.framework import ToolRegistry
 from dawn_kestrel.agents.workflow import (
     IntakeOutput,
     PlanOutput,
@@ -227,6 +230,13 @@ class WorkflowConfig:
     options: Dict[str, Any] = field(default_factory=dict)
     """Additional execution options (model, temperature, etc.)."""
 
+    # Session and tools
+    session_manager: Optional[SessionManagerLike] = None
+    """SessionManager for session operations."""
+
+    tools: Optional[ToolRegistry] = None
+    """Tool registry for workflow execution."""
+
     # Budget limits
     budget: WorkflowBudget = field(default_factory=WorkflowBudget)
     """Budget limits for workflow execution."""
@@ -261,6 +271,7 @@ class WorkflowFSM:
         runtime: AgentRuntime,
         config: WorkflowConfig,
         fsm_id: Optional[str] = None,
+        mediator: Optional[EventMediator] = None,
     ):
         """Initialize workflow FSM.
 
@@ -268,10 +279,12 @@ class WorkflowFSM:
             runtime: AgentRuntime instance for executing phases.
             config: WorkflowConfig with session, tools, budgets, etc.
             fsm_id: Optional unique identifier for this FSM instance.
+            mediator: Optional EventMediator for emitting transition events.
         """
         self.runtime = runtime
         self.config = config
         self._fsm_id = fsm_id or f"workflow_fsm_{id(self)}"
+        self._mediator = mediator
 
         # Initialize workflow context
         self.context = WorkflowContext()
@@ -317,6 +330,21 @@ class WorkflowFSM:
             .with_transition(WorkflowState.CHECK, WorkflowState.DONE)
         )
 
+        if self._mediator is not None:
+            for state in WorkflowState:
+                builder = builder.with_entry_hook(
+                    state.value,
+                    lambda ctx, s=state.value: self._emit_transition_event(to_state=s, context=ctx),
+                )
+
+        # Add entry hooks for event emission if mediator is available
+        if self._mediator is not None:
+            for state in WorkflowState:
+                builder = builder.with_entry_hook(
+                    state.value,
+                    lambda ctx, s=state.value: self._emit_transition_event(to_state=s, context=ctx),
+                )
+
         result = builder.build(initial_state=WorkflowState.INTAKE)
         if result.is_err():
             raise ValueError(f"Failed to build workflow FSM: {result.error}")
@@ -330,6 +358,42 @@ class WorkflowFSM:
     async def transition_to(self, new_state: str) -> Result[None]:
         """Transition workflow FSM to new state."""
         return await self._fsm.transition_to(new_state)
+
+    def _emit_transition_event(self, to_state: str, context: FSMContext) -> Result[None]:
+        """Emit FSM transition event via EventMediator.
+
+        Args:
+            to_state: The state being transitioned to.
+            context: FSMContext for the transition.
+
+        Returns:
+            Result[None] on success.
+        """
+        if self._mediator is None:
+            return Ok(None)
+
+        try:
+            from dawn_kestrel.core.mediator import Event
+            import datetime
+
+            event = Event(
+                event_type=EventType.DOMAIN,
+                source=f"WorkflowFSM:{self._fsm_id}",
+                data={
+                    "fsm_id": self._fsm_id,
+                    "from_state": context.get("previous_state")
+                    if isinstance(context, dict)
+                    else "unknown",
+                    "to_state": to_state,
+                    "timestamp": datetime.datetime.now().isoformat(),
+                },
+            )
+
+            asyncio.create_task(self._mediator.publish(event))
+            return Ok(None)
+        except Exception as e:
+            logger.warning(f"Failed to emit FSM transition event: {e}")
+            return Ok(None)
 
     async def is_transition_valid(self, from_state: str, to_state: str) -> bool:
         """Check if transition is valid."""
@@ -409,8 +473,8 @@ Respond with ONLY valid JSON matching the schema above.
             agent_name=self.config.agent_name,
             session_id=self.config.session_id,
             user_message=prompt,
-            session_manager=None,  # TODO: Provide session manager
-            tools=None,  # TODO: Provide tools from config
+            session_manager=self.config.session_manager,
+            tools=self.config.tools,
             skills=self.config.skill_names,
             options=self.config.options,
         )
@@ -472,8 +536,8 @@ Respond with ONLY valid JSON matching the schema above.
             agent_name=self.config.agent_name,
             session_id=self.config.session_id,
             user_message=prompt,
-            session_manager=None,
-            tools=None,
+            session_manager=self.config.session_manager,
+            tools=self.config.tools,
             skills=self.config.skill_names,
             options=self.config.options,
         )
@@ -583,18 +647,13 @@ Respond with ONLY valid JSON matching the schema above.
             agent_name=self.config.agent_name,
             session_id=self.config.session_id,
             user_message=prompt,
-            session_manager=None,
-            tools=None,  # TODO: Provide tools
+            session_manager=self.config.session_manager,
+            tools=self.config.tools,
             skills=self.config.skill_names,
             options=self.config.options,
         )
 
         if result.error:
-            # Mark todos as failed
-            for tid, _ in todos_to_work:
-                if tid in self.context.todos:
-                    self.context.todos[tid].status = TaskStatus.FAILED
-                    self.context.todos[tid].error = "Act phase execution failed"
             return Err(f"Act phase execution failed: {result.error}")
 
         try:
@@ -673,8 +732,8 @@ Respond with ONLY valid JSON matching the schema above.
             agent_name=self.config.agent_name,
             session_id=self.config.session_id,
             user_message=prompt,
-            session_manager=None,
-            tools=None,
+            session_manager=self.config.session_manager,
+            tools=self.config.tools,
             skills=self.config.skill_names,
             options=self.config.options,
         )
@@ -781,8 +840,8 @@ Respond with ONLY valid JSON matching the schema above.
             agent_name=self.config.agent_name,
             session_id=self.config.session_id,
             user_message=prompt,
-            session_manager=None,
-            tools=None,
+            session_manager=self.config.session_manager,
+            tools=self.config.tools,
             skills=self.config.skill_names,
             options=self.config.options,
         )
@@ -1044,6 +1103,7 @@ def create_workflow_fsm(
     runtime: AgentRuntime,
     config: WorkflowConfig,
     fsm_id: Optional[str] = None,
+    mediator: Optional[EventMediator] = None,
 ) -> WorkflowFSM:
     """Factory function to create a workflow FSM.
 
@@ -1051,8 +1111,9 @@ def create_workflow_fsm(
         runtime: AgentRuntime instance for executing phases.
         config: WorkflowConfig with session, tools, budgets, etc.
         fsm_id: Optional unique identifier for this FSM instance.
+        mediator: Optional EventMediator for emitting transition events.
 
     Returns:
         Configured WorkflowFSM instance.
     """
-    return WorkflowFSM(runtime=runtime, config=config, fsm_id=fsm_id)
+    return WorkflowFSM(runtime=runtime, config=config, fsm_id=fsm_id, mediator=mediator)

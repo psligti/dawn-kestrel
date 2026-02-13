@@ -1,8 +1,1 @@
-{
-  "active_plan": "/Users/parkersligting/develop/pt/worktrees/harness-agent-rework/.sisyphus/plans/python39-compatibility-fix.md",
-  "started_at": "2026-02-11T17:50:56.478Z",
-  "session_ids": ["ses_3b2311da3ffeeoCtqp3eDBqDtF", "ses_3b228d294ffeElV1UUIR1uD4h3"],
-  "plan_name": "python39-compatibility-fix",
-  "status": "COMPLETE",
-  "completed_at": "2026-02-11T18:15:00.000Z"
-}
+{"active_plan": null, "started_at": null, "session_ids": [], "plan_name": null, "completed_at": null, "last_plan": "iron-rook-migration"}

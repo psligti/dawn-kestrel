@@ -762,13 +762,13 @@ class TestFSMHooks:
             assert transition_result.is_ok()
             assert fsm._state == "running"
 
-            # Both hooks should log exceptions
+            # Both hooks should log exceptions (from _execute_with_reliability)
             assert mock_logger.error.call_count >= 2
 
             # Check that error messages include exception details
             error_calls = [str(call) for call in mock_logger.error.call_args_list]
-            assert any("Exit hook raised exception" in call for call in error_calls)
-            assert any("Entry hook raised exception" in call for call in error_calls)
+            assert any("Hook execution error" in call for call in error_calls)
+            assert any("Hook raised exception" in call for call in error_calls)
 
     @pytest.mark.asyncio
     async def test_hooks_receive_fsm_context(self):
@@ -1174,3 +1174,468 @@ class TestFSMReliability:
 
         # Hook should be called directly (without wrappers)
         assert "entry" in hook_called
+
+
+class TestFSMDIIntegration:
+    """Test FSM integration with DI container."""
+
+    def test_fsm_repository_provider_registered(self):
+        """FSM repository provider is registered in DI container."""
+        from dawn_kestrel.core.di_container import container
+
+        # Provider should be accessible
+        assert hasattr(container, "fsm_repository")
+        fsm_repo = container.fsm_repository()
+
+        # Should return FSMStateRepositoryImpl
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        assert isinstance(fsm_repo, FSMStateRepositoryImpl)
+
+    def test_fsm_builder_provider_registered(self):
+        """FSM builder provider is registered in DI container."""
+        from dawn_kestrel.core.di_container import container
+
+        # Provider should be accessible
+        assert hasattr(container, "fsm_builder")
+        fsm_builder = container.fsm_builder()
+
+        # Should return FSMBuilder instance
+        from dawn_kestrel.core.fsm import FSMBuilder
+
+        assert isinstance(fsm_builder, FSMBuilder)
+
+    def test_fsm_repository_uses_container_storage(self):
+        """FSM repository uses container's storage provider."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.storage.store import SessionStorage
+
+        # Get both storage and fsm_repository
+        storage = container.storage()
+        fsm_repo = container.fsm_repository()
+
+        # FSM repository should have a SessionStorage instance
+        assert isinstance(fsm_repo._storage, SessionStorage)
+
+    @pytest.mark.asyncio
+    async def test_fsm_builder_creates_fsm_from_container(self):
+        """FSM builder from container can create valid FSM instances."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.core.result import Ok
+
+        # Get FSM builder from container
+        fsm_builder = container.fsm_builder()
+
+        # Use builder to create FSM
+        result = (
+            fsm_builder.with_state("idle")
+            .with_state("running")
+            .with_state("completed")
+            .with_transition("idle", "running")
+            .with_transition("running", "completed")
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify FSM instance
+        state = await fsm.get_state()
+        assert state == "idle"
+
+    @pytest.mark.asyncio
+    async def test_fsm_builder_with_persistence_from_container(self):
+        """FSM builder with persistence uses container's FSM repository."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.core.result import Ok
+
+        # Get FSM builder and repository from container
+        fsm_builder = container.fsm_builder()
+        fsm_repo = container.fsm_repository()
+
+        # Build FSM with persistence
+        result = (
+            fsm_builder.with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_persistence(fsm_repo)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Store fsm_id for testing
+        fsm_id = fsm._fsm_id
+
+        # Verify FSM has repository
+        assert fsm._repository is fsm_repo
+
+        # Transition should persist state
+        transition_result = await fsm.transition_to("running")
+        assert transition_result.is_ok()
+
+        # Verify state was persisted
+        state_result = await fsm_repo.get_state(fsm_id)
+        assert state_result.is_ok()
+        assert state_result.unwrap() == "running"
+
+    def test_fsm_builder_lazy_initialization(self):
+        """FSM builder provider uses lazy initialization."""
+        from dawn_kestrel.core.di_container import container
+
+        # Access provider - should not create instance yet (Factory pattern)
+        provider = container.fsm_repository
+
+        # Multiple calls should return same provider
+        assert container.fsm_repository is provider
+
+        # But getting instance should work
+        fsm_repo1 = container.fsm_repository()
+        fsm_repo2 = container.fsm_repository()
+
+        # Factory creates new instances each time (not Singleton)
+        assert fsm_repo1 is not fsm_repo2
+
+    @pytest.mark.asyncio
+    async def test_fsm_dependencies_injected_correctly(self):
+        """FSM dependencies are injected correctly from container."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.core.result import Ok
+
+        # Get FSM builder and repository from container
+        fsm_builder = container.fsm_builder()
+        fsm_repo = container.fsm_repository()
+
+        # Build FSM with all optional dependencies
+        result = (
+            fsm_builder.with_state("idle")
+            .with_state("running")
+            .with_persistence(fsm_repo)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify all dependencies are correctly set
+        assert fsm._repository is fsm_repo
+        assert fsm._fsm_id is not None  # fsm_id is auto-generated
+        assert fsm._fsm_id.startswith("fsm_")
+        assert fsm._state == "idle"
+
+    @pytest.mark.asyncio
+    async def test_fsm_repository_state_get_set(self):
+        """FSM repository from container can get and set state."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.core.result import Ok
+
+        # Get FSM repository from container
+        fsm_repo = container.fsm_repository()
+
+        # Set state
+        set_result = await fsm_repo.set_state("test-fsm-state", "running")
+        assert set_result.is_ok()
+
+        # Get state
+        get_result = await fsm_repo.get_state("test-fsm-state")
+        assert get_result.is_ok()
+        assert get_result.unwrap() == "running"
+
+        # Update state
+        set_result = await fsm_repo.set_state("test-fsm-state", "completed")
+        assert set_result.is_ok()
+
+        # Get updated state
+        get_result = await fsm_repo.get_state("test-fsm-state")
+        assert get_result.is_ok()
+        assert get_result.unwrap() == "completed"
+
+    @pytest.mark.asyncio
+    async def test_fsm_builder_chaining_works_from_container(self):
+        """FSM builder method chaining works from container provider."""
+        from dawn_kestrel.core.di_container import container
+        from dawn_kestrel.core.result import Ok
+
+        # Get FSM builder from container
+        fsm_builder = container.fsm_builder()
+
+        # Test fluent API chaining
+        result = (
+            fsm_builder.with_state("idle")
+            .with_state("processing")
+            .with_state("done")
+            .with_state("error")
+            .with_transition("idle", "processing")
+            .with_transition("processing", "done")
+            .with_transition("processing", "error")
+            .with_transition("error", "idle")
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Verify all states and transitions are set
+        assert fsm._valid_states == {"idle", "processing", "done", "error"}
+
+        # Verify transitions work
+        result1 = await fsm.transition_to("processing")
+        assert result1.is_ok()
+
+        result2 = await fsm.transition_to("done")
+        assert result2.is_ok()
+
+
+class TestFSMProtocol:
+    """Test FSM protocol interface."""
+
+    def test_fsm_protocol_has_required_methods(self):
+        """FSM protocol defines get_state, transition_to, is_transition_valid methods."""
+        from dawn_kestrel.core.fsm import FSM
+        import inspect
+
+        # Check protocol has required methods
+        assert hasattr(FSM, "get_state")
+        assert hasattr(FSM, "transition_to")
+        assert hasattr(FSM, "is_transition_valid")
+
+        # Check methods are protocol methods (not actual implementations)
+        get_state_method = getattr(FSM, "get_state")
+        transition_method = getattr(FSM, "transition_to")
+        is_valid_method = getattr(FSM, "is_transition_valid")
+
+        # Should be callable (protocol methods)
+        assert callable(get_state_method)
+        assert callable(transition_method)
+        assert callable(is_valid_method)
+
+    def test_fsm_protocol_is_runtime_checkable(self):
+        """FSM protocol is marked as runtime_checkable for isinstance() checks."""
+        from dawn_kestrel.core.fsm import FSM
+
+        # @runtime_checkable protocol allows isinstance checks
+        # Create a mock FSM instance
+        class MockFSM(FSM):
+            async def get_state(self) -> str:
+                return "idle"
+
+            async def transition_to(
+                self, new_state: str, context: FSMContext | None = None
+            ) -> Result[None]:
+                return Ok(None)
+
+            async def is_transition_valid(self, from_state: str, to_state: str) -> bool:
+                return True
+
+        mock = MockFSM()
+        assert isinstance(mock, FSM)
+
+    @pytest.mark.asyncio
+    async def test_fsm_impl_satisfies_protocol(self):
+        """FSMImpl class satisfies FSM protocol."""
+        from dawn_kestrel.core.fsm import FSM
+
+        valid_states = {"idle", "running"}
+        valid_transitions = {"idle": {"running"}}
+
+        fsm = FSMImpl("idle", valid_states, valid_transitions)
+
+        # FSMImpl should satisfy FSM protocol
+        assert isinstance(fsm, FSM)
+
+        # Test all protocol methods work
+        state = await fsm.get_state()
+        assert state == "idle"
+
+        is_valid = await fsm.is_transition_valid("idle", "running")
+        assert is_valid is True
+
+        result = await fsm.transition_to("running")
+        assert result.is_ok()
+
+
+class TestFSMStateRepository:
+    """Test FSM state repository implementation."""
+
+    @pytest.fixture
+    def mock_storage(self):
+        """Create mock SessionStorage for testing."""
+        from dawn_kestrel.storage.store import SessionStorage
+        from unittest.mock import MagicMock
+
+        storage = MagicMock(spec=SessionStorage)
+        return storage
+
+    @pytest.mark.asyncio
+    async def test_repository_get_state_returns_ok_when_found(self, mock_storage):
+        """get_state returns Ok(state) when state is found in storage."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.read.return_value = {"state": "running"}
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.get_state("test-fsm")
+
+        assert result.is_ok()
+        assert result.unwrap() == "running"
+        mock_storage.read.assert_called_once_with(["fsm_state", "test-fsm"])
+
+    @pytest.mark.asyncio
+    async def test_repository_get_state_returns_err_when_not_found(self, mock_storage):
+        """get_state returns Err when state is not found in storage."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.read.return_value = None
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.get_state("test-fsm")
+
+        assert result.is_err()
+        assert "FSM state not found" in result.error
+        assert result.code == "NOT_FOUND"
+
+    @pytest.mark.asyncio
+    async def test_repository_get_state_returns_err_when_invalid_data(self, mock_storage):
+        """get_state returns Err when storage data is missing state field."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.read.return_value = {"invalid_field": "value"}
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.get_state("test-fsm")
+
+        assert result.is_err()
+        assert "Invalid FSM state data" in result.error
+        assert result.code == "INVALID_DATA"
+
+    @pytest.mark.asyncio
+    async def test_repository_set_state_returns_ok_on_success(self, mock_storage):
+        """set_state returns Ok on successful write to storage."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.write.return_value = None  # write doesn't return anything
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.set_state("test-fsm", "running")
+
+        assert result.is_ok()
+        assert result.unwrap() is None
+        mock_storage.write.assert_called_once_with(["fsm_state", "test-fsm"], {"state": "running"})
+
+    @pytest.mark.asyncio
+    async def test_repository_set_state_returns_err_on_storage_error(self, mock_storage):
+        """set_state returns Err when storage write fails."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.write.side_effect = IOError("Storage unavailable")
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.set_state("test-fsm", "running")
+
+        assert result.is_err()
+        assert "Failed to persist FSM state" in result.error
+        assert result.code == "STORAGE_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_repository_get_state_returns_err_on_storage_error(self, mock_storage):
+        """get_state returns Err when storage read fails."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        mock_storage.read.side_effect = IOError("Storage unavailable")
+
+        repo = FSMStateRepositoryImpl(mock_storage)
+        result = await repo.get_state("test-fsm")
+
+        assert result.is_err()
+        assert "Failed to get FSM state" in result.error
+        assert result.code == "STORAGE_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_repository_get_set_roundtrip(self, mock_storage):
+        """Repository can store and retrieve state in roundtrip."""
+        from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+
+        # Store state
+        repo = FSMStateRepositoryImpl(mock_storage)
+        set_result = await repo.set_state("roundtrip-fsm", "completed")
+        assert set_result.is_ok()
+
+        # Retrieve state
+        mock_storage.read.return_value = {"state": "completed"}
+        get_result = await repo.get_state("roundtrip-fsm")
+        assert get_result.is_ok()
+        assert get_result.unwrap() == "completed"
+
+
+class TestFSMGuards:
+    """Test FSM guard condition storage in builder."""
+
+    def test_guard_stored_in_builder(self):
+        """Guard is stored in builder for transition."""
+
+        def test_guard(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        builder = FSMBuilder()
+        builder.with_guard("idle", "running", test_guard)
+
+        assert ("idle", "running") in builder._guards
+        assert builder._guards[("idle", "running")] == test_guard
+
+    def test_multiple_guards_stored_in_builder(self):
+        """Multiple guards can be stored for different transitions."""
+
+        def guard1(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        def guard2(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        builder = FSMBuilder()
+        builder.with_guard("idle", "running", guard1)
+        builder.with_guard("running", "done", guard2)
+
+        assert ("idle", "running") in builder._guards
+        assert ("running", "done") in builder._guards
+        assert builder._guards[("idle", "running")] == guard1
+        assert builder._guards[("running", "done")] == guard2
+
+    def test_guard_overwrites_previous_guard(self):
+        """Calling with_guard twice for same transition overwrites previous guard."""
+
+        def guard1(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        def guard2(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        builder = FSMBuilder()
+        builder.with_guard("idle", "running", guard1)
+        builder.with_guard("idle", "running", guard2)
+
+        assert builder._guards[("idle", "running")] == guard2
+
+    @pytest.mark.asyncio
+    async def test_fsm_with_guard_still_transitions(self):
+        """FSM with guards configured still performs transitions."""
+
+        def allow_guard(ctx: FSMContext) -> Result[bool]:
+            return Ok(True)
+
+        result = (
+            FSMBuilder()
+            .with_state("idle")
+            .with_state("running")
+            .with_transition("idle", "running")
+            .with_guard("idle", "running", allow_guard)
+            .build(initial_state="idle")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+
+        # Transition should succeed (guards are stored but not yet implemented in FSMImpl)
+        transition_result = await fsm.transition_to("running")
+        assert transition_result.is_ok()
+        assert fsm._state == "running"

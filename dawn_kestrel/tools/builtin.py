@@ -1,4 +1,5 @@
 """OpenCode Python - Built-in tools (bash, read, write, grep, glob)"""
+
 from __future__ import annotations
 
 import logging
@@ -10,12 +11,20 @@ from pydantic import BaseModel, Field
 
 from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
 from dawn_kestrel.tools.prompts import get_prompt
+from dawn_kestrel.core.security import (
+    validate_command,
+    validate_pattern,
+    ALLOWED_SHELL_COMMANDS,
+    ALLOWED_SEARCH_TOOLS,
+    SecurityError,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class BashToolArgs(BaseModel):
     """Arguments for Bash tool"""
+
     command: str = Field(description="Command to execute")
     description: Optional[str] = Field(default=None, description="Description for UI")
     workdir: Optional[str] = Field(default=".", description="Working directory")
@@ -43,26 +52,26 @@ class BashTool(Tool):
         Returns:
             ToolResult with output, title, and metadata
         """
-        # Validate args using Pydantic model
         validated = BashToolArgs(**args)
         logger.info(f"Executing: {validated.command}")
 
         work_dir = validated.workdir if validated.workdir != "." else "."
 
         try:
+            tokens = validate_command(validated.command, allowed_commands=ALLOWED_SHELL_COMMANDS)
+
             result = subprocess.run(
-                [validated.command],
-                shell=True,
+                tokens,
+                shell=False,
                 cwd=work_dir,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
             )
 
             output = result.stdout
             stderr = result.stderr
 
-            # Combine stdout and stderr
             if stderr:
                 full_output = f"{output}\n[Stderr]\n{stderr}"
             else:
@@ -77,6 +86,13 @@ class BashTool(Tool):
                 },
             )
 
+        except SecurityError as e:
+            logger.warning(f"Command blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {validated.command}",
+                output=f"Command rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
         except Exception as e:
             logger.error(f"Bash tool failed: {e}")
             return ToolResult(
@@ -88,6 +104,7 @@ class BashTool(Tool):
 
 class ReadToolArgs(BaseModel):
     """Arguments for Read tool"""
+
     filePath: str = Field(description="Path to file (relative to project)")
     limit: Optional[int] = Field(default=2000, description="Max lines to read")
     offset: Optional[int] = Field(default=0, description="Line number to start from")
@@ -167,6 +184,7 @@ class ReadTool(Tool):
 
 class WriteToolArgs(BaseModel):
     """Arguments for Write tool"""
+
     filePath: str = Field(description="Path to file (relative to project)")
     content: str = Field(description="Content to write")
     create: bool = Field(default=False, description="Create parent directories if needed")
@@ -222,6 +240,7 @@ class WriteTool(Tool):
 
 class GrepToolArgs(BaseModel):
     """Arguments for Grep tool"""
+
     pattern: str = Field(description="Regex pattern to search")
     include: Optional[str] = Field(default="*", description="Glob pattern for files")
     max_results: int = Field(default=100, description="Max results to return")
@@ -259,7 +278,9 @@ class GrepTool(Tool):
         logger.info(f"Searching: {query}")
 
         try:
-            file_pattern_str: str = file_pattern if file_pattern is not None else "*"
+            validate_pattern(query, max_length=1000)
+
+            file_pattern_str = file_pattern if file_pattern is not None else "*"
             cmd = ["rg", "-e", query, file_pattern_str]
 
             result = subprocess.run(
@@ -267,6 +288,7 @@ class GrepTool(Tool):
                 capture_output=True,
                 text=True,
                 check=False,
+                shell=False,
             )
 
             output = result.stdout.strip()
@@ -278,6 +300,13 @@ class GrepTool(Tool):
                 metadata={"matches": len(lines)},
             )
 
+        except SecurityError as e:
+            logger.warning(f"Pattern blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {query}",
+                output=f"Pattern rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
         except Exception as e:
             logger.error(f"Grep tool failed: {e}")
             return ToolResult(
@@ -289,6 +318,7 @@ class GrepTool(Tool):
 
 class GlobToolArgs(BaseModel):
     """Arguments for Glob tool"""
+
     pattern: str = Field(description="Glob pattern")
     max_results: int = Field(default=100, description="Max results to return")
 
@@ -324,6 +354,46 @@ class GlobTool(Tool):
         logger.info(f"Finding: {pattern}")
 
         try:
+            validate_pattern(pattern, max_length=500)
+
+            pattern_str = pattern if isinstance(pattern, str) else "*"
+            cmd = ["rg", "--files", "--glob", pattern_str]
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+            )
+
+            output = result.stdout.strip()
+            lines = output.split("\n")[:max_results]
+
+            return ToolResult(
+                title=f"Glob: {pattern}",
+                output="\n".join(lines),
+                metadata={"matches": len(lines)},
+            )
+
+        except SecurityError as e:
+            logger.warning(f"Pattern blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {pattern}",
+                output=f"Pattern rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
+        except Exception as e:
+            logger.error(f"Glob tool failed: {e}")
+            return ToolResult(
+                title=f"Error finding: {pattern}",
+                output=str(e),
+                metadata={"error": str(e)},
+            )
+
+        logger.info(f"Finding: {pattern}")
+
+        try:
             pattern_str: str = pattern if isinstance(pattern, str) else "*"
             cmd = ["rg", "--files", "--glob", pattern_str]
 
@@ -354,8 +424,11 @@ class GlobTool(Tool):
 
 class ASTGrepToolArgs(BaseModel):
     """Arguments for AST Grep tool"""
+
     pattern: str = Field(description="AST pattern to search")
-    language: str = Field(default="python", description="Language (python, javascript, typescript, etc.)")
+    language: str = Field(
+        default="python", description="Language (python, javascript, typescript, etc.)"
+    )
     paths: Optional[List[str]] = Field(default=None, description="Specific file paths to search")
 
 
@@ -391,6 +464,68 @@ class ASTGrepTool(Tool):
         logger.info(f"AST grep searching: {pattern} ({language})")
 
         try:
+            validate_pattern(pattern, max_length=500)
+
+            cmd = ["ast-grep", "run", "--pattern", pattern, "--lang", language]
+            if paths:
+                cmd.extend(paths)
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+                shell=False,
+            )
+
+            if result.returncode != 0 and result.stderr:
+                if "error" in result.stderr.lower() or "not found" in result.stderr.lower():
+                    logger.warning(f"AST grep tool issue: {result.stderr}")
+
+            output = result.stdout.strip()
+
+            return ToolResult(
+                title=f"AST Grep: {pattern}",
+                output=output,
+                metadata={
+                    "language": language,
+                    "matches": len(output.split("\n")) if output else 0,
+                },
+            )
+
+        except SecurityError as e:
+            logger.warning(f"Pattern blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {pattern}",
+                output=f"Pattern rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning(f"AST grep search timed out: {pattern}")
+            return ToolResult(
+                title=f"AST Grep timeout: {pattern}",
+                output="",
+                metadata={"error": "timeout"},
+            )
+        except FileNotFoundError:
+            logger.warning("ast-grep tool not found")
+            return ToolResult(
+                title="AST Grep not available",
+                output="ast-grep tool not found in PATH",
+                metadata={"error": "tool_not_found"},
+            )
+        except Exception as e:
+            logger.error(f"AST grep tool failed: {e}")
+            return ToolResult(
+                title=f"Error in AST grep: {pattern}",
+                output=str(e),
+                metadata={"error": str(e)},
+            )
+
+        logger.info(f"AST grep searching: {pattern} ({language})")
+
+        try:
             cmd = ["ast-grep", "run", "--pattern", pattern, "--lang", language]
             if paths:
                 cmd.extend(paths)
@@ -413,7 +548,10 @@ class ASTGrepTool(Tool):
             return ToolResult(
                 title=f"AST Grep: {pattern}",
                 output=output,
-                metadata={"language": language, "matches": len(output.split("\n")) if output else 0},
+                metadata={
+                    "language": language,
+                    "matches": len(output.split("\n")) if output else 0,
+                },
             )
 
         except subprocess.TimeoutExpired:
