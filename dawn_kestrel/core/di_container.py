@@ -11,11 +11,15 @@ Services:
     - provider_registry: ProviderRegistry for AI provider configuration
     - agent_runtime: AgentRuntime for agent execution
     - session_lifecycle: SessionLifecycle for event management
+    - fsm_repository: FSMStateRepository for FSM state persistence
+    - fsm_builder: FSMBuilder for creating FSM instances with fluent API
 
 Example:
     >>> from dawn_kestrel.core.di_container import container
     >>> storage = container.storage()
     >>> service = container.service()
+    >>> fsm_repo = container.fsm_repository()
+    >>> fsm_builder = container.fsm_builder()
 """
 
 from __future__ import annotations
@@ -37,6 +41,8 @@ from dawn_kestrel.core.repositories import (
     MessageRepositoryImpl,
     PartRepositoryImpl,
 )
+from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
+from dawn_kestrel.core.fsm import FSMBuilder
 
 
 class Container(containers.DeclarativeContainer):
@@ -47,17 +53,38 @@ class Container(containers.DeclarativeContainer):
     All services use lazy initialization for optimal performance.
     """
 
-    # Configuration
     config = providers.Configuration()
 
-    # Storage directory
     storage_dir = providers.Factory(
         lambda: container.config.storage_path() or settings.storage_dir_path(),
     )
 
-    # Project directory
     project_dir = providers.Factory(
         lambda: container.config.project_dir() or Path.cwd(),
+    )
+
+    project_dir_resolved = providers.Factory(
+        lambda: container.project_dir().name if container.project_dir() else Path.cwd().name,
+    )
+
+    agent_registry_persistence_enabled = providers.Factory(
+        lambda: container.config.agent_registry_persistence_enabled(),
+    )
+
+    skill_max_char_budget = providers.Factory(
+        lambda: container.config.skill_max_char_budget(),
+    )
+
+    io_handler = providers.Factory(
+        lambda: container.config.io_handler(),
+    )
+
+    progress_handler = providers.Factory(
+        lambda: container.config.progress_handler(),
+    )
+
+    notification_handler = providers.Factory(
+        lambda: container.config.notification_handler(),
     )
 
     # SessionStorage - lazily initialized
@@ -78,10 +105,10 @@ class Container(containers.DeclarativeContainer):
         base_dir=storage_dir,
     )
 
-    # Repositories - wrap storage implementations
     session_repo = providers.Factory(
         SessionRepositoryImpl,
         storage=storage,
+        project_id=project_dir_resolved,
     )
 
     message_repo = providers.Factory(
@@ -94,12 +121,10 @@ class Container(containers.DeclarativeContainer):
         storage=part_storage,
     )
 
-    # SessionLifecycle - singleton, no dependencies
     session_lifecycle = providers.Singleton(
         SessionLifecycle,
     )
 
-    # DefaultSessionService - depends on repositories and project_dir
     service = providers.Factory(
         DefaultSessionService,
         session_repo=session_repo,
@@ -111,7 +136,6 @@ class Container(containers.DeclarativeContainer):
         notification_handler=providers.Factory(lambda: container.config.notification_handler()),
     )
 
-    # AgentRegistry - lazily initialized
     agent_registry = providers.Factory(
         create_agent_registry,
         persistence_enabled=providers.Factory(
@@ -120,19 +144,29 @@ class Container(containers.DeclarativeContainer):
         storage_dir=storage_dir,
     )
 
-    # ProviderRegistry - lazily initialized
     provider_registry = providers.Factory(
         create_provider_registry,
         storage_dir=storage_dir,
     )
 
-    # AgentRuntime - depends on agent_registry, project_dir, session_lifecycle
     agent_runtime = providers.Factory(
         create_agent_runtime,
         agent_registry=agent_registry,
         base_dir=project_dir,
         skill_max_char_budget=providers.Factory(lambda: container.config.skill_max_char_budget()),
         session_lifecycle=session_lifecycle,
+        provider_registry=provider_registry,
+    )
+
+    # FSMStateRepository - depends on storage for state persistence
+    fsm_repository = providers.Factory(
+        FSMStateRepositoryImpl,
+        storage=storage,
+    )
+
+    # FSMBuilder - factory for creating FSM instances with fluent API
+    fsm_builder = providers.Factory(
+        FSMBuilder,
     )
 
     # Lifecycle registration - ensure provider_registry knows about session_lifecycle
