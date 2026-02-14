@@ -131,6 +131,9 @@ class WorkflowContext:
     todos: Dict[str, AgentTask] = field(default_factory=dict)
     """Active todos indexed by task_id."""
 
+    current_todo_id: str = ""
+    """ID of the todo currently being worked on."""
+
     # Evidence tracking
     evidence: List[str] = field(default_factory=list)
     """Accumulated evidence across iterations."""
@@ -302,15 +305,6 @@ class WorkflowFSM:
         }
 
     def _build_fsm(self) -> FSM:
-        """Build the workflow FSM using FSMBuilder.
-
-        Creates states: intake, plan, act, synthesize, check, done
-        with transitions: intake→plan→act→synthesize→check→plan (loop),
-        check→done (stop conditions).
-
-        Returns:
-            Configured FSM instance.
-        """
         builder = (
             FSMBuilder()
             .with_state(WorkflowState.INTAKE)
@@ -319,25 +313,20 @@ class WorkflowFSM:
             .with_state(WorkflowState.SYNTHESIZE)
             .with_state(WorkflowState.CHECK)
             .with_state(WorkflowState.DONE)
-            # Linear flow through phases
+            # Linear flow: intake → plan → act → synthesize → check
             .with_transition(WorkflowState.INTAKE, WorkflowState.PLAN)
             .with_transition(WorkflowState.PLAN, WorkflowState.ACT)
             .with_transition(WorkflowState.ACT, WorkflowState.SYNTHESIZE)
             .with_transition(WorkflowState.SYNTHESIZE, WorkflowState.CHECK)
-            # Sub-loop: check → plan (continue iteration)
+            # Routing from CHECK phase:
+            # - check → act (continue current todo)
+            # - check → plan (todo complete, pick next)
+            # - check → done (all todos complete)
+            .with_transition(WorkflowState.CHECK, WorkflowState.ACT)
             .with_transition(WorkflowState.CHECK, WorkflowState.PLAN)
-            # Stop: check → done (stop conditions met)
             .with_transition(WorkflowState.CHECK, WorkflowState.DONE)
         )
 
-        if self._mediator is not None:
-            for state in WorkflowState:
-                builder = builder.with_entry_hook(
-                    state.value,
-                    lambda ctx, s=state.value: self._emit_transition_event(to_state=s, context=ctx),
-                )
-
-        # Add entry hooks for event emission if mediator is available
         if self._mediator is not None:
             for state in WorkflowState:
                 builder = builder.with_entry_hook(
@@ -503,17 +492,8 @@ Respond with ONLY valid JSON matching the schema above.
             return Err(f"Intake phase failed to parse LLM output: {e}")
 
     async def _execute_plan_phase(self) -> Result[None]:
-        """Execute plan phase: generate/modify/prioritize todos.
-
-        Prompts LLM with current context and generates/updates
-        prioritized todo list using AgentTask as substrate.
-
-        Returns:
-            Result[None] on success, Err on failure.
-        """
         logger.info("Executing plan phase")
 
-        # Build context summary for LLM
         context_summary = self._build_context_summary()
 
         prompt = f"""You are in the PLAN phase of a workflow loop.
@@ -522,7 +502,7 @@ Your task:
 1. Review current context and existing todos
 2. Generate new todos or modify existing ones
 3. Prioritize todos (high, medium, low)
-4. Estimate iterations needed
+4. The system will work on ONE todo at a time
 
 Current workflow context:
 {context_summary}
@@ -549,10 +529,8 @@ Respond with ONLY valid JSON matching the schema above.
             output_json = self._extract_json_from_response(result.response)
             plan_output = PlanOutput(**output_json)
 
-            # Convert TodoItem to AgentTask
             for todo_item in plan_output.todos:
                 if todo_item.id not in self.context.todos:
-                    # Create new AgentTask
                     agent_task = create_agent_task(
                         agent_name=self.config.agent_name,
                         description=todo_item.description,
@@ -568,75 +546,73 @@ Respond with ONLY valid JSON matching the schema above.
                     )
                     self.context.todos[todo_item.id] = agent_task
                 else:
-                    # Update existing task
                     existing_task = self.context.todos[todo_item.id]
                     existing_task.description = todo_item.description
                     existing_task.metadata["priority"] = todo_item.priority
                     existing_task.metadata["operation"] = todo_item.operation
                     existing_task.metadata["notes"] = todo_item.notes
                     existing_task.metadata["dependencies"] = todo_item.dependencies
-                    existing_task.status = TaskStatus.PENDING
+                    if existing_task.status != TaskStatus.RUNNING:
+                        existing_task.status = TaskStatus.PENDING
 
             self.context.last_plan_output = plan_output
 
-            logger.info(f"Plan complete: {len(plan_output.todos)} todos")
+            # Select ONE todo to work on, favoring in-progress over pending
+            selected_todo_id = self._select_next_todo()
+            if selected_todo_id:
+                self.context.current_todo_id = selected_todo_id
+                self.context.todos[selected_todo_id].status = TaskStatus.RUNNING
+                logger.info(f"Plan complete: selected todo {selected_todo_id}")
+            else:
+                logger.info("Plan complete: no pending todos")
 
-            # Transition to next phase
             return await self.transition_to(WorkflowState.ACT)
 
         except (ValidationError, json.JSONDecodeError, Exception) as e:
             logger.error(f"Failed to parse plan output: {e}")
             return Err(f"Plan phase failed to parse LLM output: {e}")
 
-    async def _execute_act_phase(self) -> Result[None]:
-        """Execute act phase: perform tool-using work.
+    def _select_next_todo(self) -> Optional[str]:
+        # Priority 1: Resume in-progress (RUNNING) todos
+        for tid, task in self.context.todos.items():
+            if task.status == TaskStatus.RUNNING:
+                return tid
 
-        Prompts LLM with current todos and performs tool-using
-        work against top-priority todos via AgentRuntime tools.
-
-        Returns:
-            Result[None] on success, Err on failure.
-        """
-        logger.info("Executing act phase")
-
-        # Get top-priority pending todos
-        pending_todos = [
+        # Priority 2: Pick highest priority PENDING todo
+        priority_order = {"high": 0, "medium": 1, "low": 2}
+        pending = [
             (tid, task)
             for tid, task in self.context.todos.items()
             if task.status == TaskStatus.PENDING
         ]
+        if not pending:
+            return None
 
-        # Sort by priority (high > medium > low)
-        priority_order = {"high": 0, "medium": 1, "low": 2}
-        pending_todos.sort(
-            key=lambda x: priority_order.get(x[1].metadata.get("priority", "medium"), 3)
-        )
+        pending.sort(key=lambda x: priority_order.get(x[1].metadata.get("priority", "medium"), 3))
+        return pending[0][0]
 
-        # Select top 3 todos to work on
-        todos_to_work = pending_todos[:3]
+    async def _execute_act_phase(self) -> Result[None]:
+        logger.info("Executing act phase")
 
-        if not todos_to_work:
-            logger.info("No pending todos, skipping act phase")
+        if (
+            not self.context.current_todo_id
+            or self.context.current_todo_id not in self.context.todos
+        ):
+            logger.info("No current todo selected, skipping act phase")
             self.context.last_act_output = ActOutput()
             return await self.transition_to(WorkflowState.SYNTHESIZE)
 
-        # Build todo descriptions for prompt
-        todo_descriptions = "\n".join(
-            [
-                f"- {tid}: {task.description} (priority: {task.metadata.get('priority', 'medium')})"
-                for tid, task in todos_to_work
-            ]
-        )
+        current_task = self.context.todos[self.context.current_todo_id]
 
         prompt = f"""You are in the ACT phase of a workflow loop.
 
-Your task:
-1. Perform tool-using work against the top-priority todos
-2. Use available tools to complete the tasks
-3. Track actions attempted, tool results, and artifacts
+SINGLE ACTION CONSTRAINT: Perform exactly ONE tool call this iteration.
 
-Top-priority todos:
-{todo_descriptions}
+Current todo:
+- ID: {self.context.current_todo_id}
+- Description: {current_task.description}
+- Priority: {current_task.metadata.get("priority", "medium")}
+- Notes: {current_task.metadata.get("notes", "")}
 
 {get_act_output_schema()}
 
@@ -660,28 +636,21 @@ Respond with ONLY valid JSON matching the schema above.
             output_json = self._extract_json_from_response(result.response)
             act_output = ActOutput(**output_json)
 
-            # Update todo statuses
-            for tid in act_output.todos_addressed:
-                if tid in self.context.todos:
-                    self.context.todos[tid].status = TaskStatus.COMPLETED
-
-            # Update budget tracking
-            self.context.budget_consumed.tool_calls += len(act_output.actions_attempted)
+            self.context.budget_consumed.tool_calls += 1 if act_output.action else 0
             self.context.artifacts.extend(act_output.artifacts)
 
-            # Update evidence from tool results
-            new_evidence = [
-                f"{action.tool_name}: {action.result_summary}"
-                for action in act_output.actions_attempted
-                if action.status == "success"
-            ]
-            self.context.update_evidence(new_evidence)
+            if act_output.action and act_output.action.status == "success":
+                new_evidence = [
+                    f"{act_output.action.tool_name}: {act_output.action.result_summary}"
+                ]
+                self.context.update_evidence(new_evidence)
 
             self.context.last_act_output = act_output
 
-            logger.info(f"Act complete: {len(act_output.actions_attempted)} actions")
+            logger.info(
+                f"Act complete: tool={act_output.action.tool_name if act_output.action else 'none'}"
+            )
 
-            # Transition to next phase
             return await self.transition_to(WorkflowState.SYNTHESIZE)
 
         except (ValidationError, json.JSONDecodeError, Exception) as e:
@@ -689,38 +658,30 @@ Respond with ONLY valid JSON matching the schema above.
             return Err(f"Act phase failed to parse LLM output: {e}")
 
     async def _execute_synthesize_phase(self) -> Result[None]:
-        """Execute synthesize phase: merge results and update todos.
-
-        Prompts LLM with tool results from act phase and
-        synthesizes findings with updated todo statuses.
-
-        Returns:
-            Result[None] on success, Err on failure.
-        """
         logger.info("Executing synthesize phase")
 
-        # Build results summary
         act_summary = ""
         if self.context.last_act_output:
-            act_summary = f"""
-Tool Results Summary:
-{self.context.last_act_output.tool_results_summary}
-
-Artifacts:
-{", ".join(self.context.last_act_output.artifacts)}
-
-Failures:
-{", ".join(self.context.last_act_output.failures)}
+            action = self.context.last_act_output.action
+            if action:
+                act_summary = f"""
+Tool Result:
+- Tool: {action.tool_name}
+- Status: {action.status}
+- Summary: {action.result_summary}
+- Artifacts: {", ".join(action.artifacts) if action.artifacts else "none"}
 """
+            if self.context.last_act_output.failure:
+                act_summary += f"\nFailure: {self.context.last_act_output.failure}"
 
         prompt = f"""You are in the SYNTHESIZE phase of a workflow loop.
 
 Your task:
-1. Review tool results from act phase
-2. Merge findings from tool executions
-3. Update todo statuses based on results
-4. Estimate confidence and uncertainty reduction
+1. Review the tool result from the ACT phase
+2. Merge findings into the overall context
+3. Summarize what was learned
 
+Current todo: {self.context.current_todo_id}
 {act_summary}
 
 {get_synthesize_output_schema()}
@@ -745,33 +706,16 @@ Respond with ONLY valid JSON matching the schema above.
             output_json = self._extract_json_from_response(result.response)
             synthesize_output = SynthesizeOutput(**output_json)
 
-            # Store findings
             for finding in synthesize_output.findings:
                 self.context.findings.append(finding.model_dump())
 
-            # Update todo statuses from synthesize output
-            for todo_item in synthesize_output.updated_todos:
-                if todo_item.id in self.context.todos:
-                    status_map = {
-                        "pending": TaskStatus.PENDING,
-                        "in_progress": TaskStatus.RUNNING,
-                        "completed": TaskStatus.COMPLETED,
-                        "skipped": TaskStatus.CANCELLED,
-                        "blocked": TaskStatus.FAILED,
-                    }
-                    self.context.todos[todo_item.id].status = status_map.get(
-                        todo_item.status, TaskStatus.PENDING
-                    )
-
             self.context.last_synthesize_output = synthesize_output
 
-            logger.info(f"Synthesize complete: {len(synthesize_output.findings)} findings")
-
-            # Increment iteration count
             self.context.iteration_count += 1
             self.context.budget_consumed.iterations = self.context.iteration_count
 
-            # Transition to next phase
+            logger.info(f"Synthesize complete: {len(synthesize_output.findings)} findings")
+
             return await self.transition_to(WorkflowState.CHECK)
 
         except (ValidationError, json.JSONDecodeError, Exception) as e:
@@ -779,59 +723,61 @@ Respond with ONLY valid JSON matching the schema above.
             return Err(f"Synthesize phase failed to parse LLM output: {e}")
 
     async def _execute_check_phase(self) -> Result[None]:
-        """Execute check phase: decide whether to continue or stop.
-
-        Prompts LLM with current results and proposes stop/continue,
-        but runtime enforces hard budget limits and stop conditions.
-
-        Returns:
-            Result[None] on success, Err on failure.
-        """
         logger.info("Executing check phase")
 
-        # Update wall time in budget
         self.context.budget_consumed.wall_time_seconds = self.context.get_wall_time_seconds()
 
-        # Build context summary for LLM
-        context_summary = self._build_context_summary()
+        if not self.context.current_todo_id:
+            pending_count = sum(
+                1 for t in self.context.todos.values() if t.status == TaskStatus.PENDING
+            )
+            if pending_count == 0:
+                logger.info("Check complete: no todos, done")
+                return await self.transition_to(WorkflowState.DONE)
+            else:
+                logger.info("Check complete: no current todo, routing to plan")
+                return await self.transition_to(WorkflowState.PLAN)
 
-        # Build findings summary
-        findings_summary = "\n".join(
-            [
-                f"- {f.get('title', 'Unknown')}: {f.get('description', '')}"
-                for f in self.context.findings[-5:]  # Last 5 findings
-            ]
+        current_task = self.context.todos.get(self.context.current_todo_id)
+        if not current_task:
+            logger.warning(f"Current todo {self.context.current_todo_id} not found")
+            return await self.transition_to(WorkflowState.PLAN)
+
+        pending_count = sum(
+            1
+            for t in self.context.todos.values()
+            if t.status in (TaskStatus.PENDING, TaskStatus.RUNNING)
         )
 
         prompt = f"""You are in the CHECK phase of a workflow loop.
 
 Your task:
-1. Review current results and findings
-2. Evaluate stop conditions (success, stagnation, budget, human_required, risk)
-3. Decide whether to continue iteration or stop
-4. Provide reasoning for decision
+1. Evaluate if the current todo is complete
+2. Decide where to route next:
+   - "act": Continue working on current todo (todo_complete=false)
+   - "plan": Todo complete, pick next todo (todo_complete=true, more todos pending)
+   - "done": All todos complete (todo_complete=true, no more todos)
 
-Current workflow context:
-{context_summary}
+Current todo:
+- ID: {self.context.current_todo_id}
+- Description: {current_task.description}
+- Status: {current_task.status.value}
 
-Recent findings:
-{findings_summary}
+Todo summary:
+- Total todos: {len(self.context.todos)}
+- Pending/Running: {pending_count}
 
-Budget consumed so far:
+Recent tool result:
+{self._format_last_action()}
+
+Budget consumed:
 - Iterations: {self.context.budget_consumed.iterations}/{self.config.budget.max_iterations}
 - Tool calls: {self.context.budget_consumed.tool_calls}/{self.config.budget.max_tool_calls}
-- Wall time: {self.context.budget_consumed.wall_time_seconds:.1f}/{self.config.budget.max_wall_time_seconds} seconds
+- Wall time: {self.context.budget_consumed.wall_time_seconds:.1f}/{self.config.budget.max_wall_time_seconds}s
 
-Stagnation count: {self.context.stagnation_count}/{self.config.stagnation_threshold}
+Stagnation: {self.context.stagnation_count}/{self.config.stagnation_threshold}
 
 {get_check_output_schema()}
-
-STOP CONDITION GUIDELINES:
-- success (recommendation_ready): Confidence >= {self.config.confidence_threshold}, implementation path defined, no blocking questions
-- budget_exhausted: Max iterations/tool calls/time reached, best effort provided
-- stagnation: No new information for {self.config.stagnation_threshold}+ consecutive iterations, same error signature
-- human_required: Blocking question, ambiguous requirement, missing information that cannot be obtained
-- risk_threshold: Finding severity exceeds {self.config.max_risk_level} risk level
 
 Respond with ONLY valid JSON matching the schema above.
 """
@@ -853,63 +799,64 @@ Respond with ONLY valid JSON matching the schema above.
             output_json = self._extract_json_from_response(result.response)
             check_output = CheckOutput(**output_json)
 
-            # Override LLM decision with hard budget enforcement
             final_decision = self._enforce_hard_budgets(check_output)
-
             self.context.last_check_output = final_decision
 
-            # Decide next transition
-            if not final_decision.should_continue:
-                # Stop - transition to done
-                logger.info(f"Check complete: stopping - {final_decision.stop_reason}")
+            if final_decision.todo_complete:
+                self.context.todos[self.context.current_todo_id].status = TaskStatus.COMPLETED
+                self.context.current_todo_id = ""
+
+            next_phase = final_decision.next_phase
+            logger.info(
+                f"Check complete: todo_complete={final_decision.todo_complete}, routing to {next_phase}"
+            )
+
+            if next_phase == "done":
                 return await self.transition_to(WorkflowState.DONE)
-            else:
-                # Continue - transition to plan for next iteration
-                logger.info(
-                    f"Check complete: continuing iteration {self.context.iteration_count + 1}"
-                )
+            elif next_phase == "plan":
                 return await self.transition_to(WorkflowState.PLAN)
+            else:
+                return await self.transition_to(WorkflowState.ACT)
 
         except (ValidationError, json.JSONDecodeError, Exception) as e:
             logger.error(f"Failed to parse check output: {e}")
             return Err(f"Check phase failed to parse LLM output: {e}")
 
+    def _format_last_action(self) -> str:
+        if not self.context.last_act_output or not self.context.last_act_output.action:
+            return "No action in this iteration"
+        action = self.context.last_act_output.action
+        return (
+            f"- Tool: {action.tool_name}, Status: {action.status}, Result: {action.result_summary}"
+        )
+
     def _enforce_hard_budgets(self, check_output: CheckOutput) -> CheckOutput:
-        """Enforce hard budget limits regardless of LLM output.
-
-        Args:
-            check_output: CheckOutput from LLM (may be overridden).
-
-        Returns:
-            CheckOutput with stop conditions enforced.
-        """
-        # Check iteration budget
         if self.context.iteration_count >= self.config.budget.max_iterations:
             logger.warning(f"Budget exceeded: max_iterations ({self.config.budget.max_iterations})")
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.BUDGET_EXHAUSTED,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=True,
+                next_phase="done",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=False,
                 stagnation_detected=True,
-                next_action="stop",
+                reasoning="Budget exhausted: max iterations reached",
             )
 
-        # Check tool call budget
         if self.context.budget_consumed.tool_calls >= self.config.budget.max_tool_calls:
             logger.warning(f"Budget exceeded: max_tool_calls ({self.config.budget.max_tool_calls})")
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.BUDGET_EXHAUSTED,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=True,
+                next_phase="done",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=False,
                 stagnation_detected=True,
-                next_action="stop",
+                reasoning="Budget exhausted: max tool calls reached",
             )
 
-        # Check wall time budget
         if (
             self.context.budget_consumed.wall_time_seconds
             >= self.config.budget.max_wall_time_seconds
@@ -918,58 +865,58 @@ Respond with ONLY valid JSON matching the schema above.
                 f"Budget exceeded: max_wall_time_seconds ({self.config.budget.max_wall_time_seconds})"
             )
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.BUDGET_EXHAUSTED,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=True,
+                next_phase="done",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=False,
                 stagnation_detected=True,
-                next_action="stop",
+                reasoning="Budget exhausted: max wall time reached",
             )
 
-        # Check stagnation threshold
         if self.context.stagnation_count >= self.config.stagnation_threshold:
             logger.warning(
-                f"Stagnation detected: {self.context.stagnation_count} consecutive iterations without novelty"
+                f"Stagnation detected: {self.context.stagnation_count} iterations without novelty"
             )
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.STAGNATION,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=True,
+                next_phase="plan",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=False,
                 stagnation_detected=True,
-                next_action="switch_strategy",
+                reasoning="Stagnation: switching strategy",
             )
 
-        # Check for blocking question
-        if check_output.stop_reason == StopReason.BLOCKING_QUESTION:
-            logger.warning("Blocking question detected, requiring human input")
+        if check_output.blocking_question:
+            logger.warning("Blocking question detected")
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.HUMAN_REQUIRED,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=False,
+                next_phase="done",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=check_output.novelty_detected,
                 stagnation_detected=check_output.stagnation_detected,
-                next_action="escalate",
                 blocking_question=check_output.blocking_question,
+                reasoning=f"Blocking question: {check_output.blocking_question}",
             )
 
-        # Check risk threshold
         if self._risk_threshold_exceeded():
             logger.warning(f"Risk threshold exceeded: max allowed is {self.config.max_risk_level}")
             return CheckOutput(
-                should_continue=False,
-                stop_reason=StopReason.RISK_THRESHOLD,
+                current_todo_id=check_output.current_todo_id,
+                todo_complete=True,
+                next_phase="done",
                 confidence=check_output.confidence,
                 budget_consumed=check_output.budget_consumed,
                 novelty_detected=check_output.novelty_detected,
                 stagnation_detected=check_output.stagnation_detected,
-                next_action="stop",
+                reasoning="Risk threshold exceeded",
             )
 
-        # All checks passed - return LLM decision as-is
         return check_output
 
     def _risk_threshold_exceeded(self) -> bool:
@@ -989,11 +936,6 @@ Respond with ONLY valid JSON matching the schema above.
         return False
 
     def _build_context_summary(self) -> str:
-        """Build a summary of current workflow context for LLM prompts.
-
-        Returns:
-            String summary of intent, constraints, todos, evidence.
-        """
         lines = [
             f"Intent: {self.context.intent}",
             f"Constraints: {', '.join(self.context.constraints) or 'None'}",
@@ -1004,32 +946,33 @@ Respond with ONLY valid JSON matching the schema above.
             f"Findings: {len(self.context.findings)} items",
         ]
 
-        # Add pending todos
+        if self.context.current_todo_id and self.context.current_todo_id in self.context.todos:
+            current = self.context.todos[self.context.current_todo_id]
+            lines.append(f"\nCurrent todo: {self.context.current_todo_id}")
+            lines.append(f"  Description: {current.description}")
+            lines.append(f"  Priority: {current.metadata.get('priority', 'medium')}")
+
         if self.context.todos:
-            lines.append("\nPending todos:")
+            lines.append("\nAll todos:")
             for tid, task in self.context.todos.items():
-                if task.status == TaskStatus.PENDING:
-                    priority = task.metadata.get("priority", "medium")
-                    lines.append(f"  - {tid}: {task.description} ({priority})")
+                status = "current" if tid == self.context.current_todo_id else task.status.value
+                priority = task.metadata.get("priority", "medium")
+                lines.append(f"  - {tid}: {task.description} ({priority}, {status})")
 
         return "\n".join(lines)
 
     def _build_final_result(self) -> Dict[str, Any]:
-        """Build final workflow result summary.
-
-        Returns:
-            Dict with stop_reason, context, and phase outputs.
-        """
         return {
-            "stop_reason": self.context.last_check_output.stop_reason
-            if self.context.last_check_output
-            else StopReason.NONE,
+            "stop_reason": "completed",
             "iteration_count": self.context.iteration_count,
             "final_state": WorkflowState.DONE,
             "context": {
                 "intent": self.context.intent,
                 "constraints": self.context.constraints,
                 "todos_count": len(self.context.todos),
+                "completed_todos": sum(
+                    1 for t in self.context.todos.values() if t.status == TaskStatus.COMPLETED
+                ),
                 "evidence_count": len(self.context.evidence),
                 "findings_count": len(self.context.findings),
                 "artifacts": self.context.artifacts,

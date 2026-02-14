@@ -165,7 +165,7 @@ class MessageStorage(Storage):
             data = await self.read(key)
             if data:
                 messages.append(data)
-        messages.sort(key=lambda m: m.get("time", {}).get("created", 0), reverse=reverse)
+        messages.sort(key=lambda m: (m.get("time") or {}).get("created") or 0, reverse=reverse)
         return messages
 
 
