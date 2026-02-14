@@ -20,7 +20,7 @@ from .base import (
     ModelLimits,
     TokenUsage,
     StreamEvent,
-    ProviderID
+    ProviderID,
 )
 from ..core.http_client import HTTPClientWrapper
 
@@ -44,11 +44,15 @@ class ZAIBaseProvider(ABC):
         """Return list of available models for this provider."""
         pass
 
-    async def stream(self, model: ModelInfo, messages: list, tools: list, options: Optional[Dict[str, Any]] = None) -> AsyncIterator[StreamEvent]:
+    async def stream(
+        self,
+        model: ModelInfo,
+        messages: list,
+        tools: list,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[StreamEvent]:
         """Stream chat completion from Z.AI API."""
-        headers = {
-            "Content-Type": "application/json"
-        }
+        headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
@@ -58,12 +62,15 @@ class ZAIBaseProvider(ABC):
                 headers["ZAI-Organization"] = org_id
 
         url = f"{self.base_url}/chat/completions"
+        temperature = options.get("temperature") if options else None
+        top_p = options.get("top_p") if options else None
+
         payload = {
             "model": model.api_id,
             "messages": messages,
             "stream": True,
-            "temperature": options.get("temperature", 1.0) if options else 1.0,
-            "top_p": options.get("top_p", 1.0) if options else 1.0,
+            "temperature": temperature if temperature is not None else 1.0,
+            "top_p": top_p if top_p is not None else 1.0,
             "reasoning_effort": options.get("reasoning_effort", "medium") if options else "medium",
         }
         if options and options.get("response_format"):
@@ -71,18 +78,10 @@ class ZAIBaseProvider(ABC):
         if tools:
             payload["tools"] = tools
 
-        yield StreamEvent(
-            event_type="start",
-            data={"model": model.id},
-            timestamp=0
-        )
+        yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)
 
         stream_iterator = await self.http_client.stream(
-            method="POST",
-            url=url,
-            json=payload,
-            headers=headers,
-            timeout=600.0
+            method="POST", url=url, json=payload, headers=headers, timeout=600.0
         )
 
         async for response_stream_context in stream_iterator:
@@ -105,7 +104,7 @@ class ZAIBaseProvider(ABC):
                     try:
                         chunk = json.loads(data_str)
                         if "error" in chunk:
-                            error_msg = chunk.get('error', 'Unknown error')
+                            error_msg = chunk.get("error", "Unknown error")
                             logger.error(f"Z.AI error: {error_msg}")
                             raise Exception(f"Z.AI API error: {error_msg}")
 
@@ -116,9 +115,7 @@ class ZAIBaseProvider(ABC):
 
                         if isinstance(content, str) and content:
                             yield StreamEvent(
-                                event_type="text-delta",
-                                data={"delta": content},
-                                timestamp=0
+                                event_type="text-delta", data={"delta": content}, timestamp=0
                             )
 
                         tool_calls = delta.get("tool_calls", [])
@@ -127,21 +124,22 @@ class ZAIBaseProvider(ABC):
                                 function = tool_call.get("function", {})
                                 tool_name = function.get("name", "")
                                 arguments = function.get("arguments", "{}")
-                                tool_input = json.loads(arguments) if isinstance(arguments, str) else arguments
+                                tool_input = (
+                                    json.loads(arguments)
+                                    if isinstance(arguments, str)
+                                    else arguments
+                                )
                                 yield StreamEvent(
                                     event_type="tool-call",
-                                    data={
-                                        "tool": tool_name,
-                                        "input": tool_input
-                                    },
-                                    timestamp=0
+                                    data={"tool": tool_name, "input": tool_input},
+                                    timestamp=0,
                                 )
 
                         if finish_reason:
                             yield StreamEvent(
                                 event_type="finish",
                                 data={"finish_reason": finish_reason},
-                                timestamp=0
+                                timestamp=0,
                             )
                             break
                     except json.JSONDecodeError as e:
@@ -154,7 +152,7 @@ class ZAIBaseProvider(ABC):
             input=usage.get("prompt_tokens", 0),
             output=usage.get("completion_tokens", 0),
             cache_read=usage.get("prompt_tokens_details", {}).get("cached_tokens", 0),
-            cache_write=0
+            cache_write=0,
         )
 
     def calculate_cost(self, usage: TokenUsage, model: ModelInfo) -> Decimal:

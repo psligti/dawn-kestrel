@@ -17,7 +17,7 @@ including budget constraints (iterations, subagent_calls, wall_time) and stop re
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 import pydantic as pd
 
@@ -152,31 +152,34 @@ class ToolExecution(pd.BaseModel):
 class ActOutput(pd.BaseModel):
     """Output from the act phase of the workflow.
 
-    The act phase uses tools to perform work against top-priority todos.
+    The act phase performs ONE tool call against the current todo.
     This is part of the sub-loop (plan → act → synthesize → check).
 
+    Single-action constraint: Only ONE tool execution per iteration.
+    The acted_todo_id must match the current todo being worked on.
+
     Attributes:
-        actions_attempted: List of tool executions performed
-        todos_addressed: IDs of todo items this act phase addressed
-        tool_results_summary: High-level summary of all tool results
+        action: Single tool execution performed (one action per iteration)
+        acted_todo_id: ID of the todo item this action targets
+        tool_result_summary: High-level summary of the tool result
         artifacts: List of all artifacts/evidence references created
-        failures: List of any failures or errors encountered
+        failure: Any failure or error encountered (empty string if none)
     """
 
-    actions_attempted: List[ToolExecution] = pd.Field(default_factory=list)
-    """List of tool executions performed"""
+    action: Optional[ToolExecution] = None
+    """Single tool execution performed (one action per iteration)"""
 
-    todos_addressed: List[str] = pd.Field(default_factory=list)
-    """IDs of todo items this act phase addressed"""
+    acted_todo_id: str = ""
+    """ID of the todo item this action targets"""
 
-    tool_results_summary: str = ""
-    """High-level summary of all tool results"""
+    tool_result_summary: str = ""
+    """High-level summary of the tool result"""
 
     artifacts: List[str] = pd.Field(default_factory=list)
     """List of all artifacts/evidence references created"""
 
-    failures: List[str] = pd.Field(default_factory=list)
-    """List of any failures or errors encountered"""
+    failure: str = ""
+    """Any failure or error encountered (empty string if none)"""
 
     model_config = pd.ConfigDict(extra="forbid")
 
@@ -229,10 +232,12 @@ class SynthesizedFinding(pd.BaseModel):
 
     model_config = pd.ConfigDict(extra="forbid")
 
-    @pd.field_validator("confidence")
+    @pd.field_validator("confidence", mode="before")
     @classmethod
-    def validate_confidence_range(cls, v: float) -> float:
+    def validate_confidence_range(cls, v: Optional[float]) -> float:
         """Validate confidence is in 0.0-1.0 range."""
+        if v is None:
+            return 0.5
         if not 0.0 <= v <= 1.0:
             raise ValueError("confidence must be between 0.0 and 1.0")
         return v
@@ -269,10 +274,12 @@ class SynthesizeOutput(pd.BaseModel):
 
     model_config = pd.ConfigDict(extra="forbid")
 
-    @pd.field_validator("confidence_level")
+    @pd.field_validator("confidence_level", mode="before")
     @classmethod
-    def validate_confidence_level_range(cls, v: float) -> float:
+    def validate_confidence_level_range(cls, v: Optional[float]) -> float:
         """Validate confidence_level is in 0.0-1.0 range."""
+        if v is None:
+            return 0.5
         if not 0.0 <= v <= 1.0:
             raise ValueError("confidence_level must be between 0.0 and 1.0")
         return v
@@ -312,38 +319,34 @@ class BudgetConsumed(pd.BaseModel):
 class CheckOutput(pd.BaseModel):
     """Output from the check phase of the workflow.
 
-    The check phase decides whether to continue the loop, enforcing stop conditions.
+    The check phase determines todo completion and routes to the next phase.
     This is part of the sub-loop (plan → act → synthesize → check).
 
-    Aligns with canonical stop/loop policy in docs/planning-agent-orchestration.md:
-    - Good stops: recommendation_ready, blocking_question, budget_exhausted
-    - Bad stops (avoid): evidence_theater, over_interviewing, premature_commit, unbounded_loop
-    - Stop reasons: recommendation_ready, blocking_question, budget_exhausted, stagnation, human_required
+    Routing logic:
+    - todo_complete=True AND more pending todos → next_phase="plan" (pick next todo)
+    - todo_complete=False → next_phase="act" (continue current todo)
+    - all todos complete → next_phase="done"
 
     Attributes:
-        should_continue: Whether the workflow should continue to next iteration
-        stop_reason: Reason for stopping (if should_continue is False)
+        current_todo_id: ID of the todo being evaluated
+        todo_complete: Whether the current todo is complete
+        next_phase: Where to route next (act, plan, done)
         confidence: Confidence in current results (0.0-1.0)
         budget_consumed: Budget tracking for all resources
         blocking_question: Optional blocking question if escalation needed
         novelty_detected: Whether new information was discovered this iteration
-        stagnation_detected: Whether stagnation was detected (same error, no new files, etc.)
-        next_action: Suggested next action (continue, switch_strategy, escalate, commit)
+        stagnation_detected: Whether stagnation was detected
+        reasoning: Explanation for the routing decision
     """
 
-    should_continue: bool
-    """Whether the workflow should continue to next iteration"""
+    current_todo_id: str = ""
+    """ID of the todo being evaluated"""
 
-    stop_reason: Literal[
-        "recommendation_ready",
-        "blocking_question",
-        "budget_exhausted",
-        "stagnation",
-        "human_required",
-        "risk_threshold",
-        "none",
-    ] = "none"
-    """Reason for stopping (if should_continue is False)"""
+    todo_complete: bool = False
+    """Whether the current todo is complete"""
+
+    next_phase: Literal["act", "plan", "done"] = "act"
+    """Where to route next (act, plan, done)"""
 
     confidence: float = 0.5
     """Confidence in current results (0.0-1.0)"""
@@ -351,10 +354,11 @@ class CheckOutput(pd.BaseModel):
     budget_consumed: BudgetConsumed = pd.Field(default_factory=BudgetConsumed)
     """Budget tracking for all resources"""
 
-    @pd.field_validator("confidence")
+    @pd.field_validator("confidence", mode="before")
     @classmethod
-    def validate_confidence_range(cls, v: float) -> float:
-        """Validate confidence is in 0.0-1.0 range."""
+    def validate_confidence_range(cls, v: Optional[float]) -> float:
+        if v is None:
+            return 0.5
         if not 0.0 <= v <= 1.0:
             raise ValueError("confidence must be between 0.0 and 1.0")
         return v
@@ -368,8 +372,8 @@ class CheckOutput(pd.BaseModel):
     stagnation_detected: bool = False
     """Whether stagnation was detected (same error, no new files, etc.)"""
 
-    next_action: Literal["continue", "switch_strategy", "escalate", "commit", "stop"] = "continue"
-    """Suggested next action"""
+    reasoning: str = ""
+    """Explanation for the routing decision"""
 
     model_config = pd.ConfigDict(extra="forbid")
 
@@ -464,50 +468,33 @@ EXAMPLE VALID OUTPUT:
 
 
 def get_act_output_schema() -> str:
-    """Return JSON schema for ActOutput as a string for inclusion in prompts.
-
-    This schema must match exactly the ActOutput Pydantic model above.
-    Any changes to the model must be reflected here.
-
-    Returns:
-        JSON schema string with explicit type information and strict validation rules
-    """
     return f"""You MUST output valid JSON matching this exact schema. The output is parsed directly by ActOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
 
 {ActOutput.model_json_schema()}
 
 CRITICAL RULES:
-- Include ALL required fields: actions_attempted
-- Optional fields (todos_addressed, tool_results_summary, artifacts, failures) have defaults
-- NEVER include extra fields not in this schema (will cause validation errors)
-- For each tool execution, status must be one of: success, failure, timeout
+- SINGLE ACTION CONSTRAINT: You must perform exactly ONE tool call per iteration
+- acted_todo_id must match the current todo you are working on
+- action contains a single ToolExecution object (or null if no action taken)
+- tool_result_summary describes what happened
+- failure contains any error message (empty string if no failure)
 - Return ONLY the JSON object, no other text, no markdown code blocks
-- Output must be valid JSON that passes ActOutput Pydantic validation as-is
+- For the tool execution, status must be one of: success, failure, timeout
 
 EXAMPLE VALID OUTPUT:
 {{
-  "actions_attempted": [
-    {{
-      "tool_name": "read",
-      "arguments": {{"file_path": "src/auth.py"}},
-      "status": "success",
-      "result_summary": "Read 150 lines from auth module",
-      "duration_seconds": 0.5,
-      "artifacts": ["src/auth.py"]
-    }},
-    {{
-      "tool_name": "grep",
-      "arguments": {{"pattern": "jwt", "path": "src/"}},
-      "status": "success",
-      "result_summary": "Found 3 files containing jwt",
-      "duration_seconds": 1.2,
-      "artifacts": []
-    }}
-  ],
-  "todos_addressed": ["1", "2"],
-  "tool_results_summary": "Successfully read auth module and found JWT references",
+  "action": {{
+    "tool_name": "read",
+    "arguments": {{"file_path": "src/auth.py"}},
+    "status": "success",
+    "result_summary": "Read 150 lines from auth module",
+    "duration_seconds": 0.5,
+    "artifacts": ["src/auth.py"]
+  }},
+  "acted_todo_id": "todo-1",
+  "tool_result_summary": "Successfully read auth module",
   "artifacts": ["src/auth.py"],
-  "failures": []
+  "failure": ""
 }}
 """
 
@@ -569,63 +556,54 @@ EXAMPLE VALID OUTPUT:
 
 
 def get_check_output_schema() -> str:
-    """Return JSON schema for CheckOutput as a string for inclusion in prompts.
-
-    This schema must match exactly the CheckOutput Pydantic model above.
-    Any changes to the model must be reflected here.
-
-    Aligns with canonical stop/loop policy in docs/planning-agent-orchestration.md.
-
-    Returns:
-        JSON schema string with explicit type information and strict validation rules
-    """
     return f"""You MUST output valid JSON matching this exact schema. The output is parsed directly by CheckOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
 
 {CheckOutput.model_json_schema()}
 
- CRITICAL RULES:
-- Include ALL required fields: should_continue
-- Optional fields (stop_reason, confidence, budget_consumed, blocking_question, novelty_detected, stagnation_detected, next_action) have defaults
-- NEVER include extra fields not in this schema (will cause validation errors)
-- stop_reason must be one of: recommendation_ready, blocking_question, budget_exhausted, stagnation, human_required, risk_threshold, none
+CRITICAL RULES:
+- current_todo_id must match the todo being evaluated
+- todo_complete: true if the todo is done, false if more work needed
+- next_phase determines where to route next:
+  - "act": Continue working on current todo (todo_complete=false)
+  - "plan": Pick next todo (todo_complete=true, more todos pending)
+  - "done": All todos complete
 - confidence must be between 0.0 and 1.0
-- next_action must be one of: continue, switch_strategy, escalate, commit, stop
 - Return ONLY the JSON object, no other text, no markdown code blocks
-- Output must be valid JSON that passes CheckOutput Pydantic validation as-is
 
-STOP REASONS (from canonical policy in docs/planning-agent-orchestration.md):
-- recommendation_ready: Confidence >= 0.8, implementation path defined, no unanswered blocking questions
-- blocking_question: Single question that cannot be answered via available tools, answers fundamental ambiguity
-- budget_exhausted: Max iterations/calls/time reached, best effort provided
-- stagnation: No new information, same failure signature, confidence plateau
-- human_required: Missing information that cannot be obtained with available tools, ambiguous requirement, permission denied, conflicting policies
+ROUTING LOGIC:
+- If todo is incomplete → next_phase="act"
+- If todo is complete AND more todos pending → next_phase="plan"  
+- If todo is complete AND no more todos → next_phase="done"
+- If blocking question prevents progress → set blocking_question and next_phase="done"
 
-EXAMPLE VALID OUTPUT (CONTINUE):
+EXAMPLE VALID OUTPUT (TODO INCOMPLETE - CONTINUE ACT):
 {{
-  "should_continue": true,
-  "stop_reason": "none",
+  "current_todo_id": "todo-1",
+  "todo_complete": false,
+  "next_phase": "act",
   "confidence": 0.6,
   "budget_consumed": {{
     "iterations": 2,
-    "subagent_calls": 4,
+    "subagent_calls": 0,
     "wall_time_seconds": 45.0,
-    "tool_calls": 8,
+    "tool_calls": 5,
     "tokens_consumed": 2500
   }},
   "blocking_question": "",
   "novelty_detected": true,
   "stagnation_detected": false,
-  "next_action": "continue"
+  "reasoning": "Read file but need to analyze the authentication logic further"
 }}
 
-EXAMPLE VALID OUTPUT (RECOMMENDATION READY):
+EXAMPLE VALID OUTPUT (TODO COMPLETE - NEXT TODO):
 {{
-  "should_continue": false,
-  "stop_reason": "recommendation_ready",
+  "current_todo_id": "todo-1",
+  "todo_complete": true,
+  "next_phase": "plan",
   "confidence": 0.85,
   "budget_consumed": {{
     "iterations": 4,
-    "subagent_calls": 6,
+    "subagent_calls": 0,
     "wall_time_seconds": 120.0,
     "tool_calls": 12,
     "tokens_consumed": 5000
@@ -633,60 +611,25 @@ EXAMPLE VALID OUTPUT (RECOMMENDATION READY):
   "blocking_question": "",
   "novelty_detected": false,
   "stagnation_detected": false,
-  "next_action": "commit"
+  "reasoning": "Authentication logic fully understood, ready for next todo"
 }}
 
-EXAMPLE VALID OUTPUT (BLOCKING QUESTION):
+EXAMPLE VALID OUTPUT (ALL COMPLETE - DONE):
 {{
-  "should_continue": false,
-  "stop_reason": "blocking_question",
-  "confidence": 0.5,
-  "budget_consumed": {{
-    "iterations": 3,
-    "subagent_calls": 5,
-    "wall_time_seconds": 90.0,
-    "tool_calls": 10,
-    "tokens_consumed": 4000
-  }},
-  "blocking_question": "The auth module supports both JWT and session-based auth. Which should we use for the new API endpoint?",
-  "novelty_detected": false,
-  "stagnation_detected": false,
-  "next_action": "escalate"
-}}
-
-EXAMPLE VALID OUTPUT (BUDGET EXHAUSTED):
-{{
-  "should_continue": false,
-  "stop_reason": "budget_exhausted",
-  "confidence": 0.7,
+  "current_todo_id": "todo-3",
+  "todo_complete": true,
+  "next_phase": "done",
+  "confidence": 0.9,
   "budget_consumed": {{
     "iterations": 5,
-    "subagent_calls": 8,
-    "wall_time_seconds": 300.0,
+    "subagent_calls": 0,
+    "wall_time_seconds": 180.0,
     "tool_calls": 15,
-    "tokens_consumed": 6000
-  }},
-  "blocking_question": "Cannot complete JWT implementation within 5 iterations without more information about existing auth patterns",
-  "novelty_detected": false,
-  "stagnation_detected": false,
-  "next_action": "stop"
-}}
-
-EXAMPLE VALID OUTPUT (STAGNATION):
-{{
-  "should_continue": false,
-  "stop_reason": "stagnation",
-  "confidence": 0.5,
-  "budget_consumed": {{
-    "iterations": 3,
-    "subagent_calls": 6,
-    "wall_time_seconds": 60.0,
-    "tool_calls": 8,
-    "tokens_consumed": 3000
+    "tokens_consumed": 7000
   }},
   "blocking_question": "",
   "novelty_detected": false,
-  "stagnation_detected": true,
-  "next_action": "switch_strategy"
+  "stagnation_detected": false,
+  "reasoning": "All todos completed successfully"
 }}
 """
