@@ -315,7 +315,13 @@ class WorkflowFSM:
             .with_state(WorkflowState.DONE)
             # Linear flow: intake → plan → act → synthesize → check
             .with_transition(WorkflowState.INTAKE, WorkflowState.PLAN)
+            .with_transition(
+                WorkflowState.INTAKE, WorkflowState.DONE
+            )  # Early termination on intake failure
             .with_transition(WorkflowState.PLAN, WorkflowState.ACT)
+            .with_transition(
+                WorkflowState.PLAN, WorkflowState.DONE
+            )  # Early termination on plan failure
             .with_transition(WorkflowState.ACT, WorkflowState.SYNTHESIZE)
             .with_transition(WorkflowState.SYNTHESIZE, WorkflowState.CHECK)
             # Routing from CHECK phase:
