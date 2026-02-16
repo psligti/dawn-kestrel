@@ -193,15 +193,16 @@ def validate_pattern(pattern: str, max_length: int = 1000) -> str:
     if len(pattern) > max_length:
         raise SecurityError(f"Pattern exceeds maximum length of {max_length}: {len(pattern)}")
 
-    dangerous_patterns = [
-        r"(?R)",
-        r"(?0)",
-        r"(?P=.*?(?<!\\).*?(?!\\))",
-        r"(.*?){100,}",
+    literal_dangerous = [
+        "(?R)",
+        "(?0)",
+        "(.*?){100,}",
+        "(.+?){100,}",
+        "){100,}",
+        "){50,}",
     ]
-
-    for dangerous in dangerous_patterns:
-        if re.search(dangerous, pattern):
+    for dangerous in literal_dangerous:
+        if dangerous in pattern:
             raise SecurityError(f"Pattern contains dangerous construct (ReDoS risk): {pattern}")
 
     if "\x00" in pattern:
