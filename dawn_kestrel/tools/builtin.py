@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 
 from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
 from dawn_kestrel.tools.prompts import get_prompt
@@ -103,9 +103,12 @@ class BashTool(Tool):
 
 
 class ReadToolArgs(BaseModel):
-    """Arguments for Read tool"""
+    """Arguments for Read tool - accepts both camelCase and snake_case parameter names."""
 
-    filePath: str = Field(description="Path to file (relative to project)")
+    filePath: str = Field(
+        validation_alias=AliasChoices("filePath", "file_path"),
+        description="Path to file (relative to project)",
+    )
     limit: Optional[int] = Field(default=2000, description="Max lines to read")
     offset: Optional[int] = Field(default=0, description="Line number to start from")
 
@@ -183,9 +186,12 @@ class ReadTool(Tool):
 
 
 class WriteToolArgs(BaseModel):
-    """Arguments for Write tool"""
+    """Arguments for Write tool - accepts both camelCase and snake_case parameter names."""
 
-    filePath: str = Field(description="Path to file (relative to project)")
+    filePath: str = Field(
+        validation_alias=AliasChoices("filePath", "file_path"),
+        description="Path to file (relative to project)",
+    )
     content: str = Field(description="Content to write")
     create: bool = Field(default=False, description="Create parent directories if needed")
 
