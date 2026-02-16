@@ -18,18 +18,8 @@ from dawn_kestrel.core.agent_task import AgentTask
 from dawn_kestrel.core.models import Session, Message, TokenUsage
 from dawn_kestrel.core.event_bus import bus, Events
 from dawn_kestrel.ai_session import AISession
-from dawn_kestrel.tools.framework import ToolRegistry
-from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
-from dawn_kestrel.context.builder import ContextBuilder
-from dawn_kestrel.agents.registry import AgentRegistry
-from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.core.session_lifecycle import SessionLifecycle
-from dawn_kestrel.core.settings import settings
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from dawn_kestrel.providers.registry import ProviderRegistry
+MAX_TOOL_LOOPS = 10  # Prevent infinite loops
 
 logger = logging.getLogger(__name__)
 
@@ -274,35 +264,74 @@ class AgentRuntime:
                 + (f" (task: {task_id})" if task_id else "")
             )
 
-            # Step 6: Execute agent
+            # Step 6: Execute agent with agentic loop for tool calls
             execution_options: Dict[str, Any] = {
                 "temperature": agent.temperature,
                 "top_p": agent.top_p,
             }
             execution_options.update(options)
 
-            response_message = await ai_session.process_message(
-                user_message=user_message,
-                options=execution_options,
-            )
+            all_parts = []
+            all_tools_used = []
+            total_tokens = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
+            tool_loop_count = 0
+            current_message = user_message
 
-            # Extract tool usage from parts
-            tools_used = []
-            for part in response_message.parts:
-                if hasattr(part, "tool"):
-                    tools_used.append(part.tool)
-
-            # Extract token usage from metadata
-            tokens_used = None
-            if response_message.metadata and "tokens" in response_message.metadata:
-                tokens_data = response_message.metadata["tokens"]
-                tokens_used = TokenUsage(
-                    input=tokens_data.get("input", 0),
-                    output=tokens_data.get("output", 0),
-                    reasoning=tokens_data.get("reasoning", 0),
-                    cache_read=tokens_data.get("cache_read", 0),
-                    cache_write=tokens_data.get("cache_write", 0),
+            while tool_loop_count < MAX_TOOL_LOOPS:
+                response_message = await ai_session.process_message(
+                    user_message=current_message,
+                    options=execution_options,
                 )
+
+                all_parts.extend(response_message.parts or [])
+
+                has_tool_calls = any(hasattr(p, "tool") for p in (response_message.parts or []))
+                has_text = bool(response_message.text and response_message.text.strip())
+
+                if response_message.metadata and "tokens" in response_message.metadata:
+                    tokens_data = response_message.metadata["tokens"]
+                    total_tokens.input += tokens_data.get("input", 0)
+                    total_tokens.output += tokens_data.get("output", 0)
+                    total_tokens.reasoning += tokens_data.get("reasoning", 0)
+                    total_tokens.cache_read += tokens_data.get("cache_read", 0)
+                    total_tokens.cache_write += tokens_data.get("cache_write", 0)
+
+                for part in response_message.parts or []:
+                    if hasattr(part, "tool"):
+                        all_tools_used.append(part.tool)
+
+                if has_text or not has_tool_calls:
+                    break
+
+                tool_loop_count += 1
+                logger.info(
+                    f"Agent {agent.name} made tool calls without text, "
+                    f"continuing (loop {tool_loop_count}/{MAX_TOOL_LOOPS})"
+                )
+
+                tool_results = []
+                for part in response_message.parts or []:
+                    if hasattr(part, "tool") and hasattr(part, "state"):
+                        tool_name = getattr(part, "tool", "unknown")
+                        output = getattr(part.state, "output", "") if hasattr(part, "state") else ""
+                        tool_results.append(f"Tool {tool_name} result: {output}")
+
+                current_message = (
+                    "The tools have been executed. Here are the results:\n\n"
+                    + "\n\n".join(tool_results)
+                    + "\n\nPlease provide your response based on these results."
+                )
+
+            response_text = ""
+            for part in all_parts:
+                if hasattr(part, "text") and part.text:
+                    response_text += part.text
+
+            if not response_text:
+                response_text = response_message.text or ""
+
+            tools_used = all_tools_used
+            tokens_used = total_tokens
 
             duration = time.time() - start_time
 
@@ -324,11 +353,10 @@ class AgentRuntime:
                 f"tools: {len(tools_used)}"
             )
 
-            # Return AgentResult with task_id
             return AgentResult(
                 agent_name=agent.name,
-                response=response_message.text or "",
-                parts=response_message.parts or [],
+                response=response_text,
+                parts=all_parts,
                 metadata=response_message.metadata or {},
                 tools_used=tools_used,
                 tokens_used=tokens_used,
