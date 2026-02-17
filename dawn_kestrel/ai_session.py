@@ -6,20 +6,32 @@ creates messages/parts, executes tools, manages tokens and costs.
 """
 
 import logging
-from typing import AsyncIterator, Optional, Dict, Any, List
+from collections.abc import AsyncIterator
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Optional
 
-from .core.models import Session, Message, Part, TextPart, ToolPart, AgentPart, ToolState
-from .providers.base import ProviderID
-from .core.event_bus import bus, Events
-from .core.settings import settings
-from .core.provider_config import ProviderConfig
-from .core.session_lifecycle import SessionLifecycle
-from .providers import get_provider, ModelInfo, TokenUsage, StreamEvent
 from .ai.tool_execution import ToolExecutionManager
-from .tools.framework import ToolRegistry
+from .core.event_bus import Events, bus
+from .core.models import (
+    AgentPart,
+    Message,
+    Part,
+    Session,
+    TextPart,
+    TokenUsage,
+    ToolPart,
+    ToolState,
+)
+from .core.provider_config import ProviderConfig
+from .core.settings import settings
+from .providers import ProviderID, get_provider
+from .providers.base import ModelInfo, StreamEvent
 from .tools import create_builtin_registry
+from .tools.framework import ToolRegistry
 
+if TYPE_CHECKING:
+    from .core.session import SessionManager
+    from .core.session_lifecycle import SessionLifecycle
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +42,12 @@ class AISession:
         session: Session,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
-        session_manager=None,
-        tool_registry: Optional[ToolRegistry] = None,
-        provider_config: Optional[ProviderConfig] = None,
-        session_lifecycle: Optional[SessionLifecycle] = None,
-    ):
+        api_key: str | None = None,
+        session_manager: Optional["SessionManager"] = None,
+        tool_registry: ToolRegistry | None = None,
+        provider_config: ProviderConfig | None = None,
+        session_lifecycle: "SessionLifecycle | None" = None,
+    ) -> None:
         self.session = session
         self.provider_id = provider_id
         self.model = model
@@ -59,7 +71,7 @@ class AISession:
         else:
             api_key_str = str(api_key_value) if api_key_value else ""
         self.provider = get_provider(provider_enum, api_key_str)
-        self.model_info: Optional[ModelInfo] = None
+        self.model_info: ModelInfo | None = None
         final_registry = tool_registry if tool_registry is not None else create_builtin_registry()
         self.tool_manager = ToolExecutionManager(session.id, final_registry, session_lifecycle)
 
@@ -81,10 +93,10 @@ class AISession:
 
     async def process_stream(
         self, events: AsyncIterator[StreamEvent]
-    ) -> tuple[List[Part], TokenUsage]:
+    ) -> tuple[list[Part], TokenUsage]:
         """Process stream events and create message parts"""
-        parts: List[Part] = []
-        tool_input: Optional[Dict[str, Any]] = None
+        parts: list[Part] = []
+        tool_input: dict[str, Any] | None = None
         total_cost = Decimal("0")
         usage = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
 
@@ -173,7 +185,7 @@ class AISession:
         return parts, usage
 
     async def create_assistant_message(
-        self, user_message_id: str, parts: List[Part], tokens: TokenUsage, cost: Decimal
+        self, user_message_id: str, parts: list[Part], tokens: TokenUsage, cost: Decimal
     ) -> Message:
         await self._ensure_model_info()
         created_time = None
@@ -204,7 +216,17 @@ class AISession:
         )
 
         if self.session_manager:
-            message_id = await self.session_manager.add_message(assistant_message)
+            result = await self.session_manager.add_message(assistant_message)
+            # Handle both str (protocol) and Result[str] return types
+            if isinstance(result, str):
+                message_id = result
+            elif hasattr(result, "is_ok") and result.is_ok():
+                message_id = result.unwrap()
+            else:
+                # Fallback on error
+                message_id = assistant_message.id
+                if hasattr(result, "error"):
+                    logger.error(f"Failed to add message: {result.error}")
 
             for part in parts:
                 part.message_id = message_id
@@ -221,7 +243,7 @@ class AISession:
         return assistant_message
 
     async def process_message(
-        self, user_message: str, options: Optional[Dict[str, Any]] = None
+        self, user_message: str, options: dict[str, Any] | None = None
     ) -> Message:
         """Process a user message through AI provider
 
@@ -246,7 +268,15 @@ class AISession:
         )
 
         if self.session_manager:
-            user_msg_id = await self.session_manager.add_message(user_msg)
+            result = await self.session_manager.add_message(user_msg)
+            if isinstance(result, str):
+                user_msg_id = result
+            elif hasattr(result, "is_ok") and result.is_ok():
+                user_msg_id = result.unwrap()
+            else:
+                user_msg_id = user_msg.id
+                if hasattr(result, "error"):
+                    logger.error(f"Failed to add user message: {result.error}")
             messages = await self.session_manager.list_messages(self.session.id)
         else:
             user_msg_id = user_msg.id
@@ -296,7 +326,7 @@ class AISession:
 
         return int(time.time() * 1000)
 
-    def _build_llm_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
+    def _build_llm_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
         """Build LLM-format messages from OpenCode messages"""
         llm_messages = []
 
@@ -314,7 +344,7 @@ class AISession:
 
         return llm_messages
 
-    def _get_tool_definitions(self) -> List[Dict[str, Any]]:
+    def _get_tool_definitions(self) -> list[dict[str, Any]]:
         """Get tool definitions for LLM"""
         tools = self.tool_manager.tool_registry.tools
         tool_definitions = []
