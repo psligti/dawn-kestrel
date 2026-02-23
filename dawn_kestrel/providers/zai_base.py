@@ -6,24 +6,19 @@ Shared logic for Z.AI providers, base URL is set by subclasses.
 Streaming support, token counting, and cost calculation.
 """
 
-import httpx
 import json
 import logging
-from decimal import Decimal
-from typing import AsyncIterator, Dict, Any, Optional
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
+from decimal import Decimal
+from typing import Any
 
+from ..core.http_client import HTTPClientWrapper
 from .base import (
     ModelInfo,
-    ModelCapabilities,
-    ModelCost,
-    ModelLimits,
-    TokenUsage,
     StreamEvent,
-    ProviderID,
+    TokenUsage,
 )
-from ..core.http_client import HTTPClientWrapper
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +44,7 @@ class ZAIBaseProvider(ABC):
         model: ModelInfo,
         messages: list,
         tools: list,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         """Stream chat completion from Z.AI API."""
         headers = {"Content-Type": "application/json"}
@@ -136,9 +131,25 @@ class ZAIBaseProvider(ABC):
                                 )
 
                         if finish_reason:
+                            # Extract usage data from the finish chunk
+                            # OpenAI-compatible APIs may include usage at chunk level
+                            usage_data = chunk.get("usage", {})
+                            finish_data: dict[str, Any] = {"finish_reason": finish_reason}
+                            if usage_data:
+                                finish_data["usage"] = {
+                                    "prompt_tokens": usage_data.get("prompt_tokens", 0),
+                                    "completion_tokens": usage_data.get("completion_tokens", 0),
+                                    "reasoning_tokens": usage_data.get(
+                                        "completion_tokens_details", {}
+                                    ).get("reasoning_tokens", 0),
+                                    "cache_read_tokens": usage_data.get(
+                                        "prompt_tokens_details", {}
+                                    ).get("cached_tokens", 0),
+                                    "cache_write_tokens": 0,
+                                }
                             yield StreamEvent(
                                 event_type="finish",
-                                data={"finish_reason": finish_reason},
+                                data=finish_data,
                                 timestamp=0,
                             )
                             break

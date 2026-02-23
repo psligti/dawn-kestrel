@@ -10,33 +10,83 @@ import asyncio
 import functools
 import logging
 import time
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Callable, Coroutine
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import (
     Any,
-    AsyncIterator,
-    Callable,
-    Coroutine,
-    Dict,
-    List,
-    Optional,
     TypeVar,
     cast,
 )
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
 
+from tenacity import (
+    AsyncRetrying,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
+
+from dawn_kestrel.providers import get_provider
 from dawn_kestrel.providers.base import (
     ModelInfo,
     ProviderID,
     StreamEvent,
     TokenUsage,
 )
-from dawn_kestrel.providers import get_provider
-
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+# =============================================================================
+# Global Rate Limiter
+# =============================================================================
+
+from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
+
+_global_rate_limiter: RateLimiterImpl | None = None
+_global_concurrency_semaphore: asyncio.Semaphore | None = None
+
+
+def configure_global_rate_limiter(
+    capacity: int = 10,
+    refill_rate: float = 0.5,
+    window_seconds: int = 1,
+) -> RateLimiterImpl:
+    """Configure the global rate limiter for all LLM calls.
+
+    This should be called once at application startup. All LLMClient instances
+    will share this rate limiter to prevent API overload.
+
+    Args:
+        capacity: Maximum tokens in the bucket (default: 10 concurrent requests)
+        refill_rate: Tokens added per window (default: 0.5, meaning 1 token every 2 seconds)
+        window_seconds: Time window for refill (default: 1.0 second)
+
+    Returns:
+        The configured rate limiter instance
+
+    Example:
+        # At application startup
+        from dawn_kestrel.llm.client import configure_global_rate_limiter
+        configure_global_rate_limiter(capacity=5, refill_rate=0.5)
+    """
+    global _global_rate_limiter, _global_concurrency_semaphore
+    _global_rate_limiter = RateLimiterImpl(
+        default_capacity=capacity,
+        default_refill_rate=refill_rate,
+        default_window_seconds=window_seconds,
+    )
+    _global_concurrency_semaphore = asyncio.Semaphore(capacity)
+    logger.info(f"Global rate limiter configured: capacity={capacity}, refill_rate={refill_rate}/s")
+    return _global_rate_limiter
+
+
+def get_global_rate_limiter() -> RateLimiterImpl | None:
+    """Get the global rate limiter instance."""
+    return _global_rate_limiter
 
 
 def with_logging(
@@ -145,7 +195,7 @@ def with_timeout(timeout_seconds: float):
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
-            except asyncio.TimeoutError as exc:
+            except TimeoutError as exc:
                 func_name = getattr(func, "__name__", "operation")
                 raise TimeoutError(f"{func_name} exceeded timeout of {timeout_seconds}s") from exc
 
@@ -158,25 +208,37 @@ def with_timeout(timeout_seconds: float):
 class LLMRequestOptions:
     """Options for LLM requests."""
 
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    max_tokens: Optional[int] = None
-    response_format: Optional[Dict[str, Any]] = None
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
+    response_format: dict[str, Any] | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary, filtering out None values."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
 
 @dataclass
 class LLMResponse:
-    """Response from LLM provider."""
+    """Response from LLM provider.
+
+    Attributes:
+        text: The text content of the response.
+        usage: Token usage statistics.
+        model_info: Information about the model used.
+        finish_reason: Why the response finished (stop, tool_use, etc.).
+        cost: Cost of the request in USD.
+        tool_calls: List of tool calls made during the response.
+        messages: Full message history for the response (for eval transcript capture).
+    """
 
     text: str
     usage: TokenUsage
-    model_info: Optional[ModelInfo] = None
+    model_info: ModelInfo | None = None
     finish_reason: str = "stop"
     cost: Decimal = Decimal("0")
+    tool_calls: list[dict[str, Any]] | None = None
+    messages: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -198,7 +260,7 @@ class LLMProviderProtocol(ABC):
     """
 
     @abstractmethod
-    async def get_models(self) -> List[ModelInfo]:
+    async def get_models(self) -> list[ModelInfo]:
         """Get available models.
 
         Returns:
@@ -210,9 +272,9 @@ class LLMProviderProtocol(ABC):
     async def stream(
         self,
         model: ModelInfo,
-        messages: List[Dict[str, Any]],
-        tools: Dict[str, Any],
-        options: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        tools: dict[str, Any],
+        options: dict[str, Any],
     ) -> AsyncIterator[StreamEvent]:
         """Stream LLM response.
 
@@ -270,8 +332,8 @@ class LLMClient:
         self,
         provider_id: str | ProviderID,
         model: str,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         max_retries: int = 3,
         timeout_seconds: float = 120.0,
     ):
@@ -294,7 +356,7 @@ class LLMClient:
         self.retry_policy = RetryPolicy(max_attempts=max_retries)
 
         self._provider = get_provider(self.provider_id, self.api_key)
-        self._model_info: Optional[ModelInfo] = None
+        self._model_info: ModelInfo | None = None
 
         if self._provider is None:
             raise ValueError(f"Unsupported provider: {self.provider_id}")
@@ -322,9 +384,9 @@ class LLMClient:
 
     async def stream(
         self,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        options: Optional[LLMRequestOptions | Dict[str, Any]] = None,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        options: LLMRequestOptions | dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         """Stream LLM response with built-in retry, timeout, and logging.
 
@@ -376,65 +438,86 @@ class LLMClient:
     async def _collect_stream_events_once(
         self,
         model_info: ModelInfo,
-        messages: List[Dict[str, Any]],
-        tools: Dict[str, Any],
-        options: Dict[str, Any],
-    ) -> List[StreamEvent]:
-        events = []
-        async for event in self.provider.stream(
-            model=model_info,
-            messages=messages,
-            tools=tools,
-            options=options,
-        ):
-            events.append(event)
-        return events
+        messages: list[dict[str, Any]],
+        tools: dict[str, Any],
+        options: dict[str, Any],
+    ) -> list[StreamEvent]:
+        async def collect():
+            events = []
+            async for event in self.provider.stream(
+                model=model_info,
+                messages=messages,
+                tools=tools,
+                options=options,
+            ):
+                events.append(event)
+            return events
+
+        return await asyncio.wait_for(collect(), timeout=self.timeout_seconds)
 
     async def _collect_stream_events_with_retry(
         self,
         model_info: ModelInfo,
-        messages: List[Dict[str, Any]],
-        tools: Dict[str, Any],
-        options: Dict[str, Any],
-    ) -> List[StreamEvent]:
-        """Collect stream events with configurable retry policy."""
-        last_exception: Optional[Exception] = None
+        messages: list[dict[str, Any]],
+        tools: dict[str, Any],
+        options: dict[str, Any],
+    ) -> list[StreamEvent]:
+        """Collect stream events with tenacity retry and concurrency limit."""
 
-        for attempt in range(1, self.retry_policy.max_attempts + 1):
-            try:
+        async def acquire_rate_limit():
+            if _global_rate_limiter is None:
+                return
+            while True:
+                acquire_result = await _global_rate_limiter.try_acquire(
+                    resource=str(self.provider_id),
+                    tokens=1,
+                )
+                if acquire_result.is_ok():
+                    return
+                backoff = 1.0
+                logger.debug("Rate limit wait for %s, waiting %.1fs...", self.provider_id, backoff)
+                await asyncio.sleep(backoff)
+
+        async def execute_with_limits():
+            if _global_concurrency_semaphore is not None:
+                async with _global_concurrency_semaphore:
+                    await acquire_rate_limit()
+                    return await self._collect_stream_events_once(
+                        model_info=model_info,
+                        messages=messages,
+                        tools=tools,
+                        options=options,
+                    )
+            else:
+                await acquire_rate_limit()
                 return await self._collect_stream_events_once(
                     model_info=model_info,
                     messages=messages,
                     tools=tools,
                     options=options,
                 )
-            except Exception as e:
-                last_exception = e
-                if attempt >= self.retry_policy.max_attempts:
-                    raise
 
-                delay = min(
-                    self.retry_policy.base_delay
-                    * (self.retry_policy.exponential_base ** (attempt - 1)),
-                    self.retry_policy.max_delay,
-                )
-                logger.warning(
-                    "LLM stream collection failed (attempt %s/%s): %s. Retrying in %.2fs...",
-                    attempt,
-                    self.retry_policy.max_attempts,
-                    e,
-                    delay,
-                )
-                await asyncio.sleep(delay)
+        async for attempt in AsyncRetrying(
+            stop=stop_after_attempt(self.retry_policy.max_attempts),
+            wait=wait_exponential(
+                multiplier=self.retry_policy.base_delay,
+                min=self.retry_policy.base_delay,
+                max=self.retry_policy.max_delay,
+            ),
+            reraise=True,
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+        ):
+            with attempt:
+                return await execute_with_limits()
 
-        raise cast(Exception, last_exception)
+        raise Exception("Should not reach here")
 
     @with_logging(log_args=False, log_result=False, log_level=logging.INFO)
     async def complete(
         self,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        options: Optional[LLMRequestOptions | Dict[str, Any]] = None,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        options: LLMRequestOptions | dict[str, Any] | None = None,
     ) -> LLMResponse:
         """Get complete LLM response (non-streaming) with built-in retry, timeout, and logging.
 
@@ -454,24 +537,30 @@ class LLMClient:
         """
         model_info = await self._ensure_model_info()
 
-        text_parts: List[str] = []
+        text_parts: list[str] = []
         usage = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
         finish_reason = "stop"
+        tool_calls: list[dict[str, Any]] = []
 
-        events = await asyncio.wait_for(
-            self._collect_stream_events_with_retry(
-                model_info,
-                messages,
-                {} if tools is None else {"tools": tools},
-                options.to_dict() if isinstance(options, LLMRequestOptions) else (options or {}),
-            ),
-            timeout=self.timeout_seconds,
+        events = await self._collect_stream_events_with_retry(
+            model_info,
+            messages,
+            {} if tools is None else {"tools": tools},
+            options.to_dict() if isinstance(options, LLMRequestOptions) else (options or {}),
         )
 
         for event in events:
             if event.event_type == "text-delta":
                 delta = event.data.get("delta", "")
                 text_parts.append(delta)
+            elif event.event_type == "tool-call":
+                # Capture tool calls for eval transcript
+                tool_calls.append(
+                    {
+                        "tool": event.data.get("tool"),
+                        "input": event.data.get("input"),
+                    }
+                )
             elif event.event_type == "finish":
                 usage_data = event.data.get("usage", {})
                 if usage_data:
@@ -493,6 +582,8 @@ class LLMClient:
             model_info=model_info,
             finish_reason=finish_reason,
             cost=cost,
+            tool_calls=tool_calls if tool_calls else None,
+            messages=messages,  # Pass through for eval transcript capture
         )
 
     async def chat_completion(
@@ -501,7 +592,7 @@ class LLMClient:
         user_message: str,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        response_format: Optional[Dict[str, str]] = None,
+        response_format: dict[str, str] | None = None,
     ) -> str:
         """Convenience method for simple chat completion.
 
