@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, cast
-
 import asyncio
 import logging
-import pendulum
 import uuid
+from typing import Any, Literal, cast
 
+import pendulum
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, ScrollableContainer, Vertical
-from textual.reactive import reactive, Reactive
+from textual.reactive import Reactive, reactive
 from textual.widgets import (
     Button,
     DataTable,
@@ -22,20 +21,18 @@ from textual.widgets import (
     Tabs,
 )
 
-from dawn_kestrel.tui.widgets.header import SessionHeader
-from dawn_kestrel.tui.widgets.footer import SessionFooter
-
-from dawn_kestrel.tui.message_view import MessageView
+from dawn_kestrel.core.di_container import configure_container
 from dawn_kestrel.core.models import Message, TextPart
-from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.services.session_service import DefaultSessionService
 from dawn_kestrel.tui.handlers import (
     TUIIOHandler,
-    TUIProgressHandler,
     TUINotificationHandler,
+    TUIProgressHandler,
 )
-from dawn_kestrel.core.di_container import configure_container
-
+from dawn_kestrel.tui.message_view import MessageView
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
+from dawn_kestrel.tui.widgets.footer import SessionFooter
+from dawn_kestrel.tui.widgets.header import SessionHeader
 
 logger = logging.getLogger(__name__)
 
@@ -96,8 +93,8 @@ class OpenCodeTUI(App[None]):
 
     show_sidebar = reactive(True)
     current_session_id = reactive("")
-    command_history: Reactive[List[str]] = reactive([])
-    messages: Reactive[List[Message]] = reactive([])
+    command_history: Reactive[list[str]] = reactive([])
+    messages: Reactive[list[Message]] = reactive([])
 
     def compose(self) -> ComposeResult:
         """Build TUI UI"""

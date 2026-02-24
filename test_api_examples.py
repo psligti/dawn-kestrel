@@ -5,21 +5,20 @@ This script validates all code examples in docs/api/agents.md
 """
 import asyncio
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 # Test imports
 try:
+    from dawn_kestrel.agents.memory_embedder import MemoryEmbedder, create_memory_embedder
+    from dawn_kestrel.agents.memory_manager import MemoryManager
+    from dawn_kestrel.agents.memory_summarizer import MemorySummarizer, create_memory_summarizer
     from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
     from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
     from dawn_kestrel.context.builder import ContextBuilder
-    from dawn_kestrel.agents.memory_manager import MemoryManager
-    from dawn_kestrel.agents.memory_embedder import MemoryEmbedder, create_memory_embedder
-    from dawn_kestrel.agents.memory_summarizer import MemorySummarizer, create_memory_summarizer
-    from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
-    from dawn_kestrel.skills.injector import SkillInjector
     from dawn_kestrel.core.agent_task import AgentTask, TaskStatus, create_agent_task
-    from dawn_kestrel.core.models import TokenUsage, Memory
-    from dawn_kestrel.tools.framework import ToolRegistry, Tool, ToolResult, ToolContext
+    from dawn_kestrel.core.models import Memory, TokenUsage
+    from dawn_kestrel.skills.injector import SkillInjector
+    from dawn_kestrel.tools.framework import Tool, ToolContext, ToolRegistry, ToolResult
+    from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
     print("✅ All imports successful")
 except ImportError as e:
     print(f"❌ Import failed: {e}")
@@ -52,7 +51,6 @@ async def test_agent_registry():
 async def test_agent_runtime():
     print("\n📝 Testing AgentRuntime...")
     try:
-        from dawn_kestrel.agents.builtin import Agent
 
         runtime = create_agent_runtime(
             agent_registry=registry,
@@ -186,7 +184,6 @@ async def test_permission_filter():
 async def test_skill_injector():
     print("\n📝 Testing SkillInjector...")
     try:
-        from dawn_kestrel.agents.builtin import Agent
 
         injector = SkillInjector(base_dir=Path("/tmp/test"), max_char_budget=10000)
         assert isinstance(injector, SkillInjector)
@@ -342,7 +339,7 @@ async def test_tool_context():
 async def test_event_bus():
     print("\n📝 Testing EventBus...")
     try:
-        from dawn_kestrel.core.event_bus import bus, Events
+        from dawn_kestrel.core.event_bus import Events, bus
 
         # Test subscription
         events_received = []

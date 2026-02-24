@@ -1,13 +1,12 @@
 """OpenCode Python - Context pipeline (file scanning, ignore rules, git integration)"""
 from __future__ import annotations
-from typing import List, Optional, Tuple
-from pathlib import Path
-import subprocess
-import re
+
 import logging
+import re
+import subprocess
+from pathlib import Path
 
 from dawn_kestrel.core.models import FileInfo
-
 
 logger = logging.getLogger(__name__)
 
@@ -99,14 +98,14 @@ class FileScanner:
             directory: Directory to scan
         """
         self.directory = Path(directory).absolute()
-        self._cache: Optional[List[str]] = None
-        self._cache_time: Optional[float] = None
+        self._cache: list[str] | None = None
+        self._cache_time: float | None = None
 
     def _get_timestamp(self) -> float:
         import time
         return time.time()
 
-    async def scan_files(self, force_refresh: bool = False) -> List[str]:
+    async def scan_files(self, force_refresh: bool = False) -> list[str]:
         """Scan all files in directory using Ripgrep
 
         Args:
@@ -149,7 +148,7 @@ class FileScanner:
         pattern: str = "",
         limit: int = 100,
         dirs: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """List files with optional filtering
 
         Args:
@@ -200,7 +199,7 @@ class GitManager:
 
         return result.stdout.strip()
 
-    async def get_status(self) -> List[FileInfo]:
+    async def get_status(self) -> list[FileInfo]:
         """Get git status (modified, added, deleted, untracked files)"""
         if not self.directory.joinpath(".git").exists():
             logger.warning("Not a git repository")
@@ -246,7 +245,7 @@ class GitManager:
 
         return files
 
-    async def get_diff(self, file_path: str) -> Optional[str]:
+    async def get_diff(self, file_path: str) -> str | None:
         """Get git diff for a file
 
         Args:
@@ -261,7 +260,7 @@ class GitManager:
         except subprocess.CalledProcessError:
             return None
 
-    async def read_file_with_diff(self, file_path: str) -> Tuple[str, Optional[str]]:
+    async def read_file_with_diff(self, file_path: str) -> tuple[str, str | None]:
         """Read file content and include git diff if available
 
         Args:

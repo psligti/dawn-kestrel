@@ -1,10 +1,11 @@
 """Tests for ArchitectureReviewer - LLM-based analysis."""
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.agents.architecture import ArchitectureReviewer
+
 from dawn_kestrel.agents.review.base import ReviewContext
-from dawn_kestrel.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
+from dawn_kestrel.agents.review.contracts import ReviewOutput
 
 
 class TestArchitectureReviewerLLMBased:

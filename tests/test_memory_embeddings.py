@@ -1,19 +1,18 @@
 """Tests for MemoryEmbedder and MemorySummarizer"""
 from __future__ import annotations
 
-import pytest
 import asyncio
-from datetime import datetime
-from pathlib import Path
-from typing import List
+
+import pytest
 
 from dawn_kestrel.agents.memory_embedder import MemoryEmbedder, create_memory_embedder
 from dawn_kestrel.agents.memory_summarizer import (
-    MemorySummarizer,
-    create_memory_summarizer,
     MemorySummary as MemorySummaryClass,
 )
-from dawn_kestrel.core.models import Message, MemorySummary
+from dawn_kestrel.agents.memory_summarizer import (
+    create_memory_summarizer,
+)
+from dawn_kestrel.core.models import MemorySummary, Message
 
 
 @pytest.fixture

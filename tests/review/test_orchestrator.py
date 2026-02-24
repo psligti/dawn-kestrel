@@ -6,6 +6,9 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
+from dawn_kestrel.agents.review.streaming import ReviewStreamManager
+from dawn_kestrel.agents.review.utils.executor import CommandExecutor, ExecutionResult
 
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
 from dawn_kestrel.agents.review.contracts import (
@@ -16,12 +19,7 @@ from dawn_kestrel.agents.review.contracts import (
     ReviewInputs,
     ReviewOutput,
     Scope,
-    Skip,
-    ToolPlan,
 )
-from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
-from dawn_kestrel.agents.review.streaming import ReviewStreamManager
-from dawn_kestrel.agents.review.utils.executor import CommandExecutor, ExecutionResult
 
 
 class MockReviewerAgent(BaseReviewerAgent):

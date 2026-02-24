@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import pytest
-
 from dawn_kestrel.agents.review.registry import ReviewerRegistry
+
 from dawn_kestrel.agents.review.base import BaseReviewerAgent
 from dawn_kestrel.agents.review.contracts import ReviewInputs, ReviewOutput
 
@@ -27,7 +27,7 @@ class MockCustomReviewer(BaseReviewerAgent):
         return True
 
     async def review(self, inputs: ReviewInputs) -> ReviewOutput:
-        from dawn_kestrel.agents.review.contracts import MergeGate, Scope, Finding
+        from dawn_kestrel.agents.review.contracts import MergeGate, Scope
         return ReviewOutput(
             agent="custom_reviewer",
             summary="Mock review",

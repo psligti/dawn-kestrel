@@ -1,14 +1,15 @@
 """Tests for ContextBuilder memory integration"""
 from __future__ import annotations
 
-from unittest.mock import Mock, AsyncMock
-import pytest
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 from dawn_kestrel.context.builder import ContextBuilder
+from dawn_kestrel.core.agent_types import AgentContext
 from dawn_kestrel.core.models import Session
 from dawn_kestrel.tools.framework import ToolRegistry
-from dawn_kestrel.core.agent_types import AgentContext
 
 
 @pytest.fixture

@@ -10,8 +10,7 @@ Measures:
 import time
 from pathlib import Path
 
-from dawn_kestrel.benchmarks import BenchmarkRunner, benchmark
-from dawn_kestrel.context import ContextBuilder
+from dawn_kestrel.benchmarks import BenchmarkRunner
 from dawn_kestrel.core import models
 
 
@@ -82,7 +81,7 @@ def run_context_build_benchmark(iterations: int = 100, sessions_per_context: int
         memory_created=0,
     )
 
-    print(f"\nContext Building Benchmark (baseline):")
+    print("\nContext Building Benchmark (baseline):")
     print(f"  {result}")
     print(f"  Sessions: {sessions_per_context}, Tools: {tools_per_context}")
 

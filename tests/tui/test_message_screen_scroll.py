@@ -9,8 +9,8 @@ TDD Workflow:
 import pytest
 from textual.app import App
 
-from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
 
 
 @pytest.fixture

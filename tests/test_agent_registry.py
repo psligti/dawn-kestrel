@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
 from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
 
 
 class TestAgentRegistryBasic:
@@ -234,7 +234,7 @@ class TestAgentRegistryPersistence:
             # Verify file content
             import json
 
-            with open(agent_file, "r") as f:
+            with open(agent_file) as f:
                 data = json.load(f)
 
             assert data["name"] == "persistent_agent"
@@ -381,7 +381,7 @@ class TestAgentRegistryPersistence:
             asyncio.run(registry.register_agent(custom_agent))
 
             agent_file = Path(tmpdir) / "agent" / "full_agent.json"
-            with open(agent_file, "r") as f:
+            with open(agent_file) as f:
                 data = json.load(f)
 
             assert data["name"] == "full_agent"

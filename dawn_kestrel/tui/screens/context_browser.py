@@ -9,20 +9,20 @@ Provides a context browsing screen with:
 - Diff tab: Summary of file changes
 """
 
-from textual.screen import Screen
-from textual.containers import Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Button, Tabs, TabbedContent, TabPane, Input, Tree
-from textual.widgets._tree import TreeNode
-from textual.app import ComposeResult
-from textual.reactive import reactive
-from typing import Optional, List, Dict, Any
-import logging
 import asyncio
+import logging
 import subprocess
 from pathlib import Path
+from typing import Any
+
+from textual.app import ComposeResult
+from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import Button, Input, Static, TabbedContent, TabPane, Tabs, Tree
+from textual.widgets._tree import TreeNode
 
 from dawn_kestrel.core.models import Session
-
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ class ContextBrowser(Screen[None]):
         ("5", "goto_tab(4)", "Diff"),
     ]
 
-    session: Optional[Session] = None
+    session: Session | None = None
     current_tab: reactive[int] = reactive(0)
     selected_file: reactive[str] = reactive("")
     search_query: reactive[str] = reactive("")
@@ -146,11 +146,11 @@ class ContextBrowser(Screen[None]):
     def __init__(self, session: Session, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.session = session
-        self.file_tree_data: List[Dict[str, Any]] = []
-        self.modified_files: List[Dict[str, Any]] = []
-        self.lsp_symbols: List[Dict[str, Any]] = []
-        self.todo_items: List[Dict[str, Any]] = []
-        self.diff_summary: Dict[str, Any] = {}
+        self.file_tree_data: list[dict[str, Any]] = []
+        self.modified_files: list[dict[str, Any]] = []
+        self.lsp_symbols: list[dict[str, Any]] = []
+        self.todo_items: list[dict[str, Any]] = []
+        self.diff_summary: dict[str, Any] = {}
 
     def compose(self) -> ComposeResult:
         """Build the context browser UI"""
@@ -385,7 +385,7 @@ class ContextBrowser(Screen[None]):
         except Exception as e:
             logger.error(f"Error loading diff summary: {e}")
 
-    def on_tree_node_selected(self, event: "Tree.NodeSelected[Dict[str, Any]]") -> None:
+    def on_tree_node_selected(self, event: "Tree.NodeSelected[dict[str, Any]]") -> None:
         """Handle tree node selection"""
         node_data = event.node.data
         if node_data is not None and isinstance(node_data, dict) and node_data.get("type") == "file":
@@ -469,8 +469,8 @@ class ContextBrowser(Screen[None]):
         if self.selected_file:
             self.notify(f"[cyan]Opening: {self.selected_file}[/cyan]")
             try:
-                import subprocess
                 import os
+                import subprocess
                 editor = os.environ.get("EDITOR", "vi")
                 subprocess.run([editor, self.selected_file], timeout=60)
             except Exception as e:

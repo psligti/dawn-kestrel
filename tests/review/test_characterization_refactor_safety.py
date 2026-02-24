@@ -5,8 +5,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from dawn_kestrel.agents.review.agents.security import SecurityReviewer
+from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
+
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
 from dawn_kestrel.agents.review.contracts import (
     Finding,
@@ -15,7 +16,6 @@ from dawn_kestrel.agents.review.contracts import (
     ReviewOutput,
     Scope,
 )
-from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 
 
 class _TimeoutMockReviewer(BaseReviewerAgent):

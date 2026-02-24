@@ -14,6 +14,7 @@ import tempfile
 from unittest.mock import Mock
 
 import pytest
+from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 
 # Import the agent and related types
 from dawn_kestrel.agents.review.subagents.secrets_scanner import (
@@ -21,8 +22,6 @@ from dawn_kestrel.agents.review.subagents.secrets_scanner import (
     SecretsScannerAgent,
 )
 from dawn_kestrel.agents.review.tools import ToolExecutor, ToolResult
-from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
-
 
 # =============================================================================
 # Mock Fixtures

@@ -4,21 +4,19 @@ Tests TUI-specific implementations of IOHandler, ProgressHandler,
 and NotificationHandler protocols that integrate with Textual framework.
 """
 
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
 from textual.app import App
 
 from dawn_kestrel.interfaces.io import (
-    IOHandler,
-    ProgressHandler,
-    NotificationHandler,
     Notification,
     NotificationType,
 )
 from dawn_kestrel.tui.handlers import (
     TUIIOHandler,
-    TUIProgressHandler,
     TUINotificationHandler,
+    TUIProgressHandler,
 )
 
 

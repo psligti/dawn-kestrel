@@ -1,12 +1,11 @@
 """Tests for AgentConfig dataclass."""
 
-from typing import Any, Optional, cast
+from typing import Any, cast
 
-import pytest
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.agents.agent_config import AgentConfig, AgentBuilder
 from dawn_kestrel.core.fsm import FSM, FSMContext
-from dawn_kestrel.core.result import Ok, Err
+from dawn_kestrel.core.result import Ok
 
 
 class TestAgentConfig:
@@ -64,7 +63,7 @@ class TestAgentConfig:
                 return self._state
 
             async def transition_to(
-                self, new_state: str, context: Optional[FSMContext] = None
+                self, new_state: str, context: FSMContext | None = None
             ) -> Ok[None]:
                 self._state = new_state
                 return Ok(None)
@@ -282,10 +281,10 @@ class TestAgentBuilderFSM:
 
     def test_with_lifecycle_fsm_attaches_fsm(self) -> None:
         """Verify with_lifecycle_fsm() attaches FSM to builder."""
-        from dawn_kestrel.agents.agent_lifecycle_fsm import create_lifecycle_fsm
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
 
-        # Create lifecycle FSM
-        fsm_result = create_lifecycle_fsm()
+        # Create FSM
+        fsm_result = WorkflowFSMBuilder().build()
         assert fsm_result.is_ok()
         lifecycle_fsm = fsm_result.unwrap()
 
@@ -307,10 +306,10 @@ class TestAgentBuilderFSM:
 
     def test_with_workflow_fsm_attaches_fsm(self) -> None:
         """Verify with_workflow_fsm() attaches FSM to builder."""
-        from dawn_kestrel.agents.agent_workflow_fsm import create_workflow_fsm
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
 
         # Create workflow FSM
-        fsm_result = create_workflow_fsm()
+        fsm_result = WorkflowFSMBuilder().build()
         assert fsm_result.is_ok()
         workflow_fsm = fsm_result.unwrap()
 
@@ -361,16 +360,12 @@ class TestAgentBuilderFSM:
 
     def test_fsm_methods_support_chaining(self) -> None:
         """Verify FSM methods return self for method chaining."""
-        from dawn_kestrel.agents.agent_lifecycle_fsm import create_lifecycle_fsm
-        from dawn_kestrel.agents.agent_workflow_fsm import create_workflow_fsm
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
 
-        fsm_result1 = create_lifecycle_fsm()
-        fsm_result2 = create_workflow_fsm()
-        assert fsm_result1.is_ok()
-        assert fsm_result2.is_ok()
+        fsm_result = WorkflowFSMBuilder().build()
+        assert fsm_result.is_ok()
 
-        lifecycle_fsm = fsm_result1.unwrap()
-        workflow_fsm = fsm_result2.unwrap()
+        fsm = fsm_result.unwrap()
 
         builder = (
             AgentBuilder()
@@ -378,8 +373,8 @@ class TestAgentBuilderFSM:
             .with_description("Test agent")
             .with_mode("subagent")
             .with_permission([])
-            .with_lifecycle_fsm(lifecycle_fsm)
-            .with_workflow_fsm(workflow_fsm)
+            .with_lifecycle_fsm(fsm)
+            .with_workflow_fsm(fsm)
         )
 
         # Verify chaining works - each method returns the same builder
@@ -387,16 +382,12 @@ class TestAgentBuilderFSM:
 
     def test_build_returns_agent_config_with_fsms_attached(self) -> None:
         """Verify build() returns AgentConfig with FSMs attached."""
-        from dawn_kestrel.agents.agent_lifecycle_fsm import create_lifecycle_fsm
-        from dawn_kestrel.agents.agent_workflow_fsm import create_workflow_fsm
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
 
-        fsm_result1 = create_lifecycle_fsm()
-        fsm_result2 = create_workflow_fsm()
-        assert fsm_result1.is_ok()
-        assert fsm_result2.is_ok()
+        fsm_result = WorkflowFSMBuilder().build()
+        assert fsm_result.is_ok()
 
-        lifecycle_fsm = fsm_result1.unwrap()
-        workflow_fsm = fsm_result2.unwrap()
+        fsm = fsm_result.unwrap()
 
         result = (
             AgentBuilder()
@@ -404,13 +395,13 @@ class TestAgentBuilderFSM:
             .with_description("Test agent")
             .with_mode("subagent")
             .with_permission([])
-            .with_lifecycle_fsm(lifecycle_fsm)
-            .with_workflow_fsm(workflow_fsm)
+            .with_lifecycle_fsm(fsm)
+            .with_workflow_fsm(fsm)
             .build()
         )
 
         assert result.is_ok()
         config = result.unwrap()
         assert isinstance(config, AgentConfig)
-        assert config.lifecycle_fsm is lifecycle_fsm
-        assert config.workflow_fsm is workflow_fsm
+        assert config.lifecycle_fsm is fsm
+        assert config.workflow_fsm is fsm

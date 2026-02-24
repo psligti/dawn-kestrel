@@ -40,11 +40,11 @@ Evidence:
 
 from __future__ import annotations
 
+import asyncio
 import tempfile
 from pathlib import Path
+
 import pytest
-import asyncio
-from typing import cast, Any
 
 
 class TestAgentRuntimeLifecycle:
@@ -99,7 +99,6 @@ class TestAgentRuntimeLifecycle:
         - AgentResult not returned
         - Duration not recorded
         """
-        from dawn_kestrel.agents.runtime import AgentRuntime
         from dawn_kestrel.agents.bolt_merlin import create_autonomous_worker_agent
 
         runtime = configured_container.agent_runtime()
@@ -147,7 +146,6 @@ class TestAgentRuntimeLifecycle:
         - Tool usage in AgentResult.tools_used
         - Tool invocations logged
         """
-        from dawn_kestrel.agents.runtime import AgentRuntime
         from dawn_kestrel.agents.bolt_merlin import build_autonomous_worker_agent
         from dawn_kestrel.tools import get_all_tools
 
@@ -256,7 +254,6 @@ class TestAgentRuntimeIntegration:
         - metadata not empty
         - duration > 0
         """
-        from dawn_kestrel.agents.runtime import AgentRuntime
         from dawn_kestrel.agents.bolt_merlin import build_autonomous_worker_agent
 
         runtime = configured_container.agent_runtime()

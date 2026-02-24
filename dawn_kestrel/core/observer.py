@@ -13,7 +13,7 @@ Key concepts:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable, Optional
+from typing import Any, Protocol, runtime_checkable
 
 from dawn_kestrel.core.mediator import Event, EventMediator, EventType
 
@@ -97,7 +97,7 @@ class ObservableImpl:
     def __init__(
         self,
         name: str,
-        mediator: Optional[EventMediator] = None,
+        mediator: EventMediator | None = None,
     ) -> None:
         """Initialize observable with empty observer set."""
         self.name = name

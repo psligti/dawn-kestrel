@@ -18,13 +18,12 @@ This module provides:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.result import Err, Result
 from dawn_kestrel.llm.circuit_breaker import CircuitBreaker
-from dawn_kestrel.llm.retry import RetryExecutor, ExponentialBackoff
 from dawn_kestrel.llm.rate_limiter import RateLimiter
-
+from dawn_kestrel.llm.retry import RetryExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +146,9 @@ class LLMReliabilityImpl:
 
     def __init__(
         self,
-        rate_limiter: Optional[RateLimiter] = None,
-        circuit_breaker: Optional[CircuitBreaker] = None,
-        retry_executor: Optional[RetryExecutor] = None,
+        rate_limiter: RateLimiter | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
+        retry_executor: RetryExecutor | None = None,
     ):
         """Initialize LLM reliability wrapper.
 

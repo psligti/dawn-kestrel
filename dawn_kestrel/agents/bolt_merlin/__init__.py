@@ -22,27 +22,28 @@ via AgentRuntime and AgentOrchestrator.
 
 from __future__ import annotations
 
-# Import agent factories from each subdirectory
-from .orchestrator import create_orchestrator_agent
-from .master_orchestrator import create_master_orchestrator_agent
-from .planner import create_planner_agent
 from .autonomous_worker import create_autonomous_worker_agent
 from .consultant import create_consultant_agent
-from .pre_planning import create_pre_planning_agent
-from .plan_validator import create_plan_validator_agent
-from .librarian import create_librarian_agent
 from .explore import create_explore_agent
 from .frontend_ui_engineer import create_frontend_ui_ux_skill
+from .librarian import create_librarian_agent
+from .master_orchestrator import create_master_orchestrator_agent
 from .multimodal_looker import create_multimodal_looker_agent
+
+# Import agent factories from each subdirectory
+from .orchestrator import create_orchestrator_agent
+from .plan_validator import create_plan_validator_agent
+from .planner import create_planner_agent
+from .pre_planning import create_pre_planning_agent
 
 # Import registry functions
 from .registry import (
-    get_bolt_merlin_agents,
-    get_bolt_merlin_agent_names,
-    get_bolt_merlin_agent,
     clear_agent_cache,
-    register_bolt_merlin_agent,
+    get_bolt_merlin_agent,
     get_bolt_merlin_agent_descriptions,
+    get_bolt_merlin_agent_names,
+    get_bolt_merlin_agents,
+    register_bolt_merlin_agent,
 )
 
 # Re-export all agent factory functions and registry functions

@@ -6,7 +6,6 @@ essential keybindings that are used throughout the application.
 
 from textual.binding import Binding
 
-
 keybindings = [
     Binding("q", "quit", "Quit", show=True),
     Binding("ctrl+c", "quit", "Quit", show=False),

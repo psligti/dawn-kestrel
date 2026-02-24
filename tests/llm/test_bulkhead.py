@@ -6,13 +6,10 @@ Tests follow TDD workflow:
 - REFACTOR phase: Clean code with comprehensive docstrings
 """
 
-import pytest
 import asyncio
 from asyncio import Semaphore
 
-from dawn_kestrel.core.result import Ok, Err
 from dawn_kestrel.llm.bulkhead import Bulkhead, BulkheadImpl
-
 
 # =============================================================================
 # Protocol Compliance Tests

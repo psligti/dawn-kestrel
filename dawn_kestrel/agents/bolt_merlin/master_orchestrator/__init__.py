@@ -6,9 +6,9 @@ Master Orchestrator orchestrates all agents and manages overall workflow.
 """
 
 from __future__ import annotations
+
 from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 from dawn_kestrel.core.result import Result
-
 
 MASTER_ORCHESTRATOR_PROMPT = """You are Master Orchestrator, the master orchestrator. Your job is to coordinate all agents and manage the overall workflow across the entire Dawn Kestrel ecosystem.
 

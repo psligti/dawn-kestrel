@@ -12,10 +12,9 @@ TDD: RED-GREEN-REFACTOR workflow
 - Refactor if needed (still GREEN)
 """
 
-import pytest
-from dawn_kestrel.core.plugin_discovery import load_agents
-from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
 from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.core.plugin_discovery import load_agents
 
 
 class TestAgentPluginDiscovery:
@@ -146,11 +145,11 @@ class TestBackwardCompatibility:
         """Test that direct imports from builtin still work"""
         from dawn_kestrel.agents.builtin import (
             BUILD_AGENT,
-            PLAN_AGENT,
-            GENERAL_AGENT,
             EXPLORE_AGENT,
-            get_all_agents,
+            GENERAL_AGENT,
+            PLAN_AGENT,
             get_agent_by_name,
+            get_all_agents,
         )
 
         assert BUILD_AGENT is not None
@@ -168,8 +167,8 @@ class TestBackwardCompatibility:
     def test_direct_bolt_merlin_imports_still_work(self):
         """Test that direct imports from bolt_merlin still work"""
         from dawn_kestrel.agents.bolt_merlin import (
-            create_orchestrator_agent,
             create_explore_agent,
+            create_orchestrator_agent,
         )
 
         orchestrator = create_orchestrator_agent()

@@ -38,8 +38,8 @@ Evidence:
 - Each provider has required methods
 """
 
+
 import pytest
-import asyncio
 
 
 class TestPluginDiscoveryTools:
@@ -296,9 +296,9 @@ class TestPluginDiscoveryAgents:
         agents = agent_registry.get_all_agents()
 
         for agent in agents:
-            assert hasattr(agent, "name"), f"Agent missing name attribute"
-            assert hasattr(agent, "description"), f"Agent missing description attribute"
-            assert hasattr(agent, "mode"), f"Agent missing mode attribute"
+            assert hasattr(agent, "name"), "Agent missing name attribute"
+            assert hasattr(agent, "description"), "Agent missing description attribute"
+            assert hasattr(agent, "mode"), "Agent missing mode attribute"
 
 
 class TestPluginDiscoveryIntegration:
@@ -328,8 +328,8 @@ class TestPluginDiscoveryIntegration:
         - Plugin count incorrect
         - Plugin structure invalid
         """
-        from dawn_kestrel.core.plugin_discovery import load_tools, load_providers
         from dawn_kestrel.agents.registry import create_agent_registry
+        from dawn_kestrel.core.plugin_discovery import load_providers, load_tools
 
         tools = await load_tools()
         providers = await load_providers()

@@ -6,18 +6,14 @@ Provides a session list screen with DataTable for browsing and selecting session
 - Enter key opens selected session in MessageScreen
 """
 
-from typing import List
 import logging
 
-from textual.screen import Screen
-from textual.containers import Vertical
-from textual.widgets import DataTable
 from textual.app import ComposeResult
-from textual.binding import Binding
-from textual.widgets import Footer
+from textual.containers import Vertical
+from textual.screen import Screen
+from textual.widgets import DataTable
 
 from dawn_kestrel.core.models import Session
-
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +27,9 @@ class SessionListScreen(Screen):
         ("enter", "open_selected_session", "Open"),
     ]
 
-    sessions: List[Session]
+    sessions: list[Session]
 
-    def __init__(self, sessions: List[Session], **kwargs):
+    def __init__(self, sessions: list[Session], **kwargs):
         """Initialize SessionListScreen with session list"""
         super().__init__(**kwargs)
         self.sessions = sessions

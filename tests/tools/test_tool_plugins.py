@@ -61,29 +61,29 @@ class TestToolPluginDiscovery:
 
     def test_backward_compatibility_direct_imports(self):
         """Verify backward compatibility: direct tool imports still work."""
-        from dawn_kestrel.tools.builtin import (
-            BashTool,
-            ReadTool,
-            WriteTool,
-            GrepTool,
-            GlobTool,
-            ASTGrepTool,
-        )
         from dawn_kestrel.tools.additional import (
+            CodeSearchTool,
+            CompactionTool,
             EditTool,
+            ExternalDirectoryTool,
             ListTool,
-            TaskTool,
+            LspTool,
+            MultiEditTool,
             QuestionTool,
+            SkillTool,
+            TaskTool,
             TodoTool,
             TodowriteTool,
             WebFetchTool,
             WebSearchTool,
-            MultiEditTool,
-            CodeSearchTool,
-            LspTool,
-            SkillTool,
-            ExternalDirectoryTool,
-            CompactionTool,
+        )
+        from dawn_kestrel.tools.builtin import (
+            ASTGrepTool,
+            BashTool,
+            GlobTool,
+            GrepTool,
+            ReadTool,
+            WriteTool,
         )
 
         # Verify all builtin tools are importable
@@ -158,7 +158,7 @@ class TestToolPluginDiscovery:
             "compact",
         }
 
-        assert set(tools.keys()) == expected_tool_ids, f"Tool IDs mismatch"
+        assert set(tools.keys()) == expected_tool_ids, "Tool IDs mismatch"
 
     def test_tool_instances_have_required_attributes(self):
         """Verify loaded tools have required attributes."""

@@ -40,6 +40,7 @@ Evidence:
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
 
@@ -255,9 +256,9 @@ class TestDIContainerServiceWiring:
         - Repository wrong type
         """
         from dawn_kestrel.core.repositories import (
-            SessionRepositoryImpl,
             MessageRepositoryImpl,
             PartRepositoryImpl,
+            SessionRepositoryImpl,
         )
 
         service = configured_container.service()
@@ -366,15 +367,15 @@ class TestDIContainerFullWiring:
         - Provider returns None
         - Provider returns wrong type
         """
-        from dawn_kestrel.storage.store import (
-            SessionStorage,
-            MessageStorage,
-            PartStorage,
-        )
         from dawn_kestrel.core.repositories import (
-            SessionRepositoryImpl,
             MessageRepositoryImpl,
             PartRepositoryImpl,
+            SessionRepositoryImpl,
+        )
+        from dawn_kestrel.storage.store import (
+            MessageStorage,
+            PartStorage,
+            SessionStorage,
         )
 
         assert configured_container.storage() is not None

@@ -5,7 +5,6 @@ agent lifecycle transitions with explicit validation.
 """
 
 from enum import Enum
-from typing import Dict, Optional
 
 from dawn_kestrel.core.result import Err, Ok, Result
 
@@ -36,7 +35,7 @@ class AgentState(Enum):
 
 # Default transition map: defines valid state transitions for a generic agent
 # Individual agents can provide custom transition maps
-FSM_TRANSITIONS: Dict[AgentState, set[AgentState]] = {
+FSM_TRANSITIONS: dict[AgentState, set[AgentState]] = {
     AgentState.IDLE: {AgentState.INITIALIZING},
     AgentState.INITIALIZING: {AgentState.READY, AgentState.FAILED},
     AgentState.READY: {AgentState.RUNNING, AgentState.FAILED},
@@ -68,7 +67,7 @@ class AgentStateMachine:
         <AgentState.INITIALIZING: 'initializing'>
     """
 
-    def __init__(self, transitions: Optional[Dict[AgentState, set[AgentState]]] = None):
+    def __init__(self, transitions: dict[AgentState, set[AgentState]] | None = None) -> None:
         """Initialize state machine with IDLE as default state.
 
         Args:
@@ -83,7 +82,7 @@ class AgentStateMachine:
         return self._current_state
 
     @property
-    def transitions(self) -> Dict[AgentState, set[AgentState]]:
+    def transitions(self) -> dict[AgentState, set[AgentState]]:
         """Get the transition map (read-only)."""
         return self._transitions
 

@@ -6,10 +6,10 @@ Supports dependencies, hierarchical sub-tasks, and result tracking.
 """
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional
-from enum import Enum
-from dataclasses import dataclass, field
 import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
 
 
 class TaskStatus(str, Enum):
@@ -57,7 +57,7 @@ class AgentTask:
     task_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     """Unique identifier for this task"""
 
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     """Optional parent task ID (for hierarchical sub-tasks)"""
 
     agent_name: str = ""
@@ -66,28 +66,28 @@ class AgentTask:
     description: str = ""
     """Human-readable description of the task"""
 
-    tool_ids: List[str] = field(default_factory=list)
+    tool_ids: list[str] = field(default_factory=list)
     """List of tool IDs available to the agent"""
 
-    skill_names: List[str] = field(default_factory=list)
+    skill_names: list[str] = field(default_factory=list)
     """List of skill names to inject into context"""
 
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
     """Additional execution options (model, temperature, etc.)"""
 
     status: TaskStatus = TaskStatus.PENDING
     """Current task status"""
 
-    result_id: Optional[str] = None
+    result_id: str | None = None
     """ID of the AgentResult from execution (if completed)"""
 
-    result_agent_name: Optional[str] = None
+    result_agent_name: str | None = None
     """Name of the agent that produced the result"""
 
-    error: Optional[str] = None
+    error: str | None = None
     """Error message if task failed"""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional task metadata"""
 
     model_config = {"extra": "forbid"}
@@ -112,11 +112,11 @@ class AgentTask:
 def create_agent_task(
     agent_name: str,
     description: str,
-    tool_ids: Optional[List[str]] = None,
-    skill_names: Optional[List[str]] = None,
-    options: Optional[Dict[str, Any]] = None,
-    parent_id: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    tool_ids: list[str] | None = None,
+    skill_names: list[str] | None = None,
+    options: dict[str, Any] | None = None,
+    parent_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> AgentTask:
     """
     Factory function to create an AgentTask.

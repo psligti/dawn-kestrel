@@ -1,14 +1,15 @@
 """Tests for ContextBuilder"""
 from __future__ import annotations
 
-from unittest.mock import Mock, AsyncMock
-import pytest
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 from dawn_kestrel.context.builder import ContextBuilder
-from dawn_kestrel.core.models import Session, Message, TextPart, ToolPart
-from dawn_kestrel.tools.framework import ToolRegistry, Tool, ToolContext, ToolResult
 from dawn_kestrel.core.agent_types import AgentContext
+from dawn_kestrel.core.models import Message, Session, TextPart, ToolPart
+from dawn_kestrel.tools.framework import Tool, ToolContext, ToolRegistry, ToolResult
 
 
 class MockTool(Tool):

@@ -24,15 +24,15 @@ Example:
 
 from __future__ import annotations
 
-from typing import Protocol, Optional, Dict, Any, cast, runtime_checkable
 from abc import abstractmethod
+from typing import Any, Protocol, cast, runtime_checkable
 
-from dawn_kestrel.core.models import Session
 from dawn_kestrel.core.agent_types import AgentResult
-from dawn_kestrel.core.provider_config import ProviderConfig
-from dawn_kestrel.core.result import Result, Ok, Err
 from dawn_kestrel.core.di_container import Container
 from dawn_kestrel.core.fsm import FSM
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.provider_config import ProviderConfig
+from dawn_kestrel.core.result import Err, Ok, Result
 
 
 @runtime_checkable
@@ -106,12 +106,12 @@ class Facade(Protocol):
         agent_name: str,
         session_id: str,
         user_message: str,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> Result[AgentResult]:
         """Execute an agent for a user message.
 
         Args:
-            agent_name: Name of agent to execute (e.g., "build", "plan", "explore")
+            agent_name: Name of agent to execute (e.g., "build", "reason", "explore")
             session_id: Session ID to execute in
             user_message: User's message or request
             options: Optional execution parameters:
@@ -129,7 +129,7 @@ class Facade(Protocol):
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         is_default: bool = False,
     ) -> Result[ProviderConfig]:
         """Register a provider configuration.
@@ -298,12 +298,12 @@ class FacadeImpl:
         agent_name: str,
         session_id: str,
         user_message: str,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> Result[AgentResult]:
         """Execute an agent for a user message.
 
         Args:
-            agent_name: Name of agent to execute (e.g., "build", "plan", "explore")
+            agent_name: Name of agent to execute (e.g., "build", "reason", "explore")
             session_id: Session ID to execute in
             user_message: User's message or request
             options: Optional execution parameters:
@@ -318,9 +318,10 @@ class FacadeImpl:
             runtime = self._container.agent_runtime()
             service = self._container.service()
 
-            from dawn_kestrel.tools import create_builtin_registry
-            from dawn_kestrel.core.agent_types import SessionManagerLike
             from typing import cast
+
+            from dawn_kestrel.core.agent_types import SessionManagerLike
+            from dawn_kestrel.tools import create_builtin_registry
 
             options = options or {}
             skills = options.get("skills", [])
@@ -348,7 +349,7 @@ class FacadeImpl:
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         is_default: bool = False,
     ) -> Result[ProviderConfig]:
         """Register a provider configuration.

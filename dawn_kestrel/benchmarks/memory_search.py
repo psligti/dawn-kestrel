@@ -10,7 +10,7 @@ Measures:
 import time
 from pathlib import Path
 
-from dawn_kestrel.benchmarks import BenchmarkRunner, benchmark
+from dawn_kestrel.benchmarks import BenchmarkRunner
 
 
 class MockMemoryEntry:
@@ -76,7 +76,7 @@ def run_memory_search_benchmark(iterations: int = 100, entries_per_query: int = 
         memory_created=0,
     )
 
-    print(f"\nMemory Search Benchmark (short query):")
+    print("\nMemory Search Benchmark (short query):")
     print(f"  {result}")
 
     # Benchmark: Memory search with long query

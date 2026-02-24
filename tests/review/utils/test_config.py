@@ -3,7 +3,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from dawn_kestrel.agents.review.utils.config import RepoConfigDiscovery
 
 

@@ -1,22 +1,24 @@
+import json
+import logging
+from collections.abc import AsyncIterator, Callable
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Union
+
+import httpx
+
+from ..core.plugin_discovery import load_providers
 from .base import (
-    ModelInfo,
     ModelCapabilities,
     ModelCost,
+    ModelInfo,
     ModelLimits,
     ProviderID,
     StreamEvent,
     TokenUsage,
 )
-from .zai_base import ZAIBaseProvider
 from .zai import ZAIProvider
+from .zai_base import ZAIBaseProvider
 from .zai_coding_plan import ZAICodingPlanProvider
-from typing import AsyncIterator, Optional, List, Dict, Any, Union, Callable
-from decimal import Decimal
-import httpx
-import json
-import logging
-from ..core.plugin_discovery import load_providers
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ ProviderFactory = Callable[
 ]
 
 
-def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
+def _get_provider_factories() -> dict[ProviderID, ProviderFactory]:
     """Get provider factories from plugin discovery.
 
     Built-in providers are loaded from entry points via load_providers().
@@ -44,10 +46,10 @@ def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
     providers = load_providers()
 
     # Map entry point names to ProviderID enum values
-    factories: Dict[ProviderID, ProviderFactory] = {}
+    factories: dict[ProviderID, ProviderFactory] = {}
 
     # Built-in providers from entry points
-    name_to_id: Dict[str, ProviderID] = {
+    name_to_id: dict[str, ProviderID] = {
         "anthropic": ProviderID.ANTHROPIC,
         "openai": ProviderID.OPENAI,
         "zai": ProviderID.Z_AI,
@@ -61,7 +63,7 @@ def _get_provider_factories() -> Dict[ProviderID, ProviderFactory]:
     return factories
 
 
-_provider_factories_cache: Optional[Dict[ProviderID, ProviderFactory]] = None
+_provider_factories_cache: dict[ProviderID, ProviderFactory] | None = None
 
 
 __all__ = [
@@ -91,7 +93,7 @@ class AnthropicProvider:
         self.api_key = api_key
         self.base_url = "https://api.anthropic.com"
 
-    async def get_models(self) -> List[ModelInfo]:
+    async def get_models(self) -> list[ModelInfo]:
         models = []
         if self.api_key:
             models.append(
@@ -129,9 +131,9 @@ class AnthropicProvider:
     async def stream(
         self,
         model: ModelInfo,
-        messages: List[Dict[str, Any]],
-        tools: Dict[str, Any],
-        options: Optional[Dict[str, Any]] = None,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        options: dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         headers = {
             "x-api-key": self.api_key,
@@ -222,7 +224,7 @@ class AnthropicProvider:
                         except json.JSONDecodeError as e:
                             logger.error(f"Failed to parse Anthropic chunk: {e}")
 
-    def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
+    def count_tokens(self, response: dict[str, Any]) -> TokenUsage:
         return TokenUsage(
             input=response.get("input_tokens", 0),
             output=response.get("output_tokens", 0),
@@ -245,7 +247,7 @@ class OpenAIProvider:
         self.api_key = api_key
         self.base_url = "https://api.openai.com/v1"
 
-    async def get_models(self) -> List[ModelInfo]:
+    async def get_models(self) -> list[ModelInfo]:
         models = []
         if self.api_key:
             models.append(
@@ -271,9 +273,9 @@ class OpenAIProvider:
     async def stream(
         self,
         model: ModelInfo,
-        messages: List[Dict[str, Any]],
-        tools: Dict[str, Any],
-        options: Optional[Dict[str, Any]] = None,
+        messages: list[dict[str, Any]],
+        tools: dict[str, Any],
+        options: dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)
         yield StreamEvent(
@@ -284,7 +286,7 @@ class OpenAIProvider:
         yield StreamEvent(event_type="text-end", data={}, timestamp=2)
         yield StreamEvent(event_type="finish", data={"finish_reason": "stop"}, timestamp=3)
 
-    def count_tokens(self, response: Dict[str, Any]) -> TokenUsage:
+    def count_tokens(self, response: dict[str, Any]) -> TokenUsage:
         return TokenUsage(
             input=response.get("prompt_tokens", 0),
             output=response.get("completion_tokens", 0),
@@ -299,7 +301,7 @@ class OpenAIProvider:
 
 def get_provider(
     provider_id: ProviderID, api_key: str
-) -> Union[AnthropicProvider, OpenAIProvider, ZAIProvider, ZAICodingPlanProvider, None]:
+) -> AnthropicProvider | OpenAIProvider | ZAIProvider | ZAICodingPlanProvider | None:
     """Get a provider instance by ID.
 
     Uses plugin discovery for built-in providers.
@@ -338,7 +340,7 @@ def get_provider(
     return provider
 
 
-async def get_available_models(provider_id: ProviderID, api_key: str) -> List[ModelInfo]:
+async def get_available_models(provider_id: ProviderID, api_key: str) -> list[ModelInfo]:
     provider = get_provider(provider_id, api_key)
     if provider:
         return await provider.get_models()

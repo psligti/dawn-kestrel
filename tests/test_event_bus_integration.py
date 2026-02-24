@@ -2,6 +2,7 @@
 
 Tests EventBus publish/subscribe mechanism, unsubscribe functionality,
 once-subscribe, exception isolation, thread safety, and Events constants.
+Also tests redaction integration for sensitive data.
 """
 
 import asyncio
@@ -9,10 +10,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from dawn_kestrel.agents.review.utils.redaction import REDACTED
 from dawn_kestrel.core.event_bus import (
-    EventBus,
     Event,
-    EventSubscription,
+    EventBus,
     Events,
 )
 
@@ -267,3 +268,79 @@ class TestEventsClass:
         ]
         for event in events:
             assert "." in event
+
+
+class TestEventBusRedactionIntegration:
+    """Tests for EventBus redaction of sensitive data."""
+
+    @pytest.mark.asyncio
+    async def test_publish_redacts_password(self) -> None:
+        bus = EventBus()
+        received_data = {}
+
+        async def capture_callback(event: Event) -> None:
+            received_data.update(event.data)
+
+        await bus.subscribe("test.event", capture_callback)
+        await bus.publish("test.event", {"username": "john", "password": "secret123"})
+
+        assert received_data["username"] == "john"
+        assert received_data["password"] == REDACTED
+
+    @pytest.mark.asyncio
+    async def test_publish_redacts_api_key(self) -> None:
+        bus = EventBus()
+        received_data = {}
+
+        async def capture_callback(event: Event) -> None:
+            received_data.update(event.data)
+
+        await bus.subscribe("test.event", capture_callback)
+        await bus.publish(
+            "test.event", {"api_key": "sk-1234567890abcdefghijklmnop", "name": "test"}
+        )
+
+        assert received_data["api_key"] == REDACTED
+        assert received_data["name"] == "test"
+
+    @pytest.mark.asyncio
+    async def test_publish_redacts_nested_secrets(self) -> None:
+        bus = EventBus()
+        received_data = {}
+
+        async def capture_callback(event: Event) -> None:
+            received_data.update(event.data)
+
+        await bus.subscribe("test.event", capture_callback)
+        await bus.publish(
+            "test.event",
+            {"config": {"token": "secret_token", "user": "john"}, "safe": "value"},
+        )
+
+        assert received_data["config"]["token"] == REDACTED
+        assert received_data["config"]["user"] == "john"
+        assert received_data["safe"] == "value"
+
+    @pytest.mark.asyncio
+    async def test_publish_does_not_modify_original_data(self) -> None:
+        bus = EventBus()
+        original_data = {"password": "secret123", "username": "john"}
+
+        await bus.publish("test.event", original_data)
+
+        assert original_data["password"] == "secret123"
+        assert original_data["username"] == "john"
+
+    @pytest.mark.asyncio
+    async def test_publish_redacts_aws_key_in_value(self) -> None:
+        bus = EventBus()
+        received_data = {}
+
+        async def capture_callback(event: Event) -> None:
+            received_data.update(event.data)
+
+        await bus.subscribe("test.event", capture_callback)
+        await bus.publish("test.event", {"connection": "AWS key: AKIAIOSFODNN7EXAMPLE"})
+
+        assert "AKIAIOSFODNN7EXAMPLE" not in str(received_data)
+        assert REDACTED in received_data["connection"]

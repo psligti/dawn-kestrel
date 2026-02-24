@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from dawn_kestrel.core.result import Err, Ok, Result
-
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +141,8 @@ class TokenBucket:
         self._window_seconds = window_seconds
         self._tokens: int = capacity  # Start with full bucket
         self._last_refill_time = datetime.now()
-        self._request_times: List[datetime] = []  # Track request timestamps
-        self._refills: List[datetime] = []  # Track refills
+        self._request_times: list[datetime] = []  # Track request timestamps
+        self._refills: list[datetime] = []  # Track refills
 
     async def _refill_tokens(self) -> None:
         """Refill tokens based on time elapsed.
@@ -288,7 +287,7 @@ class RateLimiterImpl:
             default_refill_rate: Default refill rate (tokens/second) for new resources.
             default_window_seconds: Default time window for new resources.
         """
-        self._buckets: Dict[str, TokenBucket] = {}
+        self._buckets: dict[str, TokenBucket] = {}
         self._default_capacity = default_capacity
         self._default_refill_rate = default_refill_rate
         self._default_window_seconds = default_window_seconds

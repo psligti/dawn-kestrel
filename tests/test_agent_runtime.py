@@ -11,18 +11,16 @@ Tests the complete agent execution pipeline:
 """
 from __future__ import annotations
 
-import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
-from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
+import pytest
+
 from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.core.models import Session, Message, TokenUsage, TextPart, ToolPart, ToolState
+from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
 from dawn_kestrel.core.agent_types import AgentResult
-from dawn_kestrel.tools.framework import ToolRegistry, ToolContext
+from dawn_kestrel.core.models import Message, Session, TextPart, ToolPart, ToolState
 from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.skills.loader import Skill, SkillLoader
 
 
 @pytest.fixture
@@ -104,7 +102,7 @@ class TestAgentRuntimeInitialization:
             base_dir=tmp_path,
             skill_max_char_budget=5000,
         )
-        
+
         assert isinstance(runtime, AgentRuntime)
         assert runtime.agent_registry is agent_registry
         assert runtime.context_builder is not None
@@ -116,7 +114,7 @@ class TestAgentRuntimeInitialization:
             base_dir=tmp_path,
             skill_max_char_budget=None,
         )
-        
+
         assert isinstance(runtime, AgentRuntime)
         assert runtime.agent_registry is agent_registry
 
@@ -134,7 +132,7 @@ class TestAgentRuntimeExecutionHappyPath:
     ):
         """Test successful agent execution."""
         mock_ai_session = AsyncMock()
-        
+
         mock_response = Message(
             id="response-123",
             session_id=mock_session.id,
@@ -154,9 +152,9 @@ class TestAgentRuntimeExecutionHappyPath:
                 "model_id": "claude-sonnet-4-20250514",
             },
         )
-        
+
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
                 agent_name="build",
@@ -167,7 +165,7 @@ class TestAgentRuntimeExecutionHappyPath:
                 skills=[],
                 options={},
             )
-        
+
         assert isinstance(result, AgentResult)
         assert result.agent_name == "build"
         assert result.response == "This is a test response."
@@ -188,7 +186,7 @@ class TestAgentRuntimeExecutionHappyPath:
     ):
         """Test agent execution that uses tools."""
         mock_ai_session = AsyncMock()
-        
+
         mock_tool_part = ToolPart(
             id="tool-part-1",
             session_id=mock_session.id,
@@ -202,7 +200,7 @@ class TestAgentRuntimeExecutionHappyPath:
                 output="hello",
             ),
         )
-        
+
         mock_response = Message(
             id="response-123",
             session_id=mock_session.id,
@@ -222,9 +220,9 @@ class TestAgentRuntimeExecutionHappyPath:
                 "tokens": {"input": 20, "output": 30, "reasoning": 0, "cache_read": 0, "cache_write": 0},
             },
         )
-        
+
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
                 agent_name="build",
@@ -235,7 +233,7 @@ class TestAgentRuntimeExecutionHappyPath:
                 skills=[],
                 options={},
             )
-        
+
         assert "bash" in result.tools_used
         assert len(result.tools_used) == 1
 
@@ -261,7 +259,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
                 skills=[],
                 options={},
             )
-        
+
         assert "Agent not found: nonexistent" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -273,7 +271,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
     ):
         """Test execution with non-existent session."""
         mock_session_manager.get_session = AsyncMock(return_value=None)
-        
+
         with pytest.raises(ValueError) as exc_info:
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -284,7 +282,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
                 skills=[],
                 options={},
             )
-        
+
         assert "Session not found: nonexistent-session" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -303,9 +301,9 @@ class TestAgentRuntimeExecutionErrorScenarios:
             title="Test",
             version="1.0.0",
         )
-        
+
         mock_session_manager.get_session = AsyncMock(return_value=invalid_session)
-        
+
         with pytest.raises(ValueError) as exc_info:
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -316,7 +314,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
                 skills=[],
                 options={},
             )
-        
+
         assert "has empty project_id" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -330,7 +328,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
         """Test exception handling during execution."""
         mock_ai_session = AsyncMock()
         mock_ai_session.process_message = AsyncMock(side_effect=Exception("AI provider error"))
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
                 agent_name="build",
@@ -341,7 +339,7 @@ class TestAgentRuntimeExecutionErrorScenarios:
                 skills=[],
                 options={},
             )
-        
+
         assert isinstance(result, AgentResult)
         assert result.error is not None
         assert "AI provider error" in result.error
@@ -360,15 +358,15 @@ class TestAgentRuntimeLifecycleEvents:
         builtin_registry,
     ):
         """Test AGENT_INITIALIZED event emission."""
-        from dawn_kestrel.core.event_bus import bus, Events
-        
+        from dawn_kestrel.core.event_bus import Events, bus
+
         events_received = []
-        
+
         async def capture_event(event):
             events_received.append(event.name)
-        
+
         await bus.subscribe(Events.AGENT_INITIALIZED, capture_event)
-        
+
         mock_ai_session = AsyncMock()
         mock_response = Message(
             id="response-123",
@@ -385,7 +383,7 @@ class TestAgentRuntimeLifecycleEvents:
             metadata={},
         )
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -396,7 +394,7 @@ class TestAgentRuntimeLifecycleEvents:
                 skills=[],
                 options={},
             )
-        
+
         assert Events.AGENT_INITIALIZED in events_received
         await bus.clear_subscriptions(Events.AGENT_INITIALIZED)
 
@@ -409,15 +407,15 @@ class TestAgentRuntimeLifecycleEvents:
         builtin_registry,
     ):
         """Test AGENT_READY event emission."""
-        from dawn_kestrel.core.event_bus import bus, Events
-        
+        from dawn_kestrel.core.event_bus import Events, bus
+
         events_received = []
-        
+
         async def capture_event(event):
             events_received.append(event.name)
-        
+
         await bus.subscribe(Events.AGENT_READY, capture_event)
-        
+
         mock_ai_session = AsyncMock()
         mock_response = Message(
             id="response-123",
@@ -434,7 +432,7 @@ class TestAgentRuntimeLifecycleEvents:
             metadata={},
         )
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -445,7 +443,7 @@ class TestAgentRuntimeLifecycleEvents:
                 skills=[],
                 options={},
             )
-        
+
         assert Events.AGENT_READY in events_received
         await bus.clear_subscriptions(Events.AGENT_READY)
 
@@ -458,15 +456,15 @@ class TestAgentRuntimeLifecycleEvents:
         builtin_registry,
     ):
         """Test AGENT_EXECUTING event emission."""
-        from dawn_kestrel.core.event_bus import bus, Events
-        
+        from dawn_kestrel.core.event_bus import Events, bus
+
         events_received = []
-        
+
         async def capture_event(event):
             events_received.append(event.name)
-        
+
         await bus.subscribe(Events.AGENT_EXECUTING, capture_event)
-        
+
         mock_ai_session = AsyncMock()
         mock_response = Message(
             id="response-123",
@@ -483,7 +481,7 @@ class TestAgentRuntimeLifecycleEvents:
             metadata={},
         )
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -494,7 +492,7 @@ class TestAgentRuntimeLifecycleEvents:
                 skills=[],
                 options={},
             )
-        
+
         assert Events.AGENT_EXECUTING in events_received
         await bus.clear_subscriptions(Events.AGENT_EXECUTING)
 
@@ -507,15 +505,15 @@ class TestAgentRuntimeLifecycleEvents:
         builtin_registry,
     ):
         """Test AGENT_CLEANUP event emission."""
-        from dawn_kestrel.core.event_bus import bus, Events
-        
+        from dawn_kestrel.core.event_bus import Events, bus
+
         events_received = []
-        
+
         async def capture_event(event):
             events_received.append(event.name)
-        
+
         await bus.subscribe(Events.AGENT_CLEANUP, capture_event)
-        
+
         mock_ai_session = AsyncMock()
         mock_response = Message(
             id="response-123",
@@ -532,7 +530,7 @@ class TestAgentRuntimeLifecycleEvents:
             metadata={},
         )
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -543,7 +541,7 @@ class TestAgentRuntimeLifecycleEvents:
                 skills=[],
                 options={},
             )
-        
+
         assert Events.AGENT_CLEANUP in events_received
         await bus.clear_subscriptions(Events.AGENT_CLEANUP)
 
@@ -556,18 +554,18 @@ class TestAgentRuntimeLifecycleEvents:
         builtin_registry,
     ):
         """Test AGENT_ERROR event emission on failure."""
-        from dawn_kestrel.core.event_bus import bus, Events
-        
+        from dawn_kestrel.core.event_bus import Events, bus
+
         events_received = []
-        
+
         async def capture_event(event):
             events_received.append(event.name)
-        
+
         await bus.subscribe(Events.AGENT_ERROR, capture_event)
-        
+
         mock_ai_session = AsyncMock()
         mock_ai_session.process_message = AsyncMock(side_effect=Exception("Test error"))
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -578,7 +576,7 @@ class TestAgentRuntimeLifecycleEvents:
                 skills=[],
                 options={},
             )
-        
+
         assert Events.AGENT_ERROR in events_received
         await bus.clear_subscriptions(Events.AGENT_ERROR)
 
@@ -596,14 +594,14 @@ class TestAgentRuntimeToolFiltering:
     ):
         """Test tool filtering for PLAN agent (denies edit/write)."""
         from dawn_kestrel.agents.builtin import PLAN_AGENT
-        
+
         with patch.object(
             agent_runtime.agent_registry,
             "get_agent",
             return_value=PLAN_AGENT,
         ):
             mock_ai_session = AsyncMock()
-            
+
             mock_response = Message(
                 id="response-123",
                 session_id=mock_session.id,
@@ -618,9 +616,9 @@ class TestAgentRuntimeToolFiltering:
                 )],
                 metadata={},
             )
-            
+
             mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-            
+
             with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session) as mock_ai_class:
                 await agent_runtime.execute_agent(
                     agent_name="plan",
@@ -631,10 +629,10 @@ class TestAgentRuntimeToolFiltering:
                     skills=[],
                     options={},
                 )
-                
+
                 call_kwargs = mock_ai_class.call_args[1]
                 filtered_registry = call_kwargs["tool_registry"]
-                
+
                 assert "edit" not in filtered_registry.tools
                 assert "write" not in filtered_registry.tools
 
@@ -648,7 +646,7 @@ class TestAgentRuntimeToolFiltering:
     ):
         """Test tool filtering for BUILD agent (allows all tools)."""
         mock_ai_session = AsyncMock()
-        
+
         mock_response = Message(
             id="response-123",
             session_id=mock_session.id,
@@ -663,9 +661,9 @@ class TestAgentRuntimeToolFiltering:
             )],
             metadata={},
         )
-        
+
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session) as mock_ai_class:
             await agent_runtime.execute_agent(
                 agent_name="build",
@@ -676,10 +674,10 @@ class TestAgentRuntimeToolFiltering:
                 skills=[],
                 options={},
             )
-            
+
             call_kwargs = mock_ai_class.call_args[1]
             filtered_registry = call_kwargs["tool_registry"]
-            
+
             assert len(filtered_registry.tools) == len(builtin_registry.tools)
 
 
@@ -696,7 +694,7 @@ class TestAgentRuntimeResultFields:
     ):
         """Test AgentResult contains all required fields."""
         mock_ai_session = AsyncMock()
-        
+
         mock_response = Message(
             id="response-123",
             session_id=mock_session.id,
@@ -735,9 +733,9 @@ class TestAgentRuntimeResultFields:
                 "model_id": "claude-sonnet-4-20250514",
             },
         )
-        
+
         mock_ai_session.process_message = AsyncMock(return_value=mock_response)
-        
+
         with patch("dawn_kestrel.agents.runtime.AISession", return_value=mock_ai_session):
             result = await agent_runtime.execute_agent(
                 agent_name="build",
@@ -748,7 +746,7 @@ class TestAgentRuntimeResultFields:
                 skills=[],
                 options={},
             )
-        
+
         assert hasattr(result, "agent_name")
         assert hasattr(result, "response")
         assert hasattr(result, "parts")
@@ -757,7 +755,7 @@ class TestAgentRuntimeResultFields:
         assert hasattr(result, "tokens_used")
         assert hasattr(result, "duration")
         assert hasattr(result, "error")
-        
+
         assert result.agent_name == "build"
         assert result.response == "Test response"
         assert len(result.parts) == 2

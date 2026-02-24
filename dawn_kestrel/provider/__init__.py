@@ -1,11 +1,12 @@
 """OpenCode Python - AI Provider Abstraction"""
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable
-from dataclasses import dataclass
+
 import json
 import logging
-
+from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,11 +16,11 @@ class UsageInfo:
     """Usage information from AI provider"""
     input_tokens: int = 0
     output_tokens: int = 0
-    reasoning_tokens: Optional[int] = None
-    cache_read_tokens: Optional[int] = None
-    cache_write_5m_tokens: Optional[int] = None
-    cache_write_1h_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
+    reasoning_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_5m_tokens: int | None = None
+    cache_write_1h_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 @dataclass
@@ -29,9 +30,9 @@ class CommonChunk:
     object: str = "chat.completion.chunk"
     created: int = 0
     model: str = ""
-    choices: Optional[list] = None
-    usage: Optional[UsageInfo] = None
-    finish_reason: Optional[str] = None
+    choices: list | None = None
+    usage: UsageInfo | None = None
+    finish_reason: str | None = None
 
 
 class BaseProvider(ABC):
@@ -45,15 +46,15 @@ class BaseProvider(ABC):
     @abstractmethod
     def modify_headers(
         self,
-        headers: Dict[str, str],
-        body: Dict[str, Any],
+        headers: dict[str, str],
+        body: dict[str, Any],
         api_key: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Add provider-specific headers"""
         pass
 
     @abstractmethod
-    def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def modify_body(self, body: dict[str, Any]) -> dict[str, Any]:
         """Transform request body to provider format"""
         pass
 
@@ -63,11 +64,11 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def parse_usage(self, chunk: str) -> Optional[UsageInfo]:
+    def parse_usage(self, chunk: str) -> UsageInfo | None:
         """Parse usage from a chunk, return None if not complete"""
         pass
 
-    def create_binary_stream_decoder(self) -> Optional[Callable[[bytes], Optional[bytes]]]:
+    def create_binary_stream_decoder(self) -> Callable[[bytes], bytes | None] | None:
         """Return decoder for binary streams (e.g., AWS Bedrock)"""
         return None
 
@@ -89,10 +90,10 @@ class AnthropicProvider(BaseProvider):
 
     def modify_headers(
         self,
-        headers: Dict[str, str],
-        body: Dict[str, Any],
+        headers: dict[str, str],
+        body: dict[str, Any],
         api_key: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         if self.is_bedrock:
             headers["Authorization"] = f"Bearer {api_key}"
         else:
@@ -102,7 +103,7 @@ class AnthropicProvider(BaseProvider):
                 headers["anthropic-beta"] = "context-1m-2025-08-07"
         return headers
 
-    def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def modify_body(self, body: dict[str, Any]) -> dict[str, Any]:
         """Transform request body to Anthropic format"""
         body = body.copy()
 
@@ -114,7 +115,7 @@ class AnthropicProvider(BaseProvider):
     def get_stream_separator(self) -> str:
         return "\n\n"
 
-    def parse_usage(self, chunk: str) -> Optional[UsageInfo]:
+    def parse_usage(self, chunk: str) -> UsageInfo | None:
         """Parse Anthropic usage from SSE chunk"""
         lines = chunk.split("\n")
         data_line = next((line for line in lines if line.startswith("data: ")), None)
@@ -148,15 +149,15 @@ class OpenAIProvider(BaseProvider):
 
     def modify_headers(
         self,
-        headers: Dict[str, str],
-        body: Dict[str, Any],
+        headers: dict[str, str],
+        body: dict[str, Any],
         api_key: str
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Add OpenAI-specific headers"""
         headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def modify_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def modify_body(self, body: dict[str, Any]) -> dict[str, Any]:
         """Transform request body to OpenAI format"""
         body = body.copy()
         return body
@@ -165,7 +166,7 @@ class OpenAIProvider(BaseProvider):
         """OpenAI uses newline as SSE chunk separator"""
         return "\n"
 
-    def parse_usage(self, chunk: str) -> Optional[UsageInfo]:
+    def parse_usage(self, chunk: str) -> UsageInfo | None:
         """Parse OpenAI usage from SSE chunk"""
         try:
             if chunk.startswith("data: "):

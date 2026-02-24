@@ -1,10 +1,10 @@
 """OpenCode Python - Session Revert System"""
 from __future__ import annotations
-from typing import Dict, Any
-from pathlib import Path
-import subprocess
-import logging
 
+import logging
+import subprocess
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class SessionRevert:
         self,
         message_id: str,
         part_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Revert to state before a specific message/part
         
@@ -46,13 +46,13 @@ class SessionRevert:
             # Revert each patch
             from dawn_kestrel.snapshot import GitSnapshot
             git2 = GitSnapshot(self.snapshot_dir, self.session_id)
-            
+
             for patch_hash in patches:
                 await git2.restore(patch_hash)
-            
+
             # Compute diff from original snapshot
             diff_output = await git2.diff(current_snapshot, "HEAD")
-            
+
             # Store in session
             revert_info = {
                 "message_id": message_id,
@@ -60,18 +60,18 @@ class SessionRevert:
                 "snapshot": current_snapshot,
                 "diff": diff_output,
             }
-            
+
             # TODO: await SessionStorage.create_revert(revert_info)
-            
+
             logger.info(f"Reverted to snapshot: {current_snapshot}")
-            
+
             return {
                 "snapshot": current_snapshot,
                 "diff": diff_output,
                 "reverted_message": message_id,
                 "reverted_part": part_id,
             }
-        
+
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to revert: {e}")
 

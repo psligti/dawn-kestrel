@@ -1,11 +1,10 @@
 """OpenCode Python - Review Loop System"""
 from __future__ import annotations
-from typing import Dict, Any, Optional, List
+
 import logging
 import subprocess
 from pathlib import Path
-
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +16,17 @@ class ReviewLoop:
     Provides automated code review with findings categorization
     and actionable next steps for fixing issues.
     """
-    
+
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
 
     async def review(
         self,
         session_id: str,
-        commit_hash: Optional[str] = None,
-        branch_name: Optional[str] = None,
-        pr_number: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        commit_hash: str | None = None,
+        branch_name: str | None = None,
+        pr_number: str | None = None,
+    ) -> dict[str, Any]:
         """
         Run review of changes
         
@@ -40,10 +39,10 @@ class ReviewLoop:
         Returns:
             Review results with findings, status, and next steps
         """
-        
+
         # Get changed files
         changed_files = await self._get_changed_files()
-        
+
         if not changed_files:
             return {
                 "status": "no_changes",
@@ -51,15 +50,15 @@ class ReviewLoop:
                 "findings": [],
                 "next_steps": [],
             }
-        
+
         # Initialize review results
         findings = []
         next_steps = []
-        
+
         # Check each file for linting issues
         for file_path in changed_files:
             findings.extend(await self._check_file(file_path))
-        
+
         # Check for test coverage
         if findings:
             test_results = await self._run_tests(changed_files)
@@ -67,16 +66,16 @@ class ReviewLoop:
                 "type": "test",
                 "message": f"Tests {'passed' if test_results['success'] else 'failed'}",
             })
-            
+
             if not test_results["success"]:
                 next_steps.append("Fix test failures")
-        
+
         # Generate structured output
         status = "success" if not any(f["severity"] == "error" for f in findings) else "warnings"
-        
+
         if not findings:
             next_steps.append("Add tests for new code")
-        
+
         return {
                 "status": status,
                 "message": f"Review complete: {len(findings)} findings",
@@ -84,7 +83,7 @@ class ReviewLoop:
                 "next_steps": next_steps,
             }
 
-    async def _get_changed_files(self) -> List[str]:
+    async def _get_changed_files(self) -> list[str]:
         """
         Get list of changed files
         
@@ -100,21 +99,21 @@ class ReviewLoop:
                     capture_output=True,
                     text=True,
                 )
-                
+
                 if result.returncode != 0:
                     raise RuntimeError(f"git diff failed: {result.stderr}")
-                
+
                 files = result.stdout.strip().split("\n")
                 return [f for f in files if f]
-            
+
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to get changed files: {e}")
                 return []
-        
+
         # Fallback for single file changes
         return []
 
-    async def _check_file(self, file_path: str) -> Dict[str, Any]:
+    async def _check_file(self, file_path: str) -> dict[str, Any]:
         """
         Check a file for issues
 
@@ -142,7 +141,7 @@ class ReviewLoop:
                 "findings": findings,
             }
 
-    async def _run_tests(self, files: List[str]) -> Dict[str, Any]:
+    async def _run_tests(self, files: list[str]) -> dict[str, Any]:
         """
         Run tests on changed files
         

@@ -1,11 +1,11 @@
 """OpenCode Python - Memory Embedder for semantic search"""
+
 from __future__ import annotations
-from typing import List, Optional, Dict, Any
+
 import logging
 import os
 
 from dawn_kestrel.core.config import SDKConfig
-
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class MemoryEmbedder:
 
     EMBEDDING_DIMENSION = 1536
 
-    def __init__(self, config: Optional[SDKConfig] = None):
+    def __init__(self, config: SDKConfig | None = None) -> None:
         """Initialize memory embedder
 
         Args:
@@ -71,7 +71,7 @@ class MemoryEmbedder:
                     "OPENAI_API_KEY environment variable is required for OpenAI embeddings"
                 )
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """Generate embedding for text
 
         Args:
@@ -95,7 +95,7 @@ class MemoryEmbedder:
         else:
             raise ValueError(f"Unknown embedding strategy: {self.embedding_strategy}")
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts
 
         Args:
@@ -110,7 +110,7 @@ class MemoryEmbedder:
         embeddings = [await self.embed(text) for text in texts]
         return embeddings
 
-    async def _mock_embed(self, text: str) -> List[float]:
+    async def _mock_embed(self, text: str) -> list[float]:
         """Generate mock embedding for testing
 
         Mock embeddings are deterministic based on text content,
@@ -142,7 +142,7 @@ class MemoryEmbedder:
         logger.debug(f"Generated mock embedding (strategy={self.embedding_strategy})")
         return embedding
 
-    async def _openai_embed(self, text: str) -> List[float]:
+    async def _openai_embed(self, text: str) -> list[float]:
         """Generate embedding using OpenAI API
 
         Args:
@@ -174,14 +174,13 @@ class MemoryEmbedder:
 
         except ImportError:
             raise ImportError(
-                "OpenAI package is required for OpenAI embeddings. "
-                "Install with: pip install openai"
+                "OpenAI package is required for OpenAI embeddings. Install with: pip install openai"
             )
         except Exception as e:
             logger.error(f"OpenAI embedding failed: {e}")
             raise
 
-    async def _local_embed(self, text: str) -> List[float]:
+    async def _local_embed(self, text: str) -> list[float]:
         """Generate embedding using local model (sentence-transformers)
 
         Args:
@@ -191,14 +190,12 @@ class MemoryEmbedder:
             Local model embedding vector (normalized to 1536 dimensions)
         """
         try:
-            from sentence_transformers import SentenceTransformer
             import numpy as np
+            from sentence_transformers import SentenceTransformer
 
             # Load model (cached after first load)
             if not hasattr(self, "_local_model"):
-                model_name = getattr(
-                    self.config, "local_embedding_model", "all-MiniLM-L6-v2"
-                )
+                model_name = getattr(self.config, "local_embedding_model", "all-MiniLM-L6-v2")
                 logger.info(f"Loading local model: {model_name}")
                 self._local_model = SentenceTransformer(model_name)
 
@@ -237,7 +234,7 @@ class MemoryEmbedder:
         return self.embedding_strategy
 
 
-def create_memory_embedder(config: Optional[SDKConfig] = None) -> MemoryEmbedder:
+def create_memory_embedder(config: SDKConfig | None = None) -> MemoryEmbedder:
     """Factory function to create memory embedder
 
     Args:

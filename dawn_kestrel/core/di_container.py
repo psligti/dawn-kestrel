@@ -25,24 +25,24 @@ Example:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 
 from dependency_injector import containers, providers
 
-from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
-from dawn_kestrel.core.services.session_service import DefaultSessionService
-from dawn_kestrel.providers.registry import ProviderRegistry, create_provider_registry
-from dawn_kestrel.agents.runtime import AgentRuntime, create_agent_runtime
-from dawn_kestrel.agents.registry import AgentRegistry, create_agent_registry
-from dawn_kestrel.core.session_lifecycle import SessionLifecycle, create_session_lifecycle
-from dawn_kestrel.core.settings import settings
+from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.agents.runtime import create_agent_runtime
+from dawn_kestrel.core.fsm import FSMBuilder
+from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
 from dawn_kestrel.core.repositories import (
-    SessionRepositoryImpl,
     MessageRepositoryImpl,
     PartRepositoryImpl,
+    SessionRepositoryImpl,
 )
-from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
-from dawn_kestrel.core.fsm import FSMBuilder
+from dawn_kestrel.core.services.session_service import DefaultSessionService
+from dawn_kestrel.core.session_lifecycle import SessionLifecycle
+from dawn_kestrel.core.settings import settings
+from dawn_kestrel.providers.registry import create_provider_registry
+from dawn_kestrel.storage.store import MessageStorage, PartStorage, SessionStorage
 
 
 class Container(containers.DeclarativeContainer):
@@ -196,13 +196,13 @@ container = _create_container()
 
 
 def configure_container(
-    storage_path: Optional[Path] = None,
-    project_dir: Optional[Path] = None,
-    io_handler: Optional[Any] = None,
-    progress_handler: Optional[Any] = None,
-    notification_handler: Optional[Any] = None,
+    storage_path: Path | None = None,
+    project_dir: Path | None = None,
+    io_handler: Any | None = None,
+    progress_handler: Any | None = None,
+    notification_handler: Any | None = None,
     agent_registry_persistence_enabled: bool = False,
-    skill_max_char_budget: Optional[int] = None,
+    skill_max_char_budget: int | None = None,
 ) -> Container:
     """
     Configure the global DI container with runtime values.

@@ -1,10 +1,7 @@
 """Footer Widget for OpenCode TUI"""
 from __future__ import annotations
 
-from typing import Optional
-
 from textual.reactive import reactive
-from textual.widget import Widget
 from textual.widgets import Static
 
 
@@ -23,7 +20,7 @@ class SessionFooter(Static):
     status: reactive[str] = reactive("")
     tokens: reactive[str] = reactive("")
     cost: reactive[str] = reactive("")
-    model: reactive[Optional[str]] = reactive(None)
+    model: reactive[str | None] = reactive(None)
 
     DEFAULT_CSS = """
     SessionFooter {
@@ -53,7 +50,7 @@ class SessionFooter(Static):
         status: str = "",
         tokens: str = "",
         cost: str = "",
-        model: Optional[str] = None,
+        model: str | None = None,
         **kwargs
     ) -> None:
         """Initialize SessionFooter
@@ -119,7 +116,7 @@ class SessionFooter(Static):
         self._cost = new_value
         self._update_content()
 
-    def watch_model(self, old_value: Optional[str], new_value: Optional[str]) -> None:
+    def watch_model(self, old_value: str | None, new_value: str | None) -> None:
         """Called when model changes"""
         self._model = new_value
         self._update_content()
@@ -141,6 +138,6 @@ class SessionFooter(Static):
         return self._cost
 
     @property
-    def model_value(self) -> Optional[str]:
+    def model_value(self) -> str | None:
         """Get current model"""
         return self._model

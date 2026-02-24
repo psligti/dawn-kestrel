@@ -7,22 +7,21 @@ This module validates that:
 """
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
+from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 from pydantic import ValidationError
 
+from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
 from dawn_kestrel.agents.review.contracts import (
-    ReviewOutput,
-    Scope,
     Check,
-    Skip,
     Finding,
     MergeGate,
     ReviewInputs,
+    ReviewOutput,
+    Scope,
 )
-from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
-
 
 # Fixture paths
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "review_baseline"
@@ -46,7 +45,7 @@ def load_json_fixture(file_path: Path) -> dict:
     if not file_path.exists():
         raise FileNotFoundError(f"Fixture file not found: {file_path}")
 
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -233,7 +232,7 @@ class TestFixtureCompatibility:
     @pytest.mark.asyncio
     async def test_orchestrator_compatibility_minimal(self, mock_reviewer):
         """Verify orchestrator can handle minimal fixture output."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         orchestrator = PRReviewOrchestrator(subagents=[mock_reviewer])
         inputs = ReviewInputs(
@@ -271,12 +270,13 @@ class TestFixtureCompatibility:
     @pytest.mark.asyncio
     async def test_orchestrator_compatibility_typical(self):
         """Verify orchestrator can handle typical fixture output with findings."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
+
         from dawn_kestrel.agents.review.contracts import (
-            OrchestratorOutput,
-            ReviewOutput,
             Finding,
             MergeGate,
+            OrchestratorOutput,
+            ReviewOutput,
             Scope,
         )
 
@@ -384,7 +384,7 @@ class TestFixtureCompatibility:
     async def test_orchestrator_deduplication(self, mock_reviewer):
         """Verify orchestrator deduplicates findings from multiple agents."""
         from unittest.mock import patch
-        from dawn_kestrel.agents.review.contracts import OrchestratorOutput
+
 
         # Create two reviewers returning the same finding
         class MockReviewer1(BaseReviewerAgent):

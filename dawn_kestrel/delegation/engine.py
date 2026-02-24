@@ -7,9 +7,14 @@ Includes boundary enforcement, convergence detection, and callback support.
 
 import asyncio
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.reliability.queue_worker import (
+    InMemoryTaskQueue,
+    Task,
+    WorkerPool,
+)
 
 from .convergence import ConvergenceTracker
 from .types import (
@@ -56,7 +61,7 @@ class DelegationEngine:
         self.config = config
         self.runtime = agent_runtime
         self.registry = agent_registry
-        self._context: Optional[DelegationContext] = None
+        self._context: DelegationContext | None = None
         self._convergence = ConvergenceTracker(config.evidence_keys)
         self._lock = asyncio.Lock()
 
@@ -66,8 +71,8 @@ class DelegationEngine:
         prompt: str,
         session_id: str,
         session_manager: Any,
-        tools: Optional[Any] = None,
-        children: Optional[List[Dict[str, Any]]] = None,
+        tools: Any | None = None,
+        children: list[dict[str, Any]] | None = None,
     ) -> Result[DelegationResult]:
         """Execute a delegation tree starting from the given agent.
 
@@ -111,10 +116,13 @@ class DelegationEngine:
         prompt: str,
         session_id: str,
         session_manager: Any,
-        tools: Optional[Any],
-        children: Optional[List[Dict[str, Any]]],
+        tools: Any | None,
+        children: list[dict[str, Any]] | None,
     ) -> None:
-        """Breadth-first execution: spawn all children in parallel.
+        """Breadth-first execution with queue-based concurrency control.
+
+        Uses a queue and worker pool to limit concurrent subtask executions,
+        preventing provider timeout issues from too many parallel requests.
 
         Args:
             agent_name: Name of the agent to execute.
@@ -124,73 +132,116 @@ class DelegationEngine:
             tools: Tool registry.
             children: List of child delegations.
         """
-        # Execute root agent first (don't check timeout before any work is done)
         root_result = await self._execute_agent(
             agent_name, prompt, session_id, session_manager, tools
         )
 
-        # Record root result
         if isinstance(root_result, Exception):
             self._context.errors.append(root_result)
         else:
             self._context.results.append(root_result)
-            # Check novelty for root result to build stagnation tracking
             if self.config.check_convergence:
                 self._convergence.check_novelty([root_result])
 
-        # Check boundaries after root execution (timeout, etc.)
         boundary_check = self._check_boundaries()
         if boundary_check:
-            return  # Stop delegation
+            return
 
         if not children:
-            return  # No children to delegate to
+            return
 
-        # Check breadth limit
         if len(children) > self.config.budget.max_breadth:
             children = children[: self.config.budget.max_breadth]
 
-        # Check depth limit BEFORE incrementing - can we go deeper?
         if self._context.current_depth + 1 >= self.config.budget.max_depth:
-            return  # Depth limit would be reached
+            return
 
-        # Increment depth for children
         self._context.current_depth += 1
 
-        # Calculate how many children we can spawn (pre-check to avoid over-spawning)
-        # This is necessary because tasks are created synchronously before execution
         agents_remaining = self.config.budget.max_total_agents - self._context.total_agents_spawned
         if agents_remaining <= 0:
             return
         children = children[:agents_remaining]
 
-        # Spawn all children in parallel
-        tasks = []
-        for child in children:
-            child_name = child.get("agent", "general")
-            child_prompt = child.get("prompt", "")
+        # Queue-based execution with limited concurrency
+        await self._execute_children_queued(children, session_id, session_manager, tools)
 
-            tasks.append(
-                self._execute_agent(child_name, child_prompt, session_id, session_manager, tools)
+    async def _execute_children_queued(
+        self,
+        children: list[dict[str, Any]],
+        session_id: str,
+        session_manager: Any,
+        tools: Any | None,
+    ) -> None:
+        """Execute children using queue/worker pattern with concurrency limit.
+
+        This prevents provider timeout issues by limiting how many subtasks
+        run concurrently. Tasks wait in queue until a worker slot is available.
+
+        Args:
+            children: List of child delegation specs.
+            session_id: Session ID for execution.
+            session_manager: Session manager.
+            tools: Tool registry.
+        """
+        queue = InMemoryTaskQueue()
+        results_map: dict[str, Any] = {}
+        results_lock = asyncio.Lock()
+
+        async def process_child_task(task: Task) -> Result[Any]:
+            child_spec = task.payload["child_spec"]
+            child_name = child_spec.get("agent", "general")
+            child_prompt = child_spec.get("prompt", "")
+
+            result = await self._execute_agent(
+                child_name, child_prompt, session_id, session_manager, tools
             )
 
-        # Execute all in parallel with exception handling
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            async with results_lock:
+                results_map[task.id] = result
 
-            for result in results:
-                if isinstance(result, Exception):
-                    self._context.errors.append(result)
-                else:
-                    self._context.results.append(result)
-                    # Check novelty for each result individually to detect identical results
-                    if self.config.check_convergence:
-                        self._convergence.check_novelty([result])
+            if isinstance(result, Exception):
+                return Err(str(result), code="AGENT_ERROR")
+            return Ok(result)
 
-            # Check convergence after all children complete
-            if self.config.check_convergence:
-                if self._convergence.is_converged(self.config.budget.stagnation_threshold):
-                    return  # Converged
+        # Create worker pool with limited concurrency
+        max_workers = self.config.budget.max_concurrent
+        pool = WorkerPool(
+            queue=queue,
+            processor=process_child_task,
+            num_workers=max_workers,
+            poll_interval=0.05,
+        )
+
+        # Enqueue all children
+        for child in children:
+            child_task = Task(
+                id=f"child_{uuid.uuid4().hex[:8]}",
+                type="delegation_child",
+                payload={"child_spec": child},
+            )
+            await queue.enqueue(child_task)
+
+        # Start pool, wait for completion, then stop
+        await pool.start()
+
+        try:
+            await pool.wait_for_completion(timeout=self.config.budget.max_wall_time_seconds)
+        finally:
+            await pool.stop()
+
+        # Collect results
+        for task_id, result in results_map.items():
+            if isinstance(result, Exception):
+                self._context.errors.append(result)
+            else:
+                self._context.results.append(result)
+                if self.config.check_convergence:
+                    self._convergence.check_novelty([result])
+
+        if self.config.check_convergence:
+            if self._convergence.is_converged(self.config.budget.stagnation_threshold):
+                return
 
     async def _execute_dfs(
         self,
@@ -198,8 +249,8 @@ class DelegationEngine:
         prompt: str,
         session_id: str,
         session_manager: Any,
-        tools: Optional[Any],
-        children: Optional[List[Dict[str, Any]]],
+        tools: Any | None,
+        children: list[dict[str, Any]] | None,
     ) -> None:
         """Depth-first execution: fully explore each branch before siblings.
 
@@ -296,8 +347,8 @@ class DelegationEngine:
         prompt: str,
         session_id: str,
         session_manager: Any,
-        tools: Optional[Any],
-        children: Optional[List[Dict[str, Any]]],
+        tools: Any | None,
+        children: list[dict[str, Any]] | None,
     ) -> None:
         """Adaptive execution: BFS for shallow, DFS for deep exploration.
 
@@ -328,7 +379,7 @@ class DelegationEngine:
         prompt: str,
         session_id: str,
         session_manager: Any,
-        tools: Optional[Any],
+        tools: Any | None,
     ) -> Any:
         """Execute a single agent and track metrics.
 
@@ -372,7 +423,7 @@ class DelegationEngine:
             self._context.active_agents -= 1
             self._context.completed_agents += 1
 
-    def _check_boundaries(self) -> Optional[DelegationStopReason]:
+    def _check_boundaries(self) -> DelegationStopReason | None:
         """Check if any boundary has been exceeded.
 
         Returns:

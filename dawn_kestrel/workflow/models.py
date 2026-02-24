@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -98,7 +98,7 @@ class ThinkingStep(BaseModel):
         default=Confidence.MEDIUM,
         description="Confidence in this step",
     )
-    action_result: Optional[str] = Field(
+    action_result: str | None = Field(
         default=None,
         description="Result from act step (if applicable)",
     )
@@ -271,11 +271,11 @@ class RunLog(BaseModel):
         default_factory=list,
         description="List of thinking frames",
     )
-    start_time: Optional[datetime] = Field(
+    start_time: datetime | None = Field(
         default=None,
         description="Workflow start time",
     )
-    end_time: Optional[datetime] = Field(
+    end_time: datetime | None = Field(
         default=None,
         description="Workflow end time",
     )
@@ -400,7 +400,7 @@ class StructuredContext(BaseModel):
         """Add a todo to the context."""
         self.todos[todo.id] = todo
 
-    def get_todo(self, todo_id: str) -> Optional[Todo]:
+    def get_todo(self, todo_id: str) -> Todo | None:
         """Get a todo by ID."""
         return self.todos.get(todo_id)
 

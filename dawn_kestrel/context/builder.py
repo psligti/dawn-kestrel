@@ -7,11 +7,11 @@ and conversation history with provider compatibility for Anthropic and OpenAI.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional
 from pathlib import Path
+from typing import Any
 
 from dawn_kestrel.core.agent_types import AgentContext
-from dawn_kestrel.core.models import Session, Message, TextPart
+from dawn_kestrel.core.models import Message, Session, TextPart
 from dawn_kestrel.skills.injector import SkillInjector
 from dawn_kestrel.tools.framework import ToolRegistry
 
@@ -29,7 +29,7 @@ class ContextBuilder:
     def __init__(
         self,
         base_dir: Path,
-        skill_max_char_budget: Optional[int] = None,
+        skill_max_char_budget: int | None = None,
     ):
         """
         Initialize context builder.
@@ -46,10 +46,10 @@ class ContextBuilder:
     async def build_agent_context(
         self,
         session: Session,
-        agent: Dict[str, Any],
+        agent: dict[str, Any],
         tools: ToolRegistry,
-        skills: List[str],
-        memories: Optional[List[Dict[str, Any]]] = None,
+        skills: list[str],
+        memories: list[dict[str, Any]] | None = None,
     ) -> AgentContext:
         """
         Build complete agent execution context.
@@ -75,10 +75,14 @@ class ContextBuilder:
         if agent.get("model"):
             model_config = agent["model"]
             if isinstance(model_config, dict):
-                # provider/model format
                 model_value = model_config.get("model", model)
                 if isinstance(model_value, str):
                     model = model_value
+
+        session_metadata = session.metadata or {}
+        workspace_id = session_metadata.get("workspace_id")
+        credential_scope = session_metadata.get("credential_scope")
+        config_overrides = session_metadata.get("config_overrides", {})
 
         return AgentContext(
             system_prompt=system_prompt,
@@ -88,9 +92,12 @@ class ContextBuilder:
             session=session,
             agent=agent,
             model=model,
+            workspace_id=workspace_id if isinstance(workspace_id, str) else None,
+            credential_scope=credential_scope if isinstance(credential_scope, str) else None,
+            config_overrides=config_overrides if isinstance(config_overrides, dict) else {},
         )
 
-    def _format_memories_for_prompt(self, memories: List[Dict[str, Any]]) -> str:
+    def _format_memories_for_prompt(self, memories: list[dict[str, Any]]) -> str:
         """
         Format memories for injection into system prompt.
 
@@ -118,7 +125,7 @@ class ContextBuilder:
         self,
         session_id: str,
         limit: int = 5,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Retrieve relevant memories for a session.
 
@@ -138,9 +145,9 @@ class ContextBuilder:
 
     def _build_system_prompt(
         self,
-        agent: Dict[str, Any],
-        skills: List[str],
-        memories: Optional[List[Dict[str, Any]]] = None,
+        agent: dict[str, Any],
+        skills: list[str],
+        memories: list[dict[str, Any]] | None = None,
     ) -> str:
         """
         Build system prompt from agent configuration, skills, and memories.
@@ -161,7 +168,7 @@ class ContextBuilder:
         # Optional planning orchestration controls (for PLAN_AGENT), injected
         # before the skills section and base prompt for deterministic guidance.
         controls_section = ""
-        agent_options: Dict[str, Any] = {}
+        agent_options: dict[str, Any] = {}
         raw_options = agent.get("options")
         if isinstance(raw_options, dict):
             agent_options = raw_options
@@ -194,7 +201,7 @@ class ContextBuilder:
         self,
         context: AgentContext,
         provider_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Build provider-specific context for API call.
 
@@ -240,7 +247,7 @@ class ContextBuilder:
     def _build_tool_schemas(
         self,
         tools: ToolRegistry,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Build tool schemas from tool registry for provider call.
 
@@ -252,7 +259,7 @@ class ContextBuilder:
         Returns:
             List of tool definitions in provider format
         """
-        tool_definitions: List[Dict[str, Any]] = []
+        tool_definitions: list[dict[str, Any]] = []
 
         for _, tool in tools.tools.items():
             # Build tool definition in provider format
@@ -271,7 +278,7 @@ class ContextBuilder:
     async def _build_message_history(
         self,
         session: Session,
-    ) -> List[Message]:
+    ) -> list[Message]:
         """
         Load message history from session.
 
@@ -291,8 +298,8 @@ class ContextBuilder:
 
     def _build_llm_messages(
         self,
-        messages: List[Message],
-    ) -> List[Dict[str, Any]]:
+        messages: list[Message],
+    ) -> list[dict[str, Any]]:
         """
         Build LLM-format messages from OpenCode messages.
 
@@ -308,7 +315,7 @@ class ContextBuilder:
         Returns:
             List of provider-format messages
         """
-        llm_messages: List[Dict[str, Any]] = []
+        llm_messages: list[dict[str, Any]] = []
 
         for msg in messages:
             if msg.role == "user":

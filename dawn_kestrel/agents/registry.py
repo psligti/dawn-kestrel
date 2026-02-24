@@ -7,18 +7,18 @@ with optional JSON persistence under storage/agent/.
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict
-from pathlib import Path
 import json
 import logging
+from collections.abc import Callable
+from pathlib import Path
+
 import aiofiles
-import asyncio
 
-from .builtin import Agent
-from .agent_config import AgentConfig
 from dawn_kestrel.core.plugin_discovery import load_agents
-from dawn_kestrel.core.result import Ok
+from dawn_kestrel.core.result import Ok, Result
 
+from .agent_config import AgentConfig
+from .builtin import Agent
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ class AgentRegistry:
     def __init__(
         self,
         persistence_enabled: bool = False,
-        storage_dir: Optional[Path] = None,
-    ):
+        storage_dir: Path | None = None,
+    ) -> None:
         """
         Initialize AgentRegistry.
 
@@ -52,7 +52,7 @@ class AgentRegistry:
         """
         self.persistence_enabled = persistence_enabled
         self.storage_dir = storage_dir
-        self._agents: Dict[str, Agent] = {}
+        self._agents: dict[str, Agent] = {}
         self._seeded: bool = False
 
         if persistence_enabled:
@@ -78,7 +78,11 @@ class AgentRegistry:
         self._seeded = True
         logger.info(f"Seeded registry with {len(self._agents)} built-in agents from plugins")
 
-    def _load_agent_from_plugin(self, name: str, agent_plugin) -> Optional[Agent]:
+    def _load_agent_from_plugin(
+        self,
+        name: str,
+        agent_plugin: Agent | AgentConfig | Result[AgentConfig] | Callable[[], Agent | AgentConfig | Result[AgentConfig]],
+    ) -> Agent | None:
         """
         Load an Agent instance from a plugin entry point.
 
@@ -171,13 +175,14 @@ class AgentRegistry:
         # Load custom agents from JSON files
         for agent_file in agent_dir.glob("*.json"):
             try:
-                with open(agent_file, "r") as f:
+                with open(agent_file) as f:
                     agent_data = json.load(f)
 
                 agent = Agent(**agent_data)
                 # Don't overwrite built-in agents
-                if self._normalize_name(agent.name) in self._agents:
-                    existing = self.get_agent(agent.name)
+                normalized = self._normalize_name(agent.name)
+                if normalized in self._agents:
+                    existing = self._agents[normalized]
                     if existing and existing.native:
                         logger.debug(f"Skipping built-in agent override: {agent.name}")
                         continue
@@ -258,7 +263,7 @@ class AgentRegistry:
             logger.debug("Lazy seeding builtin agents...")
             await self._seed_builtin_agents()
 
-    async def get_agent(self, name: str) -> Optional[Agent]:
+    async def get_agent(self, name: str) -> Agent | None:
         """
         Get agent by name (case-insensitive).
 
@@ -272,7 +277,7 @@ class AgentRegistry:
         normalized_name = self._normalize_name(name)
         return self._agents.get(normalized_name)
 
-    async def list_agents(self, include_hidden: bool = False) -> List[Agent]:
+    async def list_agents(self, include_hidden: bool = False) -> list[Agent]:
         """
         List all registered agents.
 
@@ -343,7 +348,7 @@ class AgentRegistry:
 
 def create_agent_registry(
     persistence_enabled: bool = False,
-    storage_dir: Optional[Path] = None,
+    storage_dir: Path | None = None,
 ) -> AgentRegistry:
     """
     Factory function to create AgentRegistry.

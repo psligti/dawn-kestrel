@@ -1,9 +1,10 @@
 """Tests for ReleaseChangelogReviewer."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.agents.changelog import ReleaseChangelogReviewer
+
 from dawn_kestrel.agents.review.base import ReviewContext
 
 

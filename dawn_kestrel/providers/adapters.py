@@ -11,14 +11,12 @@ This module provides:
 
 from __future__ import annotations
 
-import logging
 import asyncio
-from typing import Protocol, runtime_checkable, Optional
+import logging
+from typing import Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
 from dawn_kestrel.core.models import Message
-from dawn_kestrel.providers.base import ModelInfo, StreamEvent
-
+from dawn_kestrel.core.result import Err, Ok, Result
 
 logger = logging.getLogger(__name__)
 
@@ -287,7 +285,7 @@ def register_adapter(name: str, adapter: ProviderAdapter) -> None:
     logger.info(f"Registered adapter: {name}")
 
 
-def get_adapter(name: str) -> Optional[ProviderAdapter]:
+def get_adapter(name: str) -> ProviderAdapter | None:
     """Get registered adapter by name.
 
     Args:

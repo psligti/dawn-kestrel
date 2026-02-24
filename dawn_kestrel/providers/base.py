@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from enum import Enum
-from typing import Any, Dict, Optional
 from decimal import Decimal
+from enum import Enum
+from typing import Any
 
 
 class ProviderID(str, Enum):
@@ -32,9 +32,9 @@ class ModelCapabilities:
     reasoning: bool = False
     attachment: bool = False
     toolcall: bool = False
-    input: Optional[Dict[str, bool]] = None
-    output: Optional[Dict[str, bool]] = None
-    interleaved: Optional[Dict[str, Any]] = None
+    input: dict[str, bool] | None = None
+    output: dict[str, bool] | None = None
+    interleaved: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.input is None:
@@ -47,7 +47,7 @@ class ModelCapabilities:
 class ModelCost:
     input: Decimal
     output: Decimal
-    cache: Optional[Dict[str, Decimal]] = None
+    cache: dict[str, Decimal] | None = None
 
     def __post_init__(self) -> None:
         if self.cache is None:
@@ -57,8 +57,8 @@ class ModelCost:
 @dataclass
 class ModelLimits:
     context: int
-    input: Optional[int] = None
-    output: Optional[int] = None
+    input: int | None = None
+    output: int | None = None
 
     def __post_init__(self) -> None:
         if self.input is None:
@@ -77,9 +77,9 @@ class ModelInfo:
     cost: ModelCost
     limit: ModelLimits
     status: str
-    options: Dict[str, Any]
-    headers: Dict[str, str]
-    variants: Optional[Dict[str, Dict[str, Any]]] = None
+    options: dict[str, Any]
+    headers: dict[str, str]
+    variants: dict[str, dict[str, Any]] | None = None
 
 
 @dataclass
@@ -102,5 +102,5 @@ class TokenUsage:
 @dataclass
 class StreamEvent:
     event_type: str
-    data: Dict[str, Any]
-    timestamp: Optional[float] = None
+    data: dict[str, Any]
+    timestamp: float | None = None

@@ -8,11 +8,10 @@ with proper precedence (home overrides repo).
 from pathlib import Path
 
 import pytest
-from pydantic_settings.main import SettingsConfigDict
 from pydantic import ValidationError
+from pydantic_settings.main import SettingsConfigDict
 
 from dawn_kestrel.core.settings import Settings
-from dawn_kestrel.core.provider_settings import AccountConfig
 from dawn_kestrel.providers.base import ProviderID
 
 

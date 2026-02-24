@@ -6,14 +6,14 @@ that can be registered by SDK clients or external systems.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
-from abc import ABC, abstractmethod
 import asyncio
 import logging
+from abc import ABC
+from collections.abc import Callable
+from typing import Any
 
-from dawn_kestrel.core.event_bus import bus, Events
-from dawn_kestrel.core.models import Session, Message
-
+from dawn_kestrel.core.event_bus import Events, bus
+from dawn_kestrel.core.models import Message, Session
 
 logger = logging.getLogger(__name__)
 
@@ -104,18 +104,18 @@ class SessionLifecycle:
 
     def __init__(self) -> None:
         """Initialize SessionLifecycle with empty callback lists."""
-        self._on_session_created: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_session_updated: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_message_added: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_message_updated: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_session_archived: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_session_compacted: List[Callable[[Dict[str, Any]], None]] = []
-        self._on_session_deleted: List[Callable[[str], None]] = []
-        self._listeners: List[SessionLifecycleListener] = []
+        self._on_session_created: list[Callable[[dict[str, Any]], None]] = []
+        self._on_session_updated: list[Callable[[dict[str, Any]], None]] = []
+        self._on_message_added: list[Callable[[dict[str, Any]], None]] = []
+        self._on_message_updated: list[Callable[[dict[str, Any]], None]] = []
+        self._on_session_archived: list[Callable[[dict[str, Any]], None]] = []
+        self._on_session_compacted: list[Callable[[dict[str, Any]], None]] = []
+        self._on_session_deleted: list[Callable[[str], None]] = []
+        self._listeners: list[SessionLifecycleListener] = []
 
     def on_session_created(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for session creation events.
@@ -129,7 +129,7 @@ class SessionLifecycle:
 
     def on_session_updated(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for session update events.
@@ -143,7 +143,7 @@ class SessionLifecycle:
 
     def on_message_added(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for message addition events.
@@ -157,7 +157,7 @@ class SessionLifecycle:
 
     def on_session_archived(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for session archive events.
@@ -171,7 +171,7 @@ class SessionLifecycle:
 
     def on_message_updated(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for message update events.
@@ -185,7 +185,7 @@ class SessionLifecycle:
 
     def on_session_compacted(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """
         Register a callback for session compaction events.
@@ -213,7 +213,7 @@ class SessionLifecycle:
 
     def unregister_session_created(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a session creation callback.
@@ -232,7 +232,7 @@ class SessionLifecycle:
 
     def unregister_session_updated(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a session update callback.
@@ -251,7 +251,7 @@ class SessionLifecycle:
 
     def unregister_message_added(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a message addition callback.
@@ -270,7 +270,7 @@ class SessionLifecycle:
 
     def unregister_session_archived(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a session archive callback.
@@ -289,7 +289,7 @@ class SessionLifecycle:
 
     def unregister_message_updated(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a message update callback.
@@ -308,7 +308,7 @@ class SessionLifecycle:
 
     def unregister_session_compacted(
         self,
-        callback: Callable[[Dict[str, Any]], None],
+        callback: Callable[[dict[str, Any]], None],
     ) -> bool:
         """
         Unregister a session compaction callback.
@@ -364,7 +364,7 @@ class SessionLifecycle:
             self._listeners.remove(listener)
             logger.debug(f"Unregistered lifecycle listener: {listener.__class__.__name__}")
 
-    async def emit_session_created(self, session_data: Dict[str, Any]) -> None:
+    async def emit_session_created(self, session_data: dict[str, Any]) -> None:
         """
         Emit session creation event to all registered callbacks.
 
@@ -390,7 +390,7 @@ class SessionLifecycle:
 
         await bus.publish(Events.SESSION_CREATED, {"session": session_data})
 
-    async def emit_session_updated(self, session_data: Dict[str, Any]) -> None:
+    async def emit_session_updated(self, session_data: dict[str, Any]) -> None:
         """
         Emit session update event to all registered callbacks.
 
@@ -416,7 +416,7 @@ class SessionLifecycle:
 
         await bus.publish(Events.SESSION_UPDATED, {"session": session_data})
 
-    async def emit_message_added(self, message_data: Dict[str, Any]) -> None:
+    async def emit_message_added(self, message_data: dict[str, Any]) -> None:
         """
         Emit message addition event to all registered callbacks.
 
@@ -434,7 +434,7 @@ class SessionLifecycle:
 
         for listener in self._listeners:
             try:
-                from dawn_kestrel.core.models import Session, Message
+                from dawn_kestrel.core.models import Message, Session
                 session = Session(**message_data.get("session", {}))
                 message = Message(**message_data)
                 await listener.on_message_added(session, message)
@@ -443,7 +443,7 @@ class SessionLifecycle:
 
         await bus.publish(Events.MESSAGE_CREATED, {"message": message_data})
 
-    async def emit_message_updated(self, message_data: Dict[str, Any]) -> None:
+    async def emit_message_updated(self, message_data: dict[str, Any]) -> None:
         """
         Emit message update event to all registered callbacks.
 
@@ -458,7 +458,7 @@ class SessionLifecycle:
 
         for listener in self._listeners:
             try:
-                from dawn_kestrel.core.models import Session, Message
+                from dawn_kestrel.core.models import Message, Session
                 session = Session(**message_data.get("session", {}))
                 message = Message(**message_data)
                 await listener.on_message_updated(session, message)
@@ -467,7 +467,7 @@ class SessionLifecycle:
 
         await bus.publish(Events.MESSAGE_UPDATED, {"message": message_data})
 
-    async def emit_session_archived(self, session_data: Dict[str, Any]) -> None:
+    async def emit_session_archived(self, session_data: dict[str, Any]) -> None:
         """
         Emit session archive event to all registered callbacks.
 
@@ -488,7 +488,7 @@ class SessionLifecycle:
             except Exception as e:
                 logger.error(f"Error in lifecycle listener on_session_archived: {e}")
 
-    async def emit_session_compacted(self, session_data: Dict[str, Any]) -> None:
+    async def emit_session_compacted(self, session_data: dict[str, Any]) -> None:
         """
         Emit session compaction event to all registered callbacks.
 

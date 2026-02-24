@@ -10,7 +10,7 @@ Measures:
 import time
 from pathlib import Path
 
-from dawn_kestrel.benchmarks import BenchmarkRunner, benchmark
+from dawn_kestrel.benchmarks import BenchmarkRunner
 from dawn_kestrel.core import models
 
 
@@ -41,7 +41,7 @@ def run_agent_benchmark(iterations: int = 100) -> BenchmarkRunner:
         memory_created=0,
     )
 
-    print(f"\nAgent Execution Benchmark:")
+    print("\nAgent Execution Benchmark:")
     print(f"  {result}")
 
     # Benchmark: Session creation (simulated)

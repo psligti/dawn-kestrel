@@ -1,11 +1,11 @@
 """OpenCode Python - Session Compaction"""
 from __future__ import annotations
-from typing import Dict, Any, Optional
-from pathlib import Path
+
 import logging
+from pathlib import Path
+from typing import Any
 
 from dawn_kestrel.core.settings import settings
-
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,8 @@ def _now() -> int:
 
 
 async def is_overflow(
-    tokens: Dict[str, int],
-    model: Dict[str, Any]
+    tokens: dict[str, int],
+    model: dict[str, Any]
 ) -> bool:
     """
     Check if session has exceeded usable context limit
@@ -35,7 +35,7 @@ async def is_overflow(
     Returns:
         True if compaction needed
     """
-    config: Dict[str, Any] = getattr(settings, "compaction", {"auto": True})
+    config: dict[str, Any] = getattr(settings, "compaction", {"auto": True})
 
     if not config.get("auto"):
         return False
@@ -132,7 +132,7 @@ async def process(
     parent_id: str,
     messages: list,
     session_id: str,
-    abort: Optional[Any] = None,
+    abort: Any | None = None,
     auto: bool = False,
 ) -> str:
     """

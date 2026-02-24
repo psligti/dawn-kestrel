@@ -1,10 +1,12 @@
 """Test UnitTestsReviewer agent with LLM-based analysis."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from dawn_kestrel.agents.review.agents.unit_tests import UnitTestsReviewer
+
 from dawn_kestrel.agents.review.base import ReviewContext
-from dawn_kestrel.agents.review.contracts import ReviewOutput, Finding, Scope, MergeGate
+from dawn_kestrel.agents.review.contracts import ReviewOutput
 from dawn_kestrel.core.models import Session
 
 

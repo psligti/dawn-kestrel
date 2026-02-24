@@ -1,9 +1,9 @@
 """Tests for ThemeSelectDialog."""
 
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.containers import Vertical
-from textual.widgets import Label, ListView, ListItem, Static
+from textual.widgets import ListItem, ListView, Static
 
 
 def test_dialog_exists():
@@ -15,6 +15,7 @@ def test_dialog_exists():
 def test_dialog_is_modal_screen():
     """Test that ThemeSelectDialog extends ModalScreen."""
     from textual.screen import ModalScreen
+
     from dawn_kestrel.tui.dialogs.theme_select_dialog import ThemeSelectDialog
     assert issubclass(ThemeSelectDialog, ModalScreen)
 

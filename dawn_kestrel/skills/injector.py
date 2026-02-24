@@ -6,7 +6,6 @@ string with stable formatting and optional character budget for truncation.
 """
 from __future__ import annotations
 
-from typing import List, Optional
 from pathlib import Path
 
 from dawn_kestrel.skills.loader import Skill, SkillLoader
@@ -18,7 +17,7 @@ class SkillInjector:
     def __init__(
         self,
         base_dir: Path,
-        max_char_budget: Optional[int] = None,
+        max_char_budget: int | None = None,
     ):
         """
         Initialize skill injector.
@@ -34,7 +33,7 @@ class SkillInjector:
     def build_agent_prompt(
         self,
         agent_prompt: str,
-        skill_names: List[str],
+        skill_names: list[str],
         default_prompt: str = "You are a helpful assistant.",
     ) -> str:
         """
@@ -66,7 +65,7 @@ class SkillInjector:
 
         return combined
 
-    def _build_skills_section(self, skills: List[Skill]) -> str:
+    def _build_skills_section(self, skills: list[Skill]) -> str:
         """
         Build formatted skills section.
 

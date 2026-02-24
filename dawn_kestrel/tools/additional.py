@@ -10,20 +10,16 @@ import asyncio
 import json
 import logging
 import time
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Any, Callable, Awaitable
-from typing import List, Optional
+from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
 
-from dawn_kestrel.core.event_bus import bus, Events
-
-from dawn_kestrel.core.models import Part as PartModel, CompactionPart
+from dawn_kestrel.core.models import CompactionPart
 from dawn_kestrel.core.session import SessionManager
 from dawn_kestrel.core.settings import settings
 from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
@@ -36,7 +32,7 @@ logger = logging.getLogger(__name__)
 class AgentCompaction:
     """Stub class for session compaction agent"""
 
-    async def should_keep(self, msg: Dict[str, Any], pruned: List[Dict[str, Any]]) -> bool:
+    async def should_keep(self, msg: dict[str, Any], pruned: list[dict[str, Any]]) -> bool:
         """Determine if message should be kept during compaction"""
         # Simple heuristic: keep user messages and recent assistant messages
         return msg.get("role") == "user" or len(pruned) < 5
@@ -46,7 +42,7 @@ class EditTool(Tool):
     id = "edit"
     description = "Perform exact string replacements in files"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         file_path = args.get("filePath")
 
         if not file_path:
@@ -84,7 +80,7 @@ class EditTool(Tool):
             )
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
         except Exception as e:
             return ToolResult(
@@ -134,7 +130,7 @@ class ListTool(Tool):
     id = "list"
     description = "List directory contents with tree structure"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         dir_path = args.get("path", ".")
         ignore_patterns = args.get("ignore", [])
 
@@ -173,7 +169,7 @@ class ListTool(Tool):
             },
         )
 
-    def _list_directory(self, path: Path, ignore_patterns: List[str]) -> Dict[str, Any]:
+    def _list_directory(self, path: Path, ignore_patterns: list[str]) -> dict[str, Any]:
         tree_lines = []
         total_files = 0
         file_count = 0
@@ -210,7 +206,7 @@ class ListTool(Tool):
             "tree": tree_output,
         }
 
-    def _should_ignore(self, name: str, ignore_patterns: List[str]) -> bool:
+    def _should_ignore(self, name: str, ignore_patterns: list[str]) -> bool:
         for pattern in ignore_patterns:
             if pattern in name:
                 return True
@@ -236,7 +232,7 @@ class MultiEditToolOld(Tool):
     id = "multiedit"
     description = "Apply multiple edits to a single file in one operation"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         file_path = args.get("filePath")
         edits = args.get("edits", [])
 
@@ -264,7 +260,7 @@ class MultiEditToolOld(Tool):
             )
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
         except Exception as e:
             return ToolResult(
@@ -286,14 +282,14 @@ class MultiEditToolOld(Tool):
             if not old_string or not isinstance(old_string, str):
                 return ToolResult(
                     title=f"Edit {idx + 1} invalid",
-                    output=f"Error: oldString must be a non-empty string",
+                    output="Error: oldString must be a non-empty string",
                     metadata={"error": "invalid_old_string", "edit_index": idx},
                 )
 
             if new_string is None or not isinstance(new_string, str):
                 return ToolResult(
                     title=f"Edit {idx + 1} invalid",
-                    output=f"Error: newString must be a string",
+                    output="Error: newString must be a string",
                     metadata={"error": "invalid_new_string", "edit_index": idx},
                 )
 
@@ -358,7 +354,7 @@ class CodeSearchTool(Tool):
     id = "codesearch"
     description = "Search code documentation using Exa Code API"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         query = args.get("query")
         num_results = args.get("numCodeResults", 5)
         tokens = args.get("tokens", 1000)
@@ -435,7 +431,7 @@ class CodeSearchTool(Tool):
             logger.info(f"Code search completed with {len(formatted_results)} results")
 
             return ToolResult(
-                title=f"Code search results",
+                title="Code search results",
                 output=output,
                 metadata={
                     "query": query,
@@ -457,7 +453,7 @@ class LspTool(Tool):
     id = "lsp"
     description = "Language Server Protocol operations"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         operation = args.get("operation")
         file_path = args.get("filePath")
         line = args.get("line", 1)
@@ -514,11 +510,11 @@ class SkillTool(Tool):
     id = "skill"
     description = get_prompt("skill")
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Get JSON schema for skill tool parameters"""
         return SkillToolArgs.model_json_schema()
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Load skill from SKILL.md file
 
         Args:
@@ -534,8 +530,9 @@ class SkillTool(Tool):
         logger.info(f"Loading skill: {name}")
 
         try:
-            from dawn_kestrel.skills.loader import SkillLoader
             from pathlib import Path
+
+            from dawn_kestrel.skills.loader import SkillLoader
 
             base_dir = Path(ctx.session_id if ctx.session_id else ".")
             loader = SkillLoader(base_dir)
@@ -586,7 +583,7 @@ class ExternalDirectoryTool(Tool):
     id = "externaldirectory"
     description = "Add external directory to session context"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         directory = args.get("directory")
         allow_patterns = args.get("allowPatterns", [])
 
@@ -654,7 +651,7 @@ class ExternalDirectoryTool(Tool):
             },
         )
 
-    def _should_ignore(self, name: str, allow_patterns: List[str]) -> bool:
+    def _should_ignore(self, name: str, allow_patterns: list[str]) -> bool:
         for pattern in allow_patterns:
             if pattern in name:
                 return True
@@ -681,7 +678,7 @@ class CompactionTool(Tool):
     id = "compact"
     description = "Compact session when token limit is exceeded"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         token_limit = args.get("tokenLimit", 200000)
         compact_all = args.get("compactAll", False)
         summarize_only = args.get("summarizeOnly", False)
@@ -709,7 +706,7 @@ class CompactionTool(Tool):
 
             parts_list: Any = msg_dict.get("parts", [])
             for part_any in parts_list:
-                part_dict: Dict[str, Any] = (
+                part_dict: dict[str, Any] = (
                     part_any.model_dump() if hasattr(part_any, "model_dump") else part_any
                 )
                 part_type = part_dict.get("part_type", "")
@@ -742,14 +739,14 @@ class CompactionTool(Tool):
         compactor = AgentCompaction()
 
         if summarize_only:
-            messages_dicts: List[Any] = [
+            messages_dicts: list[Any] = [
                 msg.model_dump() if hasattr(msg, "model_dump") else msg for msg in messages
             ]
             summary = await self._summarize_session(messages_dicts)
 
             return ToolResult(
                 title="Session summarized",
-                output=f"Session summary created",
+                output="Session summary created",
                 metadata={
                     "summary": summary,
                     "tokens_kept": total_tokens,
@@ -792,13 +789,13 @@ class CompactionTool(Tool):
             },
         )
 
-    async def _summarize_session(self, messages: List[Dict[str, Any]]) -> str:
+    async def _summarize_session(self, messages: list[dict[str, Any]]) -> str:
         """Generate session summary using compaction agent"""
         session_summary = self._get_session_summary(messages)
 
         return session_summary[:500] if len(session_summary) > 500 else session_summary
 
-    def _get_session_summary(self, messages: List[Any]) -> str:
+    def _get_session_summary(self, messages: list[Any]) -> str:
         """Build session summary text"""
         if not messages:
             return "No messages to summarize"
@@ -867,11 +864,11 @@ class CompactionTool(Tool):
 
     async def _compact_session(
         self, session_mgr, messages, token_limit, compact_all, compactor, session_id
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compact session by creating compaction message and pruning old messages"""
-        messages_to_prune: List[Dict[str, Any]] = []
+        messages_to_prune: list[dict[str, Any]] = []
         tokens_pruned = 0
-        messages_kept: List[Dict[str, Any]] = []
+        messages_kept: list[dict[str, Any]] = []
 
         for idx, msg in enumerate(reversed(messages)):
             if idx == 0:
@@ -906,7 +903,7 @@ class CompactionTool(Tool):
         }
 
 
-def _count_message_tokens(msg: Dict[str, Any]) -> int:
+def _count_message_tokens(msg: dict[str, Any]) -> int:
     """Count total tokens in message"""
     total = 0
 
@@ -939,7 +936,7 @@ def _count_message_tokens(msg: Dict[str, Any]) -> int:
 def define_tool(
     tool_id: str,
     description: str,
-    execute_func: Callable[[Dict[str, Any], ToolContext], Awaitable[ToolResult]],
+    execute_func: Callable[[dict[str, Any], ToolContext], Awaitable[ToolResult]],
 ) -> type[Tool]:
     """Factory function to define a tool
 
@@ -967,7 +964,7 @@ def define_tool(
         id = tool_id
         description = _description
 
-        async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+        async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             return await execute_func(args, ctx)
 
     return DynamicTool
@@ -984,7 +981,7 @@ class QuestionTool(Tool):
     id = "question"
     description = get_prompt("question")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Ask user questions with permission evaluation
 
         Args:
@@ -1045,9 +1042,10 @@ class QuestionTool(Tool):
             # In a real TUI, this would show a dialog and wait for input
             # For this implementation, we'll simulate collecting answers from SessionManager
             try:
+                from pathlib import Path
+
                 from dawn_kestrel.core.session import SessionManager
                 from dawn_kestrel.storage.store import SessionStorage
-                from pathlib import Path
 
                 storage = SessionStorage(settings.storage_dir_path())
                 session_mgr = SessionManager(storage=storage, project_dir=Path.cwd())
@@ -1197,7 +1195,7 @@ class TaskTool(Tool):
         self.agent_manager = agent_manager
         self.orchestrator = orchestrator
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Launch subagent for task execution
 
         Args:
@@ -1223,8 +1221,6 @@ class TaskTool(Tool):
 
         # Use orchestrator if available for task tracking
         if self.orchestrator:
-            from dawn_kestrel.tools.framework import ToolRegistry
-
             # Get session manager and tools from context
             from dawn_kestrel.core.session import SessionManager
             from dawn_kestrel.storage.store import SessionStorage
@@ -1392,7 +1388,7 @@ class TodoTool(Tool):
     id = "todoread"
     description = "Read todo list for current session"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         from dawn_kestrel.core.session import SessionManager
         from dawn_kestrel.storage.store import SessionStorage
 
@@ -1458,7 +1454,7 @@ class TodowriteTool(Tool):
     id = "todowrite"
     description = "Create or update todo list"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         todos_data = args.get("todos", [])
 
         if not isinstance(todos_data, list):
@@ -1493,7 +1489,7 @@ class TodowriteTool(Tool):
                     "description": description,
                     "state": state.value,
                     "due_date": due_date,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(UTC).isoformat(),
                 }
             )
 
@@ -1549,7 +1545,7 @@ class WebFetchTool(Tool):
     id = "webfetch"
     description = "Fetch content from URL"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         url = args.get("url")
         format_type = args.get("format", "markdown")
 
@@ -1610,7 +1606,7 @@ class WebSearchTool(Tool):
     id = "websearch"
     description = "Real-time web search using Exa API"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         query = args.get("query")
         num_results = args.get("numResults", 10)
         live_crawl = args.get("liveCrawl", "fallback")
@@ -1686,7 +1682,7 @@ class WebSearchTool(Tool):
             logger.info(f"Web search completed with {len(formatted_results)} results")
 
             return ToolResult(
-                title=f"Web search results",
+                title="Web search results",
                 output=output,
                 metadata={
                     "query": query,
@@ -1712,10 +1708,8 @@ async def register_web_tools(registry):
 class LsToolArgs(BaseModel):
     """Arguments for Ls tool"""
 
-    path: Optional[str] = Field(
-        default=None, description="Path to list (omit for current directory)"
-    )
-    ignore: Optional[List[str]] = Field(default_factory=list, description="Glob patterns to ignore")
+    path: str | None = Field(default=None, description="Path to list (omit for current directory)")
+    ignore: list[str] | None = Field(default_factory=list, description="Glob patterns to ignore")
 
 
 class LsTool(Tool):
@@ -1724,7 +1718,7 @@ class LsTool(Tool):
     id = "ls"
     description = get_prompt("ls")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         path_arg = args.get("path")
         ignore_patterns = args.get("ignore", []) or []
         path = path_arg or ctx.session_id
@@ -1798,7 +1792,7 @@ class LsTool(Tool):
 class BatchToolArgs(BaseModel):
     """Arguments for Batch tool"""
 
-    tools: List[Dict[str, Any]] = Field(description="Array of tool calls to execute")
+    tools: list[dict[str, Any]] = Field(description="Array of tool calls to execute")
 
 
 class BatchTool(Tool):
@@ -1807,7 +1801,7 @@ class BatchTool(Tool):
     id = "batch"
     description = get_prompt("batch")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Execute multiple tool calls concurrently
 
         Args:
@@ -1844,7 +1838,7 @@ class BatchTool(Tool):
         results = []
         errors = []
 
-        async def execute_single_tool(tool_call: Dict[str, Any], idx: int):
+        async def execute_single_tool(tool_call: dict[str, Any], idx: int):
             """Execute a single tool call"""
             nonlocal success_count, error_count, output
             tool_id = tool_call.get("tool", "")
@@ -1974,7 +1968,7 @@ class PlanEnterTool(Tool):
     id = "plan_enter"
     description = "Switch to plan agent for research and planning"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Enter plan mode
 
         Args:
@@ -1987,14 +1981,14 @@ class PlanEnterTool(Tool):
         logger.info("Entering plan mode")
 
         # In a real implementation, this would:
-        # 1. Set agent mode to "plan"
+        # 1. Set agent mode to "reason" (was "plan", now deprecated)
         # 2. Return confirmation
 
         # For now, just return success
         return ToolResult(
-            title="Entered plan mode",
-            output="Switched to plan agent for research and planning tasks",
-            metadata={"agent_mode": "plan"},
+            title="Entered reason mode",
+            output="Switched to reason agent for research and planning tasks",
+            metadata={"agent_mode": "reason"},
         )
 
 
@@ -2004,7 +1998,7 @@ class PlanExitTool(Tool):
     id = "plan_exit"
     description = "Exit plan agent to return to build mode"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Exit plan mode
 
         Args:
@@ -2033,7 +2027,7 @@ class MultiEditToolArgs(BaseModel):
     """Arguments for MultiEdit tool"""
 
     filePath: str = Field(description="Path to file")
-    edits: List[Dict[str, Any]] = Field(description="Array of edit operations")
+    edits: list[dict[str, Any]] = Field(description="Array of edit operations")
 
 
 class MultiEditTool(Tool):
@@ -2042,7 +2036,7 @@ class MultiEditTool(Tool):
     id = "multiedit"
     description = get_prompt("multiedit")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Apply multiple edits to a file
 
         Args:
@@ -2072,7 +2066,7 @@ class MultiEditTool(Tool):
         path = Path(file_path)
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
 
             applied = []
@@ -2138,6 +2132,6 @@ class MultiEditTool(Tool):
 
 
 # Update imports at top if needed
-from dawn_kestrel.tools.prompts import get_prompt
 from pydantic import BaseModel, Field
-from pathlib import Path
+
+from dawn_kestrel.tools.prompts import get_prompt

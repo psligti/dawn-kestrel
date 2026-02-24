@@ -9,7 +9,7 @@ def get_prompt(prompt_name: str) -> str:
     prompt_path = PROMPTS_DIR / f"{prompt_name}.txt"
     if not prompt_path.exists():
         raise FileNotFoundError(f"Prompt '{prompt_name}' not found at {prompt_path}")
-    with open(prompt_path, "r", encoding="utf-8") as f:
+    with open(prompt_path, encoding="utf-8") as f:
         return f.read()
 
 __all__ = ["get_prompt"]

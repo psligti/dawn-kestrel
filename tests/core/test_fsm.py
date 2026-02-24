@@ -1,18 +1,17 @@
 """Tests for FSMImpl (generic finite state machine)."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from dawn_kestrel.core.fsm import FSMImpl, FSMBuilder, FSMContext, FSMReliabilityConfig
-from dawn_kestrel.core.result import Result, Ok, Err
-from dawn_kestrel.core.fsm_state_repository import FSMStateRepository
-from dawn_kestrel.core.mediator import Event, EventType, EventMediator
-from dawn_kestrel.core.observer import Observer
+import pytest
+
 from dawn_kestrel.core.commands import TransitionCommand
-from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl
-from dawn_kestrel.llm.retry import RetryExecutorImpl, ExponentialBackoff
-from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
+from dawn_kestrel.core.fsm import FSMBuilder, FSMContext, FSMImpl, FSMReliabilityConfig
+from dawn_kestrel.core.fsm_state_repository import FSMStateRepository
+from dawn_kestrel.core.mediator import EventMediator, EventType
+from dawn_kestrel.core.result import Err, Ok, Result
 from dawn_kestrel.llm.bulkhead import BulkheadImpl
+from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
+from dawn_kestrel.llm.retry import RetryExecutorImpl
 
 
 class TestFSMImpl:
@@ -1221,7 +1220,6 @@ class TestFSMDIIntegration:
     async def test_fsm_builder_creates_fsm_from_container(self):
         """FSM builder from container can create valid FSM instances."""
         from dawn_kestrel.core.di_container import container
-        from dawn_kestrel.core.result import Ok
 
         # Get FSM builder from container
         fsm_builder = container.fsm_builder()
@@ -1247,7 +1245,6 @@ class TestFSMDIIntegration:
     async def test_fsm_builder_with_persistence_from_container(self):
         """FSM builder with persistence uses container's FSM repository."""
         from dawn_kestrel.core.di_container import container
-        from dawn_kestrel.core.result import Ok
 
         # Get FSM builder and repository from container
         fsm_builder = container.fsm_builder()
@@ -1301,7 +1298,6 @@ class TestFSMDIIntegration:
     async def test_fsm_dependencies_injected_correctly(self):
         """FSM dependencies are injected correctly from container."""
         from dawn_kestrel.core.di_container import container
-        from dawn_kestrel.core.result import Ok
 
         # Get FSM builder and repository from container
         fsm_builder = container.fsm_builder()
@@ -1328,7 +1324,6 @@ class TestFSMDIIntegration:
     async def test_fsm_repository_state_get_set(self):
         """FSM repository from container can get and set state."""
         from dawn_kestrel.core.di_container import container
-        from dawn_kestrel.core.result import Ok
 
         # Get FSM repository from container
         fsm_repo = container.fsm_repository()
@@ -1355,7 +1350,6 @@ class TestFSMDIIntegration:
     async def test_fsm_builder_chaining_works_from_container(self):
         """FSM builder method chaining works from container provider."""
         from dawn_kestrel.core.di_container import container
-        from dawn_kestrel.core.result import Ok
 
         # Get FSM builder from container
         fsm_builder = container.fsm_builder()
@@ -1392,8 +1386,8 @@ class TestFSMProtocol:
 
     def test_fsm_protocol_has_required_methods(self):
         """FSM protocol defines get_state, transition_to, is_transition_valid methods."""
+
         from dawn_kestrel.core.fsm import FSM
-        import inspect
 
         # Check protocol has required methods
         assert hasattr(FSM, "get_state")
@@ -1461,8 +1455,9 @@ class TestFSMStateRepository:
     @pytest.fixture
     def mock_storage(self):
         """Create mock SessionStorage for testing."""
-        from dawn_kestrel.storage.store import SessionStorage
         from unittest.mock import MagicMock
+
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage = MagicMock(spec=SessionStorage)
         return storage
@@ -1528,7 +1523,7 @@ class TestFSMStateRepository:
         """set_state returns Err when storage write fails."""
         from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
 
-        mock_storage.write.side_effect = IOError("Storage unavailable")
+        mock_storage.write.side_effect = OSError("Storage unavailable")
 
         repo = FSMStateRepositoryImpl(mock_storage)
         result = await repo.set_state("test-fsm", "running")
@@ -1542,7 +1537,7 @@ class TestFSMStateRepository:
         """get_state returns Err when storage read fails."""
         from dawn_kestrel.core.fsm_state_repository import FSMStateRepositoryImpl
 
-        mock_storage.read.side_effect = IOError("Storage unavailable")
+        mock_storage.read.side_effect = OSError("Storage unavailable")
 
         repo = FSMStateRepositoryImpl(mock_storage)
         result = await repo.get_state("test-fsm")
@@ -1639,3 +1634,349 @@ class TestFSMGuards:
         transition_result = await fsm.transition_to("running")
         assert transition_result.is_ok()
         assert fsm._state == "running"
+
+
+class TestWorkflowFSMBuilder:
+    """Tests for WorkflowFSMBuilder."""
+
+    def test_workflow_fsm_builder_creates_valid_fsm(self):
+        """WorkflowFSMBuilder creates a valid FSM with workflow states."""
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+
+        builder = WorkflowFSMBuilder()
+        result = builder.build()
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+        assert fsm._state == "intake"
+
+    def test_workflow_fsm_builder_has_all_workflow_states(self):
+        """WorkflowFSMBuilder includes all required workflow states."""
+        from dawn_kestrel.core.fsm import WORKFLOW_STATES, WorkflowFSMBuilder
+
+        builder = WorkflowFSMBuilder()
+        result = builder.build()
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+        assert fsm._valid_states == WORKFLOW_STATES
+
+    def test_workflow_fsm_builder_with_custom_budget(self):
+        """WorkflowFSMBuilder accepts custom budget configuration."""
+        from dawn_kestrel.core.fsm import FSMBudget, WorkflowFSMBuilder
+
+        budget = FSMBudget(max_iterations=50, max_tool_calls=500)
+        builder = WorkflowFSMBuilder().with_budget(budget)
+        result = builder.build()
+
+        assert result.is_ok()
+        assert builder._budget.max_iterations == 50
+        assert builder._budget.max_tool_calls == 500
+
+    def test_workflow_fsm_builder_stagnation_detection(self):
+        """WorkflowFSMBuilder detects stagnation via novelty signatures."""
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+
+        builder = WorkflowFSMBuilder().with_stagnation_threshold(2)
+
+        # First check should be novel
+        assert builder.check_novelty({"step": 1}) is True
+        # Same data should not be novel
+        assert builder.check_novelty({"step": 1}) is False
+        # Different data should be novel
+        assert builder.check_novelty({"step": 2}) is True
+
+        # Stagnation should be detected after threshold
+        assert builder.is_stagnation_detected() is True
+
+    def test_workflow_fsm_builder_budget_exceeded(self):
+        """WorkflowFSMBuilder tracks budget consumption."""
+        from dawn_kestrel.core.fsm import FSMBudget, WorkflowFSMBuilder
+
+        budget = FSMBudget(max_iterations=5)
+        builder = WorkflowFSMBuilder().with_budget(budget)
+
+        assert builder.is_budget_exceeded() is False
+
+        builder.track_budget_consumed(iterations=6)
+
+        assert builder.is_budget_exceeded() is True
+
+    def test_workflow_fsm_builder_react_cycles(self):
+        """WorkflowFSMBuilder tracks REACT cycles."""
+        from dawn_kestrel.core.fsm import ReactStep, WorkflowFSMBuilder
+
+        builder = WorkflowFSMBuilder()
+
+        step = ReactStep(
+            reasoning="Need to check the file",
+            action="read_file",
+            observation="File contents here",
+            tools_used=["read"],
+            evidence=["file exists"],
+        )
+
+        builder.add_react_cycle(step)
+
+        assert len(builder._react_cycles) == 1
+        assert builder._react_cycles[0].reasoning == "Need to check the file"
+
+    def test_workflow_fsm_builder_budget_status(self):
+        """WorkflowFSMBuilder returns budget status."""
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+
+        builder = WorkflowFSMBuilder()
+        builder.track_budget_consumed(iterations=5, tool_calls=10)
+
+        consumed, budget = builder.get_budget_status()
+
+        assert consumed.iterations == 5
+        assert consumed.tool_calls == 10
+        assert budget.max_iterations == 100  # default
+
+    def test_workflow_fsm_builder_with_reasoning_strategy(self):
+        """WorkflowFSMBuilder accepts a reasoning strategy for the REASON state."""
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+        from dawn_kestrel.workflow.strategies import CoTStrategy
+
+        strategy = CoTStrategy()
+        builder = WorkflowFSMBuilder().with_reasoning_strategy(strategy)
+        result = builder.build()
+
+        assert result.is_ok()
+        assert builder._reasoning_strategy is strategy
+
+    def test_workflow_fsm_builder_with_reason_executor(self):
+        """WorkflowFSMBuilder accepts a reason executor for the REASON state."""
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+        from dawn_kestrel.workflow.reason_executor import ReasonExecutor
+        from dawn_kestrel.workflow.strategies import CoTStrategy
+
+        strategy = CoTStrategy()
+        executor = ReasonExecutor(strategy=strategy)
+        builder = WorkflowFSMBuilder().with_reason_executor(executor)
+        result = builder.build()
+
+        assert result.is_ok()
+        assert builder._reason_executor is executor
+
+
+class TestFSMBudget:
+    """Tests for FSMBudget dataclass."""
+
+    def test_default_budget_values(self):
+        """FSMBudget has sensible defaults."""
+        from dawn_kestrel.core.fsm import FSMBudget
+
+        budget = FSMBudget()
+
+        assert budget.max_iterations == 100
+        assert budget.max_tool_calls == 1000
+        assert budget.max_wall_time_seconds == 3600.0
+        assert budget.max_subagent_calls == 50
+
+    def test_custom_budget_values(self):
+        """FSMBudget accepts custom values."""
+        from dawn_kestrel.core.fsm import FSMBudget
+
+        budget = FSMBudget(
+            max_iterations=10,
+            max_tool_calls=100,
+            max_wall_time_seconds=60.0,
+            max_subagent_calls=5,
+        )
+
+        assert budget.max_iterations == 10
+        assert budget.max_tool_calls == 100
+        assert budget.max_wall_time_seconds == 60.0
+        assert budget.max_subagent_calls == 5
+
+
+class TestBudgetConsumed:
+    """Tests for BudgetConsumed dataclass."""
+
+    def test_default_consumed_values(self):
+        """BudgetConsumed starts at zero."""
+        from dawn_kestrel.core.fsm import BudgetConsumed
+
+        consumed = BudgetConsumed()
+
+        assert consumed.iterations == 0
+        assert consumed.tool_calls == 0
+        assert consumed.wall_time_seconds == 0.0
+        assert consumed.subagent_calls == 0
+
+    def test_custom_consumed_values(self):
+        """BudgetConsumed accepts initial values."""
+        from dawn_kestrel.core.fsm import BudgetConsumed
+
+        consumed = BudgetConsumed(iterations=5, tool_calls=20, wall_time_seconds=30.5)
+
+        assert consumed.iterations == 5
+        assert consumed.tool_calls == 20
+        assert consumed.wall_time_seconds == 30.5
+
+
+class TestReactStep:
+    """Tests for ReactStep dataclass."""
+
+    def test_react_step_required_fields(self):
+        """ReactStep requires reasoning, action, and observation."""
+        from dawn_kestrel.core.fsm import ReactStep
+
+        step = ReactStep(
+            reasoning="test reasoning",
+            action="test action",
+            observation="test observation",
+        )
+
+        assert step.reasoning == "test reasoning"
+        assert step.action == "test action"
+        assert step.observation == "test observation"
+
+    def test_react_step_default_lists(self):
+        """ReactStep has empty lists for tools_used and evidence by default."""
+        from dawn_kestrel.core.fsm import ReactStep
+
+        step = ReactStep(
+            reasoning="test",
+            action="test",
+            observation="test",
+        )
+
+        assert step.tools_used == []
+        assert step.evidence == []
+
+    def test_react_step_custom_lists(self):
+        """ReactStep accepts custom tools_used and evidence."""
+        from dawn_kestrel.core.fsm import ReactStep
+
+        step = ReactStep(
+            reasoning="test",
+            action="test",
+            observation="test",
+            tools_used=["read", "write"],
+            evidence=["file1", "file2"],
+        )
+
+        assert step.tools_used == ["read", "write"]
+        assert step.evidence == ["file1", "file2"]
+
+
+class TestComputeNoveltySignature:
+    """Tests for compute_novelty_signature function."""
+
+    def test_returns_16_char_string(self):
+        """Signature is 16 characters."""
+        from dawn_kestrel.core.fsm import compute_novelty_signature
+
+        sig = compute_novelty_signature({"test": "data"})
+
+        assert len(sig) == 16
+
+    def test_same_data_same_signature(self):
+        """Same data produces same signature."""
+        from dawn_kestrel.core.fsm import compute_novelty_signature
+
+        data = {"key": "value", "number": 42}
+        sig1 = compute_novelty_signature(data)
+        sig2 = compute_novelty_signature(data)
+
+        assert sig1 == sig2
+
+    def test_different_data_different_signature(self):
+        """Different data produces different signatures."""
+        from dawn_kestrel.core.fsm import compute_novelty_signature
+
+        sig1 = compute_novelty_signature({"test": "data1"})
+        sig2 = compute_novelty_signature({"test": "data2"})
+
+        assert sig1 != sig2
+
+    def test_key_order_doesnt_matter(self):
+        """Signature is consistent regardless of key order."""
+        from dawn_kestrel.core.fsm import compute_novelty_signature
+
+        sig1 = compute_novelty_signature({"a": 1, "b": 2})
+        sig2 = compute_novelty_signature({"b": 2, "a": 1})
+
+        assert sig1 == sig2
+
+
+class TestWorkflowConstants:
+    """Tests for workflow constants."""
+
+    def test_workflow_states_has_six_states(self):
+        """WORKFLOW_STATES contains exactly 6 states."""
+        from dawn_kestrel.core.fsm import WORKFLOW_STATES
+
+        assert len(WORKFLOW_STATES) == 6
+        assert "intake" in WORKFLOW_STATES
+        assert "plan" in WORKFLOW_STATES
+        assert "act" in WORKFLOW_STATES
+        assert "synthesize" in WORKFLOW_STATES
+        assert "check" in WORKFLOW_STATES
+        assert "done" in WORKFLOW_STATES
+
+    def test_workflow_transitions_intake_to_plan(self):
+        """INTAKE can only transition to PLAN."""
+        from dawn_kestrel.core.fsm import WORKFLOW_TRANSITIONS
+
+        assert WORKFLOW_TRANSITIONS["intake"] == {"plan"}
+
+    def test_workflow_transitions_strict_linear_flow(self):
+        """States follow strict linear flow except CHECK which branches."""
+        from dawn_kestrel.core.fsm import WORKFLOW_TRANSITIONS
+
+        assert WORKFLOW_TRANSITIONS["plan"] == {"act"}
+        assert WORKFLOW_TRANSITIONS["act"] == {"synthesize"}
+        assert WORKFLOW_TRANSITIONS["synthesize"] == {"check"}
+        assert WORKFLOW_TRANSITIONS["check"] == {"plan", "act", "done"}
+
+    def test_workflow_transitions_done_has_no_transitions(self):
+        """DONE state has no outgoing transitions."""
+        from dawn_kestrel.core.fsm import WORKFLOW_TRANSITIONS
+
+        assert WORKFLOW_TRANSITIONS["done"] == set()
+
+
+class TestFSMBuilderWithInitialState:
+    """Tests for FSMBuilder.with_initial_state method."""
+
+    def test_with_initial_state_sets_state(self):
+        """with_initial_state sets the initial state."""
+        from dawn_kestrel.core.fsm import FSMBuilder
+
+        result = (
+            FSMBuilder().with_state("start").with_state("end").with_initial_state("start").build()
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+        assert fsm._state == "start"
+
+    def test_build_parameter_overrides_with_initial_state(self):
+        """build(initial_state=...) overrides with_initial_state."""
+        from dawn_kestrel.core.fsm import FSMBuilder
+
+        result = (
+            FSMBuilder()
+            .with_state("start")
+            .with_state("other")
+            .with_initial_state("start")
+            .build(initial_state="other")
+        )
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+        assert fsm._state == "other"
+
+    def test_default_initial_state_is_idle(self):
+        """Default initial state is 'idle'."""
+        from dawn_kestrel.core.fsm import FSMBuilder
+
+        result = FSMBuilder().with_state("idle").build()
+
+        assert result.is_ok()
+        fsm = result.unwrap()
+        assert fsm._state == "idle"

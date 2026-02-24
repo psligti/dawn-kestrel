@@ -11,10 +11,9 @@ Run this example:
     python docs/examples/basic_usage.py
 """
 import asyncio
-from pathlib import Path
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient
 from dawn_kestrel.interfaces.io import Notification
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 async def basic_usage() -> None:

@@ -22,33 +22,35 @@ Visualization:
     - Architecture and data flow
     - Example execution sequences
 
+Note:
+    The FSM functionality has been consolidated into dawn_kestrel.core.fsm.
+    Use WorkflowFSMBuilder from dawn_kestrel.core.fsm for workflow state machines.
+
 Example usage:
-    >>> from dawn_kestrel.workflow import run_workflow_fsm, ConsoleLogger
-    >>> ctx = run_workflow_fsm(['file1.py', 'file2.py'])
-    >>> ConsoleLogger.log_log(ctx.log)
-    >>> print(f"Final state: {ctx.state}")
+    >>> from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+    >>> builder = WorkflowFSMBuilder()
+    >>> result = builder.build()
 """
 
-from dawn_kestrel.workflow.models import (
-    Confidence,
-    StructuredContext,
-    ThinkingFrame,
-    ThinkingStep,
-    Todo,
-    ActionType,
-    DecisionType,
-    ReactStep,
-    RunLog,
-)
-from dawn_kestrel.workflow.fsm import (
-    assert_transition,
-    run_workflow_fsm,
-    STATE_HANDLERS,
-    WORKFLOW_FSM_TRANSITIONS,
+from dawn_kestrel.core.fsm import (
+    WORKFLOW_STATES,
+    WORKFLOW_TRANSITIONS,
+    WorkflowFSMBuilder,
 )
 from dawn_kestrel.workflow.loggers import (
     ConsoleLogger,
     JsonLogger,
+)
+from dawn_kestrel.workflow.models import (
+    ActionType,
+    Confidence,
+    DecisionType,
+    ReactStep,
+    RunLog,
+    StructuredContext,
+    ThinkingFrame,
+    ThinkingStep,
+    Todo,
 )
 
 __all__ = [
@@ -62,11 +64,10 @@ __all__ = [
     "DecisionType",
     "ReactStep",
     "RunLog",
-    # FSM
-    "assert_transition",
-    "run_workflow_fsm",
-    "STATE_HANDLERS",
-    "WORKFLOW_FSM_TRANSITIONS",
+    # FSM (from core.fsm)
+    "WORKFLOW_STATES",
+    "WORKFLOW_TRANSITIONS",
+    "WorkflowFSMBuilder",
     # Loggers
     "ConsoleLogger",
     "JsonLogger",

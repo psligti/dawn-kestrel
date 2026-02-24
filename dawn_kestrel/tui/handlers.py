@@ -7,14 +7,13 @@ specifically designed for TUI applications using Textual framework.
 from __future__ import annotations
 
 from textual.app import App
-from textual.widgets import Input, DataTable
 
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
-    NotificationHandler,
     Notification,
+    NotificationHandler,
     NotificationType,
+    ProgressHandler,
 )
 
 

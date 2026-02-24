@@ -1,15 +1,22 @@
 """Tests for ModelSelectDialog."""
 
-from unittest.mock import Mock, patch
-import pytest
 from decimal import Decimal
-from textual.app import App, ComposeResult
-from textual.containers import Vertical
-from textual.widgets import Label, ListView, ListItem, Static
+from unittest.mock import Mock, patch
 
-from dawn_kestrel.tui.dialogs import ModelSelectDialog
-from dawn_kestrel.providers.base import ModelInfo, ModelCapabilities, ModelCost, ModelLimits, ProviderID
+import pytest
+from textual.app import App
+from textual.containers import Vertical
+from textual.widgets import ListItem, ListView, Static
+
 from dawn_kestrel.core.settings import Settings
+from dawn_kestrel.providers.base import (
+    ModelCapabilities,
+    ModelCost,
+    ModelInfo,
+    ModelLimits,
+    ProviderID,
+)
+from dawn_kestrel.tui.dialogs import ModelSelectDialog
 
 
 @pytest.fixture
@@ -66,6 +73,7 @@ def test_dialog_exists():
 def test_dialog_is_modal_screen():
     """Test that ModelSelectDialog extends ModalScreen."""
     from textual.screen import ModalScreen
+
     from dawn_kestrel.tui.dialogs.model_select_dialog import ModelSelectDialog
     assert issubclass(ModelSelectDialog, ModalScreen)
 

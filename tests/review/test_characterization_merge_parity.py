@@ -15,17 +15,16 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
 from dawn_kestrel.agents.review.contracts import (
     Finding,
     MergeGate,
-    OrchestratorOutput,
     ReviewInputs,
     ReviewOutput,
     Scope,
 )
-from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 
 
 class TimeoutMockAgent(BaseReviewerAgent):

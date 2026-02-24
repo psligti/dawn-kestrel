@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 from click.testing import CliRunner
-import tempfile
-import shutil
 
 from dawn_kestrel.cli.main import cli
 from dawn_kestrel.core.models import Session
@@ -180,8 +181,8 @@ class TestExportSessionCommand:
         # Verify handlers are instances of CLI handlers
         from dawn_kestrel.cli.handlers import (
             CLIIOHandler,
-            CLIProgressHandler,
             CLINotificationHandler,
+            CLIProgressHandler,
         )
 
         assert isinstance(call_kwargs["io_handler"], CLIIOHandler)

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from click.testing import CliRunner
+from unittest.mock import MagicMock, patch
+
 import pytest
+from click.testing import CliRunner
 
 from dawn_kestrel.agents.review import cli as review_cli
 

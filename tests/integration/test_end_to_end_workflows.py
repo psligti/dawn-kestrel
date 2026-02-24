@@ -47,9 +47,8 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+
 import pytest
-import asyncio
-from typing import cast, Any
 
 
 class TestEndToEndSessionWorkflow:
@@ -236,8 +235,8 @@ class TestEndToEndAgentExecution:
         - Duration > 0
         - Response not empty
         """
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.agents.bolt_merlin import create_autonomous_worker_agent
+        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.tools import get_all_tools
 
         # Create client

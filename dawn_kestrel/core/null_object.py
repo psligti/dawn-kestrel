@@ -8,8 +8,8 @@ from typing import Any
 
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
     NotificationHandler,
+    ProgressHandler,
 )
 
 

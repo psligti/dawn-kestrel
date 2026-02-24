@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-import pytest
 
+import pytest
 from dawn_kestrel.agents.review.agents.architecture import ArchitectureReviewer
 from dawn_kestrel.agents.review.agents.changelog import ReleaseChangelogReviewer
 from dawn_kestrel.agents.review.agents.dependencies import DependencyLicenseReviewer
@@ -17,9 +17,10 @@ from dawn_kestrel.agents.review.agents.requirements import RequirementsReviewer
 from dawn_kestrel.agents.review.agents.security import SecurityReviewer
 from dawn_kestrel.agents.review.agents.telemetry import TelemetryMetricsReviewer
 from dawn_kestrel.agents.review.agents.unit_tests import UnitTestsReviewer
-from dawn_kestrel.agents.review.contracts import ReviewInputs
 from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 from dawn_kestrel.agents.review.utils.executor import ExecutionResult
+
+from dawn_kestrel.agents.review.contracts import ReviewInputs
 
 
 class AsyncExecutor:

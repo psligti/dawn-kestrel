@@ -6,40 +6,38 @@ that wrap SessionService with handler injection and callbacks.
 
 from __future__ import annotations
 
-from typing import Optional, Callable, Any, Dict, cast
-from pathlib import Path  # noqa: F401
 import asyncio
+from collections.abc import Callable
+from pathlib import Path  # noqa: F401
+from typing import Any, cast
 
+from dawn_kestrel.agents.registry import create_agent_registry  # noqa: F401
+from dawn_kestrel.agents.runtime import create_agent_runtime  # noqa: F401
+from dawn_kestrel.core.agent_types import AgentResult, SessionManagerLike
 from dawn_kestrel.core.config import SDKConfig
+from dawn_kestrel.core.di_container import configure_container, container
+from dawn_kestrel.core.exceptions import OpenCodeError
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.provider_config import ProviderConfig
+from dawn_kestrel.core.repositories import (  # noqa: F401
+    MessageRepositoryImpl,
+    PartRepositoryImpl,
+    SessionRepositoryImpl,
+)
+from dawn_kestrel.core.result import Err, Ok, Result
 from dawn_kestrel.core.services.session_service import DefaultSessionService  # noqa: F401
 
 # Import real class for type checking (tests patch DefaultSessionService, need reference to real class)
-from dawn_kestrel.core.services.session_service import (
-    DefaultSessionService as RealDefaultSessionService,
-)  # noqa: F401
+from dawn_kestrel.core.session_lifecycle import SessionLifecycle  # noqa: F401
+from dawn_kestrel.core.settings import settings  # noqa: F401
+from dawn_kestrel.interfaces.io import Notification
+from dawn_kestrel.providers.registry import create_provider_registry  # noqa: F401
 from dawn_kestrel.storage.store import (  # noqa: F401
-    SessionStorage,
     MessageStorage,
     PartStorage,
+    SessionStorage,
 )
-from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.repositories import (  # noqa: F401
-    SessionRepositoryImpl,
-    MessageRepositoryImpl,
-    PartRepositoryImpl,
-)
-from dawn_kestrel.interfaces.io import Notification
-from dawn_kestrel.core.exceptions import OpenCodeError
-from dawn_kestrel.core.settings import settings  # noqa: F401
-from dawn_kestrel.core.result import Result, Ok, Err
-from dawn_kestrel.agents.runtime import create_agent_runtime  # noqa: F401
-from dawn_kestrel.core.agent_types import AgentResult, SessionManagerLike
-from dawn_kestrel.agents.registry import create_agent_registry  # noqa: F401
 from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.providers.registry import create_provider_registry  # noqa: F401
-from dawn_kestrel.core.provider_config import ProviderConfig
-from dawn_kestrel.core.session_lifecycle import SessionLifecycle  # noqa: F401
-from dawn_kestrel.core.di_container import container, configure_container
 
 
 class OpenCodeAsyncClient:
@@ -60,11 +58,11 @@ class OpenCodeAsyncClient:
 
     def __init__(
         self,
-        config: Optional[SDKConfig] = None,
-        io_handler: Optional[Any] = None,
-        progress_handler: Optional[Any] = None,
-        notification_handler: Optional[Any] = None,
-        session_service: Optional[Any] = None,  # For test backward compatibility
+        config: SDKConfig | None = None,
+        io_handler: Any | None = None,
+        progress_handler: Any | None = None,
+        notification_handler: Any | None = None,
+        session_service: Any | None = None,  # For test backward compatibility
     ):
         """Initialize async SDK client.
 
@@ -76,8 +74,8 @@ class OpenCodeAsyncClient:
             session_service: Optional session service for test compatibility.
         """
         self.config = config or SDKConfig()
-        self._on_progress: Optional[Callable[[int, Optional[str]], None]] = None
-        self._on_notification: Optional[Callable[[Notification], None]] = None
+        self._on_progress: Callable[[int, str | None], None] | None = None
+        self._on_notification: Callable[[Notification], None] | None = None
 
         if session_service is not None:
             # Use provided session service (for test compatibility)
@@ -117,7 +115,7 @@ class OpenCodeAsyncClient:
         self._lifecycle = container.session_lifecycle()
         self._runtime = container.agent_runtime()
 
-    def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
+    def on_progress(self, callback: Callable[[int, str | None], None] | None) -> None:
         """Register progress callback.
 
         Args:
@@ -125,7 +123,7 @@ class OpenCodeAsyncClient:
         """
         self._on_progress = callback
 
-    def on_notification(self, callback: Optional[Callable[[Notification], None]]) -> None:
+    def on_notification(self, callback: Callable[[Notification], None] | None) -> None:
         """Register notification callback.
 
         Args:
@@ -254,7 +252,7 @@ class OpenCodeAsyncClient:
         except Exception as e:
             return Err(f"Failed to register agent: {e}", code="SessionError")
 
-    async def get_agent(self, name: str) -> Result[Optional[Any]]:
+    async def get_agent(self, name: str) -> Result[Any | None]:
         """Get an agent by name.
 
         Args:
@@ -281,12 +279,12 @@ class OpenCodeAsyncClient:
         agent_name: str,
         session_id: str,
         user_message: str,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> Result[AgentResult]:
         """Execute an agent for a user message.
 
         Args:
-            agent_name: Name of agent to execute (e.g., "build", "plan", "explore")
+            agent_name: Name of agent to execute (e.g., "build", "reason", "explore")
             session_id: Session ID to execute in
             user_message: User's message or request
             options: Optional execution parameters:
@@ -334,7 +332,7 @@ class OpenCodeAsyncClient:
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         is_default: bool = False,
     ) -> Result[ProviderConfig]:
         """Register a provider configuration.
@@ -372,7 +370,7 @@ class OpenCodeAsyncClient:
         except Exception as e:
             return Err(f"Failed to register provider: {e}", code="SessionError")
 
-    async def get_provider(self, name: str) -> Result[Optional[ProviderConfig]]:
+    async def get_provider(self, name: str) -> Result[ProviderConfig | None]:
         """Get a provider configuration by name.
 
         Args:
@@ -395,7 +393,7 @@ class OpenCodeAsyncClient:
         except Exception as e:
             return Err(f"Failed to get provider: {e}", code="SessionError")
 
-    async def list_providers(self) -> Result[list[Dict[str, Any]]]:
+    async def list_providers(self) -> Result[list[dict[str, Any]]]:
         """List all provider configurations.
 
         Returns:
@@ -440,7 +438,7 @@ class OpenCodeAsyncClient:
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> Result[ProviderConfig]:
         """Update an existing provider configuration.
 
@@ -539,10 +537,10 @@ class OpenCodeSyncClient:
 
     def __init__(
         self,
-        config: Optional[SDKConfig] = None,
-        io_handler: Optional[Any] = None,
-        progress_handler: Optional[Any] = None,
-        notification_handler: Optional[Any] = None,
+        config: SDKConfig | None = None,
+        io_handler: Any | None = None,
+        progress_handler: Any | None = None,
+        notification_handler: Any | None = None,
     ):
         """Initialize sync SDK client.
 
@@ -563,7 +561,7 @@ class OpenCodeSyncClient:
             notification_handler=notification_handler,
         )
 
-    def on_progress(self, callback: Optional[Callable[[int, Optional[str]], None]]) -> None:
+    def on_progress(self, callback: Callable[[int, str | None], None] | None) -> None:
         """Register progress callback.
 
         Args:
@@ -571,7 +569,7 @@ class OpenCodeSyncClient:
         """
         self._async_client.on_progress(callback)
 
-    def on_notification(self, callback: Optional[Callable[[Notification], None]]) -> None:
+    def on_notification(self, callback: Callable[[Notification], None] | None) -> None:
         """Register notification callback.
 
         Args:
@@ -655,7 +653,7 @@ class OpenCodeSyncClient:
         """Register a custom agent (sync)."""
         return asyncio.run(self._async_client.register_agent(agent))
 
-    def get_agent(self, name: str) -> Result[Optional[Any]]:
+    def get_agent(self, name: str) -> Result[Any | None]:
         """Get an agent by name (sync)."""
         return asyncio.run(self._async_client.get_agent(name))
 
@@ -664,7 +662,7 @@ class OpenCodeSyncClient:
         agent_name: str,
         session_id: str,
         user_message: str,
-        options: Optional[Dict[str, Any]] = None,
+        options: dict[str, Any] | None = None,
     ) -> Result[AgentResult]:
         """Execute an agent for a user message (sync)."""
         return asyncio.run(
@@ -676,7 +674,7 @@ class OpenCodeSyncClient:
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         is_default: bool = False,
     ) -> Result[ProviderConfig]:
         """Register a provider configuration (sync)."""
@@ -684,11 +682,11 @@ class OpenCodeSyncClient:
             self._async_client.register_provider(name, provider_id, model, api_key, is_default)
         )
 
-    def get_provider(self, name: str) -> Result[Optional[ProviderConfig]]:
+    def get_provider(self, name: str) -> Result[ProviderConfig | None]:
         """Get a provider configuration by name (sync)."""
         return asyncio.run(self._async_client.get_provider(name))
 
-    def list_providers(self) -> Result[list[Dict[str, Any]]]:
+    def list_providers(self) -> Result[list[dict[str, Any]]]:
         """List all provider configurations (sync)."""
         return asyncio.run(self._async_client.list_providers())
 
@@ -701,7 +699,7 @@ class OpenCodeSyncClient:
         name: str,
         provider_id: str,
         model: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
     ) -> Result[ProviderConfig]:
         """Update an existing provider configuration (sync)."""
         return asyncio.run(self._async_client.update_provider(name, provider_id, model, api_key))

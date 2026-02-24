@@ -4,14 +4,14 @@ Circuit breaker provides fault tolerance by wrapping LLM provider calls
 with automatic state management (OPEN, CLOSED, HALF_OPEN).
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock
+
+import pytest
 
 from dawn_kestrel.core.models import Message
-from dawn_kestrel.core.result import Ok, Err
-
+from dawn_kestrel.core.result import Ok
 
 # =============================================================================
 # Fixtures
@@ -32,7 +32,7 @@ def mock_provider_adapter():
 @pytest.fixture
 def circuit_breaker(mock_provider_adapter):
     """Create a CircuitBreakerImpl with default config."""
-    from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl, CircuitState
+    from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl
 
     return CircuitBreakerImpl(
         provider_adapter=mock_provider_adapter,

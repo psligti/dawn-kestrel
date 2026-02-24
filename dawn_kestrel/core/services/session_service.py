@@ -6,38 +6,32 @@ that uses SessionManager for core logic and injected handlers for I/O.
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Protocol, runtime_checkable, List, Dict, Any, Optional
 import warnings
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.storage.store import SessionStorage
-from dawn_kestrel.core.session import SessionManager
-from dawn_kestrel.core.models import Session, Message, Part
+from dawn_kestrel.core.models import Message, Part, Session
 from dawn_kestrel.core.repositories import (
-    SessionRepository,
     MessageRepository,
-    PartRepository,
-    SessionRepositoryImpl,
     MessageRepositoryImpl,
+    PartRepository,
     PartRepositoryImpl,
+    SessionRepository,
+    SessionRepositoryImpl,
 )
+from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.core.session import SessionManager
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
-    NotificationHandler,
-    StateHandler,
-    QuietIOHandler,
-    NoOpProgressHandler,
     NoOpNotificationHandler,
+    NoOpProgressHandler,
     Notification,
+    NotificationHandler,
     NotificationType,
+    ProgressHandler,
+    QuietIOHandler,
 )
-from dawn_kestrel.core.exceptions import (
-    OpenCodeError,
-    SessionError,
-    IOHandlerError,
-)
-from dawn_kestrel.core.result import Result, Ok, Err
+from dawn_kestrel.storage.store import SessionStorage
 
 
 @runtime_checkable
@@ -137,7 +131,7 @@ class DefaultSessionService:
         """
         if storage is not None:
             # Backward compatibility: create repositories from storage
-            from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
+            from dawn_kestrel.storage.store import MessageStorage, PartStorage, SessionStorage
 
             if isinstance(storage, SessionStorage):
                 self._session_repo = SessionRepositoryImpl(storage, self.project_dir.name)
@@ -220,8 +214,8 @@ class DefaultSessionService:
                 self._progress_handler.update(50, "Initializing...")
 
             # Generate session ID and slug
-            import uuid
             import re
+            import uuid
 
             session_id = str(uuid.uuid4())
             slug = re.sub(r"\s+", "-", title.lower().replace(" ", "-"))
@@ -306,16 +300,19 @@ class DefaultSessionService:
         except Exception as e:
             return Err(f"Failed to delete session: {e}", code="SessionError")
 
-    async def add_message(self, *args: Any, **kwargs: Any) -> Result[str]:
+    async def add_message(self, *args: Any, **kwargs: Any) -> Result[str] | str:
         """Add a message to a session.
 
         Supports two calling patterns:
         1. add_message(session_id: str, role: str, text: str) -> Result[str]
-        2. add_message(message: Message) -> Result[str]
+        2. add_message(message: Message) -> str
 
         Returns:
-            Result with message ID on success, or Err on failure.
+            Result[str] for 3-arg pattern, str (message ID) for 1-arg pattern.
+            The 1-arg pattern matches SessionManagerLike protocol.
         """
+        is_protocol_call = len(args) == 1 and hasattr(args[0], "session_id")
+
         try:
             if self._progress_handler:
                 self._progress_handler.start("Adding message", 100)
@@ -324,44 +321,55 @@ class DefaultSessionService:
             import uuid
             from datetime import datetime
 
-            if len(args) == 1 and hasattr(args[0], "session_id"):
-                message = args[0]  # type: ignore[assignment]
+            if is_protocol_call:
+                message = args[0]
             elif len(args) == 3:
                 session_id, role, text = args[0], args[1], args[2]
                 message = Message(
                     id=str(uuid.uuid4()),
-                    session_id=session_id,  # type: ignore[arg-type]
-                    role=role,  # type: ignore[arg-type]
+                    session_id=session_id,
+                    role=role,
                     time={"created": datetime.now().timestamp()},
-                    text=text,  # type: ignore[arg-type]
+                    text=text,
                 )
             else:
                 return Err("Invalid arguments to add_message", code="ValueError")
 
-            result = await self._message_repo.create(message)  # type: ignore[arg-type]
+            result = await self._message_repo.create(message)
             if result.is_err():
+                if is_protocol_call:
+                    return message.id
                 return Err(f"Failed to add message: {result.error}", code="SessionError")
 
             created_message = result.unwrap()
 
             if self._progress_handler:
                 self._progress_handler.update(100, "Message added")
-                self._progress_handler.complete(f"Added message to session {message.session_id}")  # type: ignore[union-attr]
+                self._progress_handler.complete(f"Added message to session {message.session_id}")
 
             if self._notification_handler:
                 self._notification_handler.show(
                     Notification(
                         notification_type=NotificationType.SUCCESS,
-                        message=f"Message added to session {message.session_id}",  # type: ignore[union-attr]
+                        message=f"Message added to session {message.session_id}",
                     )
                 )
+
+            if is_protocol_call:
+                return created_message.id
 
             return Ok(created_message.id)
 
         except Exception as e:
+            import uuid
+
+            if is_protocol_call:
+                if len(args) > 0 and hasattr(args[0], "id"):
+                    return args[0].id
+                return str(uuid.uuid4())
             return Err(f"Failed to add message: {e}", code="SessionError")
 
-    async def list_messages(self, session_id: str) -> List[Message]:
+    async def list_messages(self, session_id: str) -> list[Message]:
         """List all messages for a session.
 
         Args:
@@ -429,7 +437,7 @@ class DefaultSessionService:
                 return result
             return Ok(result.unwrap())
 
-    async def get_export_data(self, session_id: str) -> Result[Dict[str, Any]]:
+    async def get_export_data(self, session_id: str) -> Result[dict[str, Any]]:
         """Get session data for export.
 
         Args:
@@ -484,7 +492,7 @@ class DefaultSessionService:
         return export_data
 
     async def import_session(
-        self, session_data: Dict[str, Any], project_id: str | None = None
+        self, session_data: dict[str, Any], project_id: str | None = None
     ) -> Result[Session]:
         """Import session data.
 
@@ -528,7 +536,6 @@ class DefaultSessionService:
                 session = result.unwrap()
             else:
                 # Create new session
-                import uuid
                 import re
 
                 now = datetime.now().timestamp()

@@ -40,9 +40,10 @@ Evidence:
 - Statistics show correct counts
 """
 
-import pytest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock
+
+import pytest
 
 
 class TestReliabilityPatternsRateLimiting:

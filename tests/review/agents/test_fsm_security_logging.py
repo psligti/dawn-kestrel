@@ -7,20 +7,18 @@ These tests verify:
 - Log format standardization
 """
 
-import pytest
 import logging
-from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
 
+from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 from dawn_kestrel.agents.review.utils.redaction import (
-    redact_secrets,
+    format_log_with_redaction,
     redact_dict,
     redact_list,
-    format_log_with_redaction,
+    redact_secrets,
 )
-from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
-from dawn_kestrel.agents.review.contracts import Finding
 
+from dawn_kestrel.agents.review.contracts import Finding
 
 # =============================================================================
 # Secret Redaction Tests

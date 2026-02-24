@@ -6,17 +6,20 @@ parallel execution, task status tracking, and error handling.
 """
 from __future__ import annotations
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from dawn_kestrel.core.agent_task import AgentTask, TaskStatus, create_agent_task
-from dawn_kestrel.core.agent_types import AgentResult, Session, Message
-from dawn_kestrel.agents.orchestrator import AgentOrchestrator, TaskResult, create_agent_orchestrator
-from dawn_kestrel.agents.runtime import AgentRuntime
+import pytest
+
+from dawn_kestrel.agents.orchestrator import (
+    AgentOrchestrator,
+    TaskResult,
+    create_agent_orchestrator,
+)
 from dawn_kestrel.agents.registry import AgentRegistry
-from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.tools.framework import ToolRegistry
+from dawn_kestrel.agents.runtime import AgentRuntime
+from dawn_kestrel.core.agent_task import TaskStatus, create_agent_task
+from dawn_kestrel.core.agent_types import AgentResult, Session
 from dawn_kestrel.tools import create_builtin_registry
 
 

@@ -7,8 +7,8 @@ in everything—even works of gods themselves.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 PLAN_VALIDATOR_PROMPT = """You are a **practical** work plan reviewer. Your goal is simple: verify that plan is **executable** and **references are valid**.
 

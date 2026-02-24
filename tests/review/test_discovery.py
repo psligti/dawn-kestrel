@@ -1,16 +1,15 @@
 """Comprehensive tests for entry point discovery module."""
 import asyncio
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
-from pathlib import Path
-from tempfile import TemporaryDirectory
 import subprocess
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.discovery import (
     EntryPoint,
     EntryPointDiscovery,
 )
-from dawn_kestrel.tools.framework import ToolContext, ToolResult
+
+from dawn_kestrel.tools.framework import ToolResult
 
 
 @pytest.fixture

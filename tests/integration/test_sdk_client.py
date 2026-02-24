@@ -43,12 +43,11 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-import pytest
-import asyncio
 
-from dawn_kestrel.sdk.client import OpenCodeAsyncClient
+import pytest
+
 from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.result import Ok, Err
+from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
 
 class TestSDKClientWorkflow:
@@ -291,7 +290,7 @@ class TestSDKClientWorkflow:
         - Unwrapped value is not None
         """
         result = await client.get_session("nonexistent_session_id")
-        assert result.is_ok(), f"get_session for nonexistent ID should return Ok(None), not Err"
+        assert result.is_ok(), "get_session for nonexistent ID should return Ok(None), not Err"
         session = result.unwrap()
         assert session is None
 

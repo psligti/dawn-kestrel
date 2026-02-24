@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.models import Session, Message, Part
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.models import Message, Part, Session
+from dawn_kestrel.core.result import Err, Ok, Result
 
 
 @runtime_checkable

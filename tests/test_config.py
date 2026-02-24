@@ -4,22 +4,20 @@ Tests Settings class, Pydantic validation, environment variable loading,
 and configuration utility functions, plus SDKConfig dataclass.
 """
 
-import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
 
+from dawn_kestrel.core.config import SDKConfig
 from dawn_kestrel.core.settings import (
     Settings,
-    get_settings,
-    reload_settings,
-    get_storage_dir,
-    get_config_dir,
     get_cache_dir,
+    get_config_dir,
+    get_settings,
+    get_storage_dir,
+    reload_settings,
 )
-from dawn_kestrel.core.config import SDKConfig
 from dawn_kestrel.providers import ProviderID
 
 

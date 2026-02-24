@@ -5,12 +5,11 @@ Provides robust HTTP communication with exponential backoff
 and comprehensive error handling for AI provider requests.
 """
 
-import httpx
-import logging
 import asyncio
-from typing import Optional, Dict, Any, Union
-from decimal import Decimal
+import logging
+from typing import Any
 
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class HTTPClientError(Exception):
     def __init__(
         self,
         message: str,
-        status_code: Optional[int] = None,
+        status_code: int | None = None,
         retry_count: int = 0
     ):
         self.message = message
@@ -49,9 +48,9 @@ class HTTPClientWrapper:
     async def post(
         self,
         url: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None
     ) -> httpx.Response:
         """POST request with retry logic"""
         return await self._request_with_retry(
@@ -65,8 +64,8 @@ class HTTPClientWrapper:
     async def get(
         self,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None
     ) -> httpx.Response:
         """GET request with retry logic"""
         return await self._request_with_retry(
@@ -80,9 +79,9 @@ class HTTPClientWrapper:
         self,
         method: str,
         url: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None
     ):
         """Streaming request with retry logic"""
         return self._stream_with_retry(
@@ -97,9 +96,9 @@ class HTTPClientWrapper:
         self,
         method: str,
         url: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None
     ) -> httpx.Response:
         """Execute HTTP request with retry logic"""
         actual_timeout = timeout if timeout is not None else self.base_timeout
@@ -185,9 +184,9 @@ class HTTPClientWrapper:
         self,
         method: str,
         url: str,
-        json: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[float] = None
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float | None = None
     ):
         """Execute streaming HTTP request with retry logic (for initial connection only)"""
         actual_timeout = timeout if timeout is not None else self.base_timeout

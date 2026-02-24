@@ -6,18 +6,15 @@ configurable, centralized logging for functions and methods.
 
 import asyncio
 import logging
-from io import StringIO
-from dataclasses import dataclass
 
 import pytest
 
 from dawn_kestrel.core.decorators import (
-    LoggingConfig,
-    log_function,
     FunctionProxy,
+    LoggingConfig,
     create_logging_proxy,
+    log_function,
 )
-
 
 # ============ LoggingConfig Tests ============
 

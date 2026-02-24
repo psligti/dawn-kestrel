@@ -10,10 +10,9 @@ Tests the Observer pattern including:
 
 import pytest
 
-from dawn_kestrel.core.mediator import Event, EventMediator, EventType
+from dawn_kestrel.core.mediator import Event, EventType
 from dawn_kestrel.core.observer import (
     MetricsObserver,
-    Observable,
     ObservableImpl,
     StateChangeObserver,
 )

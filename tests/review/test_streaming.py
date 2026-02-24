@@ -1,20 +1,20 @@
 """Tests for streaming infrastructure using TDD approach."""
-import pytest
-from datetime import datetime, timedelta
-from typing import AsyncGenerator, List
 import asyncio
+from datetime import datetime, timedelta
 
+import pytest
 from dawn_kestrel.agents.review.streaming import (
-    ReviewStreamManager,
-    StreamEventType,
-    StreamEvent,
+    ErrorEvent,
     ProgressEvent,
     ResultEvent,
-    ErrorEvent,
+    ReviewStreamManager,
+    StreamEvent,
+    StreamEventType,
     StreamHandle,
     calculate_progress,
 )
-from dawn_kestrel.agents.review.contracts import ReviewOutput, Scope, MergeGate
+
+from dawn_kestrel.agents.review.contracts import MergeGate, ReviewOutput, Scope
 
 
 class TestStreamEventType:

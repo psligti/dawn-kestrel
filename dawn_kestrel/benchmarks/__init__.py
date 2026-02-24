@@ -13,9 +13,10 @@ to keep dependencies minimal.
 import json
 import statistics
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from dawn_kestrel.core import models
 
@@ -30,15 +31,15 @@ class BenchmarkResult:
     count: int
     mean: float
     median: float
-    std_dev: Optional[float] = None
-    p95: Optional[float] = None
-    p99: Optional[float] = None
+    std_dev: float | None = None
+    p95: float | None = None
+    p99: float | None = None
     min_value: float = 0.0
     max_value: float = 0.0
     memory_created: int = 0  # Number of entries created during benchmark
     timestamp: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert benchmark result to dictionary."""
         return {
             "benchmark_name": self.benchmark_name,
@@ -70,7 +71,7 @@ class BenchmarkResult:
 class BenchmarkReport:
     """Complete report containing multiple benchmark results."""
     name: str
-    results: List[BenchmarkResult] = field(default_factory=list)
+    results: list[BenchmarkResult] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: time.strftime("%Y-%m-%d %H:%M:%S"))
 
     def add_result(self, result: BenchmarkResult) -> None:
@@ -87,7 +88,7 @@ class BenchmarkReport:
                 "results": [r.to_dict() for r in self.results],
             }, f, indent=2)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary."""
         return {
             "report_name": self.name,
@@ -96,7 +97,7 @@ class BenchmarkReport:
         }
 
 
-def calculate_percentiles(values: List[float], percentiles: List[float]) -> Dict[float, float]:
+def calculate_percentiles(values: list[float], percentiles: list[float]) -> dict[float, float]:
     """Calculate percentile values for a list of numbers."""
     sorted_values = sorted(values)
     return {
@@ -108,7 +109,7 @@ def calculate_percentiles(values: List[float], percentiles: List[float]) -> Dict
 def record_result(
     benchmark_name: str,
     metric_name: str,
-    values: List[float],
+    values: list[float],
     count: int,
     unit: str,
     memory_created: int = 0,

@@ -5,8 +5,8 @@ beyond raw text. Extracts specific information or summaries.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 MULTIMODAL_LOOKER_PROMPT = """You interpret media files that cannot be read as plain text.
 
@@ -47,7 +47,7 @@ Your output goes straight to the main agent for continued work.
 """
 
 
-def create_multimodal_looker_agent():
+def create_multimodal_looker_agent() -> AgentConfig:
     """Create Multimodal Looker agent configuration.
 
     Returns:

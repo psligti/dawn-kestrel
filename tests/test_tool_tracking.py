@@ -1,21 +1,22 @@
 """
 Tests for tool execution tracking and session lifecycle.
 """
-import pytest
 import asyncio
-import tempfile
 import json
+import tempfile
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from dawn_kestrel.agents.tool_execution_tracker import ToolExecutionTracker, create_tool_tracker
+from dawn_kestrel.core.event_bus import Events, bus
+from dawn_kestrel.core.models import Message, Session, ToolState
 from dawn_kestrel.core.session_lifecycle import (
     SessionLifecycle,
-    create_session_lifecycle,
     SessionLifecycleListener,
+    create_session_lifecycle,
 )
-from dawn_kestrel.core.models import ToolState, Session, Message
-from dawn_kestrel.core.event_bus import bus, Events
 
 
 @pytest.fixture
@@ -94,7 +95,7 @@ class TestToolExecutionTracker:
         )
         assert execution_file.exists()
 
-        with open(execution_file, "r") as f:
+        with open(execution_file) as f:
             record = json.load(f)
 
         assert record["id"] == execution_id

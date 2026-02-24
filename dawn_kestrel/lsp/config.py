@@ -1,11 +1,9 @@
 """OpenCode Python - LSP utilities and configuration"""
 
 from __future__ import annotations
-from typing import Optional
-from pathlib import Path
+
 import logging
-
-
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +11,7 @@ logger = logging.getLogger(__name__)
 class LSPConfig:
     """LSP configuration"""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize LSP configuration
 
         Args:
@@ -28,7 +26,7 @@ class LSPConfig:
             Workspace root directory path
         """
         if self.config_path and self.config_path.exists():
-            with open(self.config_path, "r") as f:
+            with open(self.config_path) as f:
                 content = f.read()
                 # Extract workspace path from config
                 for line in content.strip().split("\n"):
@@ -41,7 +39,7 @@ class LSPConfig:
                                 return path
 
             logger.debug(f"Config file path: {self.config_path}")
-        
+
         # Fallback to git root detection
         from git import Repo
         try:
@@ -57,7 +55,7 @@ class LSPConfig:
 class LSPServerConfig:
     """Language server configuration"""
 
-    def __init__(self, server_path: Optional[Path] = None, language_id: str = "python"):
+    def __init__(self, server_path: Path | None = None, language_id: str = "python"):
         """Initialize language server
 
         Args:

@@ -1,11 +1,13 @@
 """Tests for sync SDK client."""
 from __future__ import annotations
 
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from dawn_kestrel.sdk.client import OpenCodeSyncClient
-from dawn_kestrel.core.models import Session
+
 from dawn_kestrel.core.exceptions import SessionError
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.sdk.client import OpenCodeSyncClient
 
 
 class TestOpenCodeClientInitialization:
@@ -17,7 +19,6 @@ class TestOpenCodeClientInitialization:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeSyncClient initialization with default config."""
-        from dawn_kestrel.core.config import SDKConfig
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -60,7 +61,11 @@ class TestOpenCodeClientInitialization:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeSyncClient initialization with custom handlers."""
-        from dawn_kestrel.interfaces.io import QuietIOHandler, NoOpProgressHandler, NoOpNotificationHandler
+        from dawn_kestrel.interfaces.io import (
+            NoOpNotificationHandler,
+            NoOpProgressHandler,
+            QuietIOHandler,
+        )
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -112,7 +117,6 @@ class TestOpenCodeClientCallbacks:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test notification callback registration."""
-        from dawn_kestrel.interfaces.io import Notification
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -317,8 +321,6 @@ class TestOpenCodeClientSessionMethods:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeSyncClient wraps async client methods."""
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
-        import asyncio
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -339,8 +341,9 @@ class TestOpenCodeClientSessionMethods:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test that sync client uses asyncio.run internally."""
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         import asyncio
+
+        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -364,7 +367,6 @@ class TestOpenCodeClientExceptionHandling:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test that service exceptions are propagated to SDK user."""
-        from dawn_kestrel.core.config import SDKConfig
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -391,7 +393,11 @@ class TestOpenCodeClientAsyncIntegration:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeSyncClient handler integration."""
-        from dawn_kestrel.interfaces.io import QuietIOHandler, NoOpProgressHandler, NoOpNotificationHandler
+        from dawn_kestrel.interfaces.io import (
+            NoOpNotificationHandler,
+            NoOpProgressHandler,
+            QuietIOHandler,
+        )
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage

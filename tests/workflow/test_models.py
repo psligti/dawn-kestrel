@@ -3,8 +3,6 @@
 import json
 from datetime import datetime
 
-import pytest
-
 from dawn_kestrel.workflow.models import (
     ActionType,
     Confidence,

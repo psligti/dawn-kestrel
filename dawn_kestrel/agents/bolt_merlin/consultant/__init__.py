@@ -5,8 +5,8 @@ and architecture. Used for consultation only - no file modifications.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 CONSULTANT_PROMPT = """You are Consultant, a read-only high-IQ consultant for debugging and architecture.
 

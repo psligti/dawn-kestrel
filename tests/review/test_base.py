@@ -1,12 +1,11 @@
 """Tests for BaseReviewerAgent abstract base class using TDD approach."""
 
+from abc import ABC
+
 import pytest
-from abc import ABC, abstractmethod
-from typing import List
-from pydantic import ValidationError
 
 from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.contracts import ReviewOutput, Scope, MergeGate
+from dawn_kestrel.agents.review.contracts import MergeGate, ReviewOutput, Scope
 
 
 class TestReviewContext:
@@ -73,13 +72,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "ConcreteReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "You are a code reviewer."
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -126,13 +125,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "Test"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["src/**/*.py", "tests/**/*.py"]
 
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -160,13 +159,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "Test"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["src/**/*.py"]
 
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -194,13 +193,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "Test"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return []
 
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -228,13 +227,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "Test"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -274,13 +273,13 @@ class TestBaseReviewerAgent:
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
                 return "Test"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             async def review(self, context: ReviewContext) -> ReviewOutput:

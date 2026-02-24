@@ -5,37 +5,29 @@ Includes all 22 tools (5 builtin + 17 additional).
 """
 
 import logging
-from typing import Dict
+from typing import TYPE_CHECKING
 
-from .builtin import (
-    BashTool,
-    ReadTool,
-    WriteTool,
-    GrepTool,
-    GlobTool,
-    ASTGrepTool
-)
 from .additional import (
+    BatchTool,
+    CodeSearchTool,
+    CompactionTool,
     EditTool,
+    ExternalDirectoryTool,
     ListTool,
-    TaskTool,
+    LspTool,
+    MultiEditTool,
+    PlanEnterTool,
+    PlanExitTool,
     QuestionTool,
+    SkillTool,
+    TaskTool,
     TodoTool,
     TodowriteTool,
     WebFetchTool,
     WebSearchTool,
-    MultiEditTool,
-    CodeSearchTool,
-    LspTool,
-    SkillTool,
-    ExternalDirectoryTool,
-    PlanEnterTool,
-    PlanExitTool,
-    BatchTool,
-    CompactionTool
 )
-from .framework import ToolRegistry, Tool, ToolContext, ToolResult
-from typing import TYPE_CHECKING
+from .builtin import ASTGrepTool, BashTool, GlobTool, GrepTool, ReadTool, WriteTool
+from .framework import Tool, ToolContext, ToolRegistry, ToolResult
 
 if TYPE_CHECKING:
     pass
@@ -48,10 +40,10 @@ class ToolRegistry(ToolRegistry):
     """Extended tool registry with all tools"""
 
     def __init__(self):
-        self.tools: Dict[str, "Tool"] = {}
+        self.tools: dict[str, Tool] = {}
         self._init_builtin_tools()
         self._init_additional_tools()
-    
+
     def _init_builtin_tools(self):
         self.tools["bash"] = BashTool()
         self.tools["read"] = ReadTool()
@@ -81,11 +73,11 @@ class ToolRegistry(ToolRegistry):
 
     def _init_additional_tools(self):
         pass
-    async def get_all(self) -> Dict[str, "Tool"]:
+    async def get_all(self) -> dict[str, "Tool"]:
         """Get all available tools"""
         return self.tools
-    
-    async def execute(self, tool_name: str, args: Dict, ctx: ToolContext) -> ToolResult:
+
+    async def execute(self, tool_name: str, args: dict, ctx: ToolContext) -> ToolResult:
         """Execute tool by name"""
         tool = self.tools.get(tool_name.lower())
         if not tool:
@@ -95,5 +87,5 @@ class ToolRegistry(ToolRegistry):
                 output=f"Tool {tool_name} is not available",
                 metadata={"error": f"unknown_tool: {tool_name}"}
             )
-        
+
         return await tool.execute(args, ctx)

@@ -5,19 +5,19 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Any, List
+from typing import Any
 
-from pydantic import BaseModel, Field, AliasChoices
+from pydantic import AliasChoices, BaseModel, Field
 
-from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
-from dawn_kestrel.tools.prompts import get_prompt
 from dawn_kestrel.core.security import (
+    ALLOWED_SHELL_COMMANDS,
+    SecurityError,
+    safe_path,
     validate_command,
     validate_pattern,
-    ALLOWED_SHELL_COMMANDS,
-    ALLOWED_SEARCH_TOOLS,
-    SecurityError,
 )
+from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
+from dawn_kestrel.tools.prompts import get_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ class BashToolArgs(BaseModel):
     """Arguments for Bash tool"""
 
     command: str = Field(description="Command to execute")
-    description: Optional[str] = Field(default=None, description="Description for UI")
-    workdir: Optional[str] = Field(default=".", description="Working directory")
+    description: str | None = Field(default=None, description="Description for UI")
+    workdir: str | None = Field(default=".", description="Working directory")
 
 
 class BashTool(Tool):
@@ -38,11 +38,11 @@ class BashTool(Tool):
     dependencies = ["read", "write", "glob", "grep"]
     examples = ["Execute shell command", "Run git status"]
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Get JSON schema for bash tool parameters"""
         return BashToolArgs.model_json_schema()
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Execute a bash command
 
         Args:
@@ -109,8 +109,8 @@ class ReadToolArgs(BaseModel):
         validation_alias=AliasChoices("filePath", "file_path"),
         description="Path to file (relative to project)",
     )
-    limit: Optional[int] = Field(default=2000, description="Max lines to read")
-    offset: Optional[int] = Field(default=0, description="Line number to start from")
+    limit: int | None = Field(default=2000, description="Max lines to read")
+    offset: int | None = Field(default=0, description="Line number to start from")
 
 
 class ReadTool(Tool):
@@ -119,7 +119,7 @@ class ReadTool(Tool):
     id = "read"
     description = get_prompt("read")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Read a file
 
         Args:
@@ -129,7 +129,6 @@ class ReadTool(Tool):
         Returns:
             ToolResult with file content
         """
-        # Validate args using Pydantic model
         validated = ReadToolArgs(**args)
         file_path = validated.filePath
 
@@ -140,12 +139,13 @@ class ReadTool(Tool):
                 metadata={"error": "File path is required"},
             )
 
-        # Handle Optional[int] fields with proper type checks
         limit = validated.limit if isinstance(validated.limit, int) else 2000
         offset = validated.offset if isinstance(validated.offset, int) else 0
 
         try:
-            full_path = Path(file_path)
+            base_dir = Path.cwd()
+            full_path = safe_path(file_path, base_dir=base_dir)
+
             if not full_path.exists():
                 return ToolResult(
                     title="File not found",
@@ -153,11 +153,9 @@ class ReadTool(Tool):
                     metadata={"path": str(file_path), "error": "File not found"},
                 )
 
-            # Read file content
-            with open(full_path, "r") as f:
+            with open(full_path) as f:
                 all_lines = f.readlines()
 
-            # Apply offset/limit
             start_line = max(0, offset - 1)
             end_line = min(start_line + limit, len(all_lines))
             lines = all_lines[start_line:end_line]
@@ -176,6 +174,13 @@ class ReadTool(Tool):
                 metadata=metadata,
             )
 
+        except SecurityError as e:
+            logger.warning(f"Path blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {file_path}",
+                output=f"Path rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
         except Exception as e:
             logger.error(f"Read tool failed: {e}")
             return ToolResult(
@@ -202,7 +207,7 @@ class WriteTool(Tool):
     id = "write"
     description = get_prompt("write")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Write content to a file
 
         Args:
@@ -212,20 +217,18 @@ class WriteTool(Tool):
         Returns:
             ToolResult with operation result
         """
-        # Validate args using Pydantic model
         validated = WriteToolArgs(**args)
         file_path = validated.filePath
         content = validated.content
         create_dirs = validated.create
 
         try:
-            full_path = Path(file_path)
+            base_dir = Path.cwd()
+            full_path = safe_path(file_path, base_dir=base_dir)
 
-            # Create directories if needed
             if create_dirs:
                 full_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write content
             with open(full_path, "w") as f:
                 f.write(content)
 
@@ -235,6 +238,13 @@ class WriteTool(Tool):
                 metadata={"path": str(full_path), "bytes": len(content)},
             )
 
+        except SecurityError as e:
+            logger.warning(f"Path blocked by security policy: {e}")
+            return ToolResult(
+                title=f"Security Error: {file_path}",
+                output=f"Path rejected by security policy: {e}",
+                metadata={"error": str(e), "security_error": True},
+            )
         except Exception as e:
             logger.error(f"Write tool failed: {e}")
             return ToolResult(
@@ -248,7 +258,7 @@ class GrepToolArgs(BaseModel):
     """Arguments for Grep tool"""
 
     pattern: str = Field(description="Regex pattern to search")
-    include: Optional[str] = Field(default="*", description="Glob pattern for files")
+    include: str | None = Field(default="*", description="Glob pattern for files")
     max_results: int = Field(default=100, description="Max results to return")
 
 
@@ -258,7 +268,7 @@ class GrepTool(Tool):
     id = "grep"
     description = get_prompt("grep")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Search for patterns in files
 
         Args:
@@ -335,7 +345,7 @@ class GlobTool(Tool):
     id = "glob"
     description = get_prompt("glob")
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Find files matching glob patterns
 
         Args:
@@ -435,7 +445,7 @@ class ASTGrepToolArgs(BaseModel):
     language: str = Field(
         default="python", description="Language (python, javascript, typescript, etc.)"
     )
-    paths: Optional[List[str]] = Field(default=None, description="Specific file paths to search")
+    paths: list[str] | None = Field(default=None, description="Specific file paths to search")
 
 
 class ASTGrepTool(Tool):
@@ -444,7 +454,7 @@ class ASTGrepTool(Tool):
     id = "ast_grep_search"
     description = "Search code using AST patterns (ast-grep) for structural code matching"
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Search for AST patterns in code
 
         Args:

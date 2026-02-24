@@ -1,13 +1,12 @@
 """Tests for dialog system using TDD approach."""
 
-import pytest
 from textual.screen import ModalScreen
 
 from dawn_kestrel.tui.dialogs import (
     BaseDialog,
-    SelectDialog,
     ConfirmDialog,
     PromptDialog,
+    SelectDialog,
 )
 
 

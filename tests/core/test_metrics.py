@@ -1,15 +1,16 @@
 """Tests for metrics decorators and proxies."""
 
 import asyncio
-import pytest
-from dawn_kestrel.core.metrics import (
-    MetricsCollector,
-    InMemoryMetricsStore,
-    metrics_decorator,
-    MethodMetricsProxy,
-    create_metrics_proxy,
-)
 
+import pytest
+
+from dawn_kestrel.core.metrics import (
+    InMemoryMetricsStore,
+    MethodMetricsProxy,
+    MetricsCollector,
+    create_metrics_proxy,
+    metrics_decorator,
+)
 
 # ============ MetricsCollector Protocol Tests ============
 

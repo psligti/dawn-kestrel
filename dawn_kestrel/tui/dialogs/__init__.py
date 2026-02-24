@@ -1,11 +1,12 @@
 """Dialog system for TUI using Textual ModalScreen."""
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from collections.abc import Callable
+from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 from textual.app import ComposeResult
-from textual.containers import Vertical, Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Label, ListItem, ListView, Static, Input, DataTable, Footer
+from textual.widgets import Button, DataTable, Footer, Input, Label, ListItem, ListView, Static
 
 T = TypeVar("T")
 
@@ -35,11 +36,11 @@ class BaseDialog(ModalScreen[str]):
     }
     """
 
-    def __init__(self, title: str = "", body: Optional[ComposeResult] = None):
+    def __init__(self, title: str = "", body: ComposeResult | None = None):
         super().__init__()
         self.title = title
         self.body_content = body
-        self._result: Optional[str] = None
+        self._result: str | None = None
         self._closed = False
 
     def compose(self) -> ComposeResult:
@@ -66,7 +67,7 @@ class BaseDialog(ModalScreen[str]):
         self._closed = True
         self.dismiss()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> str | None:
         """Get dialog result.
 
         Returns:
@@ -119,16 +120,16 @@ class SelectDialog(ModalScreen[T]):
     def __init__(
         self,
         title: str,
-        options: List[Dict[str, Any]],
+        options: list[dict[str, Any]],
         placeholder: str = "Search...",
-        on_select: Optional[Callable[[T], None]] = None,
+        on_select: Callable[[T], None] | None = None,
     ):
         super().__init__()
         self.title = title
         self.options = options
         self.placeholder = placeholder
         self.on_select = on_select
-        self._result: Optional[T] = None
+        self._result: T | None = None
         self._selected_index: int = 0
 
     def compose(self) -> ComposeResult:
@@ -170,7 +171,7 @@ class SelectDialog(ModalScreen[T]):
                     pass
                 return
 
-    def close_dialog(self, value: Optional[T] = None) -> None:
+    def close_dialog(self, value: T | None = None) -> None:
         """Close dialog and return selected value.
 
         Args:
@@ -182,7 +183,7 @@ class SelectDialog(ModalScreen[T]):
         self._result = value
         self.dismiss()
 
-    def get_result(self) -> Optional[T]:
+    def get_result(self) -> T | None:
         """Get dialog result.
 
         Returns:
@@ -236,8 +237,8 @@ class ConfirmDialog(BaseDialog):
         self,
         title: str,
         message: str = "",
-        on_confirm: Optional[Callable[[], None]] = None,
-        on_cancel: Optional[Callable[[], None]] = None,
+        on_confirm: Callable[[], None] | None = None,
+        on_cancel: Callable[[], None] | None = None,
     ):
         super().__init__(title=title)
         self.message = message
@@ -333,14 +334,14 @@ class PromptDialog(ModalScreen[str]):
         title: str,
         placeholder: str = "",
         initial_value: str = "",
-        on_submit: Optional[Callable[[str], None]] = None,
+        on_submit: Callable[[str], None] | None = None,
     ):
         super().__init__()
         self.title = title
         self.placeholder = placeholder
         self.initial_value = initial_value
         self.on_submit = on_submit
-        self._result: Optional[str] = None
+        self._result: str | None = None
 
     def compose(self) -> ComposeResult:
         """Compose prompt dialog widgets."""
@@ -380,7 +381,7 @@ class PromptDialog(ModalScreen[str]):
         self._result = ""
         self.dismiss()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> str | None:
         """Get dialog result.
 
         Returns:
@@ -389,6 +390,5 @@ class PromptDialog(ModalScreen[str]):
         return self._result
 
 
-from .model_select_dialog import ModelSelectDialog
-from .theme_select_dialog import ThemeSelectDialog
 from .command_palette_dialog import CommandPaletteDialog
+from .theme_select_dialog import ThemeSelectDialog

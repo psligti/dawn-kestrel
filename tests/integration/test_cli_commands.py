@@ -40,12 +40,12 @@ Evidence:
 
 from __future__ import annotations
 
-import tempfile
-from pathlib import Path
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
+
 import pytest
-import json
 
 
 class TestCLIListSessions:
@@ -80,9 +80,10 @@ class TestCLIListSessions:
         - Session not in output
         - Command crashes
         """
-        from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.models import Session
         import asyncio
+
+        from dawn_kestrel.core.models import Session
+        from dawn_kestrel.storage.store import SessionStorage
 
         # Create a session
         storage = SessionStorage(base_dir=temp_storage_dir)
@@ -253,9 +254,10 @@ class TestCLIRepositoryWiring:
         Evidence:
         - Session displayed in list_sessions output
         """
-        from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.models import Session
         import asyncio
+
+        from dawn_kestrel.core.models import Session
+        from dawn_kestrel.storage.store import SessionStorage
 
         # Create a session
         storage = SessionStorage(base_dir=temp_storage_dir)

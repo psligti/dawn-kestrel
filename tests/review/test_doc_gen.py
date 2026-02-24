@@ -1,12 +1,12 @@
 """Tests for DocGenAgent class."""
 
-import pytest
 from pathlib import Path
-from typing import List
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.doc_gen import DocGenAgent
-from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
+
+from dawn_kestrel.agents.review.base import BaseReviewerAgent
 
 
 class TestDocGenAgentInit:
@@ -112,7 +112,7 @@ class TestDocGenAgentGetAgentName:
             def get_agent_name(self) -> str:
                 return "CustomAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -136,7 +136,7 @@ class TestDocGenAgentGetAgentName:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -160,7 +160,7 @@ class TestDocGenAgentGetAgentName:
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -184,7 +184,7 @@ class TestDocGenAgentGetAgentName:
             def get_agent_name(self) -> str:
                 return "MockReviewer123"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -319,7 +319,7 @@ class TestDocGenAgentExtractPatternsFromPrompt:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -361,7 +361,7 @@ Content patterns:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -388,7 +388,7 @@ Content patterns:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -415,7 +415,7 @@ Content patterns:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -442,7 +442,7 @@ Content patterns:
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -470,7 +470,7 @@ Medium weight pattern"""
             def get_agent_name(self) -> str:
                 return "MockAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -754,7 +754,7 @@ class TestDocGenAgentDetermineAgentType:
             def get_agent_name(self) -> str:
                 return "SecurityReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -778,7 +778,7 @@ class TestDocGenAgentDetermineAgentType:
             def get_agent_name(self) -> str:
                 return "CustomAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:
@@ -805,7 +805,7 @@ class TestDocGenAgentDetermineAgentType:
                 def get_agent_name(self) -> str:
                     return "TestAgent"
 
-                def get_allowed_tools(self) -> List[str]:
+                def get_allowed_tools(self) -> list[str]:
                     return []
 
                 def get_system_prompt(self) -> str:
@@ -833,7 +833,7 @@ class TestDocGenAgentDetermineAgentType:
                 def get_agent_name(self) -> str:
                     return "MockAgent"
 
-                def get_allowed_tools(self) -> List[str]:
+                def get_allowed_tools(self) -> list[str]:
                     return []
 
                 def get_system_prompt(self) -> str:
@@ -916,10 +916,9 @@ class TestDocGenAgentGenerateYamlFrontmatter:
         """Test generated_at timestamp format."""
         agent = DocGenAgent()
         import datetime
-        import re
 
         # Capture timestamps with microseconds
-        before = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+        before = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
         frontmatter = agent._generate_yaml_frontmatter(
             agent_name="test",
             agent_type="optional",
@@ -927,7 +926,7 @@ class TestDocGenAgentGenerateYamlFrontmatter:
             heuristics=[],
             prompt_hash="test123",
         )
-        after = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+        after = datetime.datetime.now(datetime.UTC).replace(microsecond=0)
 
         # Check timestamp format (ISO 8601 with Z)
         assert "generated_at:" in frontmatter
@@ -1311,7 +1310,7 @@ prompt_hash: {test_hash}
             def get_agent_name(self) -> str:
                 return "TestAgent"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def get_system_prompt(self) -> str:

@@ -1,13 +1,14 @@
 """OpenCode Python - Memory Summarizer for conversation compression"""
+
 from __future__ import annotations
-from typing import Dict, Any, Optional, List
-from datetime import datetime
+
 import logging
 import os
+from datetime import datetime
+from typing import Any
 
-from dawn_kestrel.core.models import Message
 from dawn_kestrel.core.config import SDKConfig
-
+from dawn_kestrel.core.models import Message
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,11 @@ class MemorySummary:
         self,
         session_id: str,
         summary: str,
-        key_points: List[str],
+        key_points: list[str],
         original_token_count: int,
         compressed_token_count: int,
         timestamp: float,
-    ):
+    ) -> None:
         self.session_id = session_id
         self.summary = summary
         self.key_points = key_points
@@ -46,7 +47,7 @@ class MemorySummary:
             return 1.0
         return self.compressed_token_count / self.original_token_count
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert summary to dictionary
 
         Returns:
@@ -79,7 +80,7 @@ class MemorySummarizer:
     DEFAULT_TARGET_TOKENS = 1000
     DEFAULT_TARGET_RATIO = 0.5  # 50% token reduction
 
-    def __init__(self, config: Optional[SDKConfig] = None):
+    def __init__(self, config: SDKConfig | None = None) -> None:
         """Initialize memory summarizer
 
         Args:
@@ -127,10 +128,10 @@ class MemorySummarizer:
 
     async def summarize(
         self,
-        messages: List[Message],
-        since: Optional[float] = None,
-        target_tokens: Optional[int] = None,
-        target_ratio: Optional[float] = None,
+        messages: list[Message],
+        since: float | None = None,
+        target_tokens: int | None = None,
+        target_ratio: float | None = None,
     ) -> MemorySummary:
         """Summarize a list of messages
 
@@ -197,9 +198,7 @@ class MemorySummarizer:
             raise ValueError(f"Unknown summarization strategy: {self.summarization_strategy}")
 
         # Calculate compressed token count
-        compressed_token_count = self._estimate_tokens_from_text(
-            summary + " ".join(key_points)
-        )
+        compressed_token_count = self._estimate_tokens_from_text(summary + " ".join(key_points))
 
         memory_summary = MemorySummary(
             session_id=session_id,
@@ -231,7 +230,7 @@ class MemorySummarizer:
             return message.time["created"]
         return 0.0
 
-    def _estimate_tokens(self, messages: List[Message]) -> int:
+    def _estimate_tokens(self, messages: list[Message]) -> int:
         """Estimate token count for messages
 
         Args:
@@ -254,7 +253,7 @@ class MemorySummarizer:
         """
         return max(1, len(text) // 4)
 
-    async def _mock_summarize(self, messages: List[Message]) -> tuple[str, List[str]]:
+    async def _mock_summarize(self, messages: list[Message]) -> tuple[str, list[str]]:
         """Generate mock summary for testing
 
         Args:
@@ -283,10 +282,10 @@ class MemorySummarizer:
 
     async def _openai_summarize(
         self,
-        messages: List[Message],
+        messages: list[Message],
         target_tokens: int,
         target_ratio: float,
-    ) -> tuple[str, List[str]]:
+    ) -> tuple[str, list[str]]:
         """Generate summary using OpenAI API
 
         Args:
@@ -303,9 +302,7 @@ class MemorySummarizer:
             client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
             # Format messages for summarization
-            messages_text = "\n".join(
-                f"{m.role}: {m.text}" for m in messages if m.text
-            )
+            messages_text = "\n".join(f"{m.role}: {m.text}" for m in messages if m.text)
 
             prompt = f"""Summarize the following conversation concisely.
 
@@ -383,7 +380,7 @@ Key Points:
         return self.summarization_strategy
 
 
-def create_memory_summarizer(config: Optional[SDKConfig] = None) -> MemorySummarizer:
+def create_memory_summarizer(config: SDKConfig | None = None) -> MemorySummarizer:
     """Factory function to create memory summarizer
 
     Args:

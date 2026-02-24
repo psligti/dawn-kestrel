@@ -1,14 +1,16 @@
 """Tests for memory system (MemoryStorage and MemoryManager)"""
 from __future__ import annotations
-import pytest
-from pathlib import Path
-import tempfile
-import shutil
-from typing import Generator
 
-from dawn_kestrel.storage.memory_storage import MemoryStorage
+import shutil
+import tempfile
+from collections.abc import Generator
+from pathlib import Path
+
+import pytest
+
 from dawn_kestrel.agents.memory_manager import MemoryManager
 from dawn_kestrel.core.models import Memory
+from dawn_kestrel.storage.memory_storage import MemoryStorage
 
 
 @pytest.fixture

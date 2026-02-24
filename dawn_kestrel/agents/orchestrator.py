@@ -4,22 +4,24 @@ Phase 3: Multi-Agent Orchestration - AgentOrchestrator.
 Coordinates multiple agents with delegation, parallel execution,
 task status tracking, and hierarchical sub-task management.
 """
+
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional
 import asyncio
 import logging
-from threading import Lock
 from dataclasses import dataclass
+from threading import Lock
+from typing import Any
 
+from dawn_kestrel.agents.runtime import AgentRuntime
 from dawn_kestrel.core.agent_task import AgentTask, TaskStatus, create_agent_task
 from dawn_kestrel.core.agent_types import (
     AgentResult,
     SessionManagerLike,
 )
-from dawn_kestrel.core.event_bus import bus, Events
-from dawn_kestrel.agents.runtime import AgentRuntime
-
+from dawn_kestrel.core.event_bus import Events, bus
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.tools.framework import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +33,14 @@ class TaskResult:
 
     Couples AgentTask with its AgentResult and execution metadata.
     """
+
     task: AgentTask
     """The task that was executed"""
 
-    result: Optional[AgentResult] = None
+    result: AgentResult | None = None
     """Result from agent execution"""
 
-    error: Optional[str] = None
+    error: str | None = None
     """Error message if execution failed"""
 
     started_at: float = 0.0
@@ -67,7 +70,7 @@ class AgentOrchestrator:
     def __init__(
         self,
         agent_runtime: AgentRuntime,
-    ):
+    ) -> None:
         """
         Initialize AgentOrchestrator.
 
@@ -76,8 +79,8 @@ class AgentOrchestrator:
         """
         self.agent_runtime = agent_runtime
 
-        self._tasks: Dict[str, AgentTask] = {}
-        self._results: Dict[str, TaskResult] = {}
+        self._tasks: dict[str, AgentTask] = {}
+        self._results: dict[str, TaskResult] = {}
         self._task_lock = Lock()
 
     async def delegate_task(
@@ -86,8 +89,8 @@ class AgentOrchestrator:
         session_id: str,
         user_message: str,
         session_manager: SessionManagerLike,
-        tools,
-        session,
+        tools: ToolRegistry,
+        session: Session | None,
     ) -> str:
         """
         Delegate a task to an agent via AgentRuntime.
@@ -109,6 +112,7 @@ class AgentOrchestrator:
             ValueError: If agent not found
         """
         import time
+
         from dawn_kestrel.tools.framework import ToolRegistry
 
         if task.status != TaskStatus.PENDING:
@@ -117,12 +121,15 @@ class AgentOrchestrator:
         with self._task_lock:
             self._tasks[task.task_id] = task
 
-        await bus.publish(Events.TASK_STARTED, {
-            "task_id": task.task_id,
-            "agent_name": task.agent_name,
-            "session_id": session_id,
-            "parent_id": task.parent_id,
-        })
+        await bus.publish(
+            Events.TASK_STARTED,
+            {
+                "task_id": task.task_id,
+                "agent_name": task.agent_name,
+                "session_id": session_id,
+                "parent_id": task.parent_id,
+            },
+        )
         logger.info(f"Task started: {task.task_id} -> {task.agent_name}")
 
         try:
@@ -158,15 +165,17 @@ class AgentOrchestrator:
             with self._task_lock:
                 self._results[task.task_id] = task_result
 
-            await bus.publish(Events.TASK_COMPLETED, {
-                "task_id": task.task_id,
-                "agent_name": task.agent_name,
-                "session_id": session_id,
-                "duration": result.duration,
-            })
+            await bus.publish(
+                Events.TASK_COMPLETED,
+                {
+                    "task_id": task.task_id,
+                    "agent_name": task.agent_name,
+                    "session_id": session_id,
+                    "duration": result.duration,
+                },
+            )
             logger.info(
-                f"Task completed: {task.task_id} -> {task.agent_name} "
-                f"in {result.duration:.2f}s"
+                f"Task completed: {task.task_id} -> {task.agent_name} in {result.duration:.2f}s"
             )
 
             return task.task_id
@@ -186,12 +195,15 @@ class AgentOrchestrator:
             with self._task_lock:
                 self._results[task.task_id] = task_result
 
-            await bus.publish(Events.TASK_FAILED, {
-                "task_id": task.task_id,
-                "agent_name": task.agent_name,
-                "session_id": session_id,
-                "error": str(e),
-            })
+            await bus.publish(
+                Events.TASK_FAILED,
+                {
+                    "task_id": task.task_id,
+                    "agent_name": task.agent_name,
+                    "session_id": session_id,
+                    "error": str(e),
+                },
+            )
             logger.error(f"Task failed: {task.task_id} -> {e}")
 
             raise
@@ -202,10 +214,10 @@ class AgentOrchestrator:
         session_id: str,
         user_message: str,
         session_manager: SessionManagerLike,
-        tools,
-        skills: List[str],
-        options: Optional[Dict[str, Any]] = None,
-        parent_id: Optional[str] = None,
+        tools: ToolRegistry,
+        skills: list[str],
+        options: dict[str, Any] | None = None,
+        parent_id: str | None = None,
     ) -> TaskResult:
         """
         Execute a task via AgentTask model and AgentRuntime.
@@ -265,13 +277,13 @@ class AgentOrchestrator:
 
     async def run_parallel_agents(
         self,
-        tasks: List[AgentTask],
+        tasks: list[AgentTask],
         session_id: str,
-        user_messages: List[str],
+        user_messages: list[str],
         session_manager: SessionManagerLike,
-        tools_list,
-        session,
-    ) -> List[str]:
+        tools_list: ToolRegistry | list[ToolRegistry],
+        session: Session | None,
+    ) -> list[str]:
         """
         Run multiple agents in parallel.
 
@@ -322,7 +334,7 @@ class AgentOrchestrator:
 
         return task_ids
 
-    async def cancel_tasks(self, task_ids: List[str]) -> int:
+    async def cancel_tasks(self, task_ids: list[str]) -> int:
         """
         Cancel running or pending tasks.
 
@@ -343,15 +355,18 @@ class AgentOrchestrator:
                     task.status = TaskStatus.CANCELLED
                     cancelled_count += 1
 
-                    await bus.publish(Events.TASK_CANCELLED, {
-                        "task_id": task_id,
-                        "agent_name": task.agent_name,
-                    })
+                    await bus.publish(
+                        Events.TASK_CANCELLED,
+                        {
+                            "task_id": task_id,
+                            "agent_name": task.agent_name,
+                        },
+                    )
                     logger.info(f"Task cancelled: {task_id}")
 
         return cancelled_count
 
-    def get_status(self, task_id: str) -> Optional[TaskStatus]:
+    def get_status(self, task_id: str) -> TaskStatus | None:
         """
         Get status of a task.
 
@@ -365,7 +380,7 @@ class AgentOrchestrator:
             task = self._tasks.get(task_id)
             return task.status if task else None
 
-    def get_result(self, task_id: str) -> Optional[TaskResult]:
+    def get_result(self, task_id: str) -> TaskResult | None:
         """
         Get result of a task.
 
@@ -378,7 +393,7 @@ class AgentOrchestrator:
         with self._task_lock:
             return self._results.get(task_id)
 
-    def get_active_tasks(self) -> List[AgentTask]:
+    def get_active_tasks(self) -> list[AgentTask]:
         """
         Get all active (pending or running) tasks.
 
@@ -388,7 +403,7 @@ class AgentOrchestrator:
         with self._task_lock:
             return [t for t in self._tasks.values() if t.is_active()]
 
-    def get_child_tasks(self, parent_id: str) -> List[AgentTask]:
+    def get_child_tasks(self, parent_id: str) -> list[AgentTask]:
         """
         Get all child tasks of a parent task.
 
@@ -399,12 +414,9 @@ class AgentOrchestrator:
             List of child tasks
         """
         with self._task_lock:
-            return [
-                t for t in self._tasks.values()
-                if t.parent_id == parent_id
-            ]
+            return [t for t in self._tasks.values() if t.parent_id == parent_id]
 
-    def list_tasks(self, status_filter: Optional[TaskStatus] = None) -> List[AgentTask]:
+    def list_tasks(self, status_filter: TaskStatus | None = None) -> list[AgentTask]:
         """
         List all tasks, optionally filtered by status.
 
@@ -422,7 +434,7 @@ class AgentOrchestrator:
 
             return tasks
 
-    def list_results(self) -> List[TaskResult]:
+    def list_results(self) -> list[TaskResult]:
         """
         List all task results.
 

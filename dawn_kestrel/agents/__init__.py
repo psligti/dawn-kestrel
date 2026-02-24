@@ -1,16 +1,17 @@
 """OpenCode Python - Agent management and lifecycle"""
 
 from __future__ import annotations
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, field
+
 import asyncio
 import logging
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
-from .builtin import Agent, get_agent_by_name
-from dawn_kestrel.core.plugin_discovery import load_agents
 from dawn_kestrel.core.event_bus import Events, bus
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.plugin_discovery import load_agents
 
+from .builtin import Agent, get_agent_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,11 @@ class AgentState:
     session_id: str
     agent_name: str
     status: str
-    time_started: Optional[float] = None
-    time_finished: Optional[float] = None
-    error: Optional[str] = None
+    time_started: float | None = None
+    time_finished: float | None = None
+    error: str | None = None
     messages_count: int = 0
-    tools_used: List[str] = field(default_factory=list)
+    tools_used: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.tools_used is None:
@@ -36,11 +37,15 @@ class AgentState:
 class AgentManager:
     """Manages agent lifecycle and execution"""
 
-    def __init__(self, session_storage=None, config=None):
+    def __init__(
+        self,
+        session_storage: Any | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> None:
         self.session_storage = session_storage
         self.config = config or {}
-        self._active_sessions: Dict[str, AgentState] = {}
-        self._agent_states: Dict[str, AgentState] = {}
+        self._active_sessions: dict[str, AgentState] = {}
+        self._agent_states: dict[str, AgentState] = {}
 
     async def initialize_agent(self, agent: Agent, session: Session) -> AgentState:
         """Initialize an agent for a session"""
@@ -119,13 +124,13 @@ class AgentManager:
 
             del self._agent_states[session_id]
 
-    def get_agent_state(self, session_id: str) -> Optional[AgentState]:
+    def get_agent_state(self, session_id: str) -> AgentState | None:
         """Get current agent state for session"""
         return self._agent_states.get(session_id)
 
-    async def get_all_agents(self) -> List[Agent]:
+    async def get_all_agents(self) -> list[Agent]:
         """Get all available agents from plugin discovery"""
-        plugins = load_agents()
+        plugins = await load_agents()
         agents = []
 
         for name, agent_plugin in plugins.items():
@@ -141,11 +146,11 @@ class AgentManager:
 
         return agents
 
-    async def get_agent_by_name(self, name: str) -> Optional[Agent]:
+    async def get_agent_by_name(self, name: str) -> Agent | None:
         """Get an agent by name"""
         return get_agent_by_name(name)
 
-    def get_active_sessions(self) -> List[AgentState]:
+    def get_active_sessions(self) -> list[AgentState]:
         """Get all active agent sessions"""
         return list(self._agent_states.values())
 
@@ -156,7 +161,10 @@ class AgentManager:
         return time.time()
 
 
-def create_agent_manager(session_storage=None, config=None) -> AgentManager:
+def create_agent_manager(
+    session_storage: Any | None = None,
+    config: dict[str, Any] | None = None,
+) -> AgentManager:
     """Factory function to create agent manager"""
     return AgentManager(session_storage=session_storage, config=config)
 
@@ -164,19 +172,24 @@ def create_agent_manager(session_storage=None, config=None) -> AgentManager:
 class AgentExecutor:
     """Agent execution engine"""
 
-    def __init__(self, agent_manager: AgentManager, tool_manager, session_manager=None):
+    def __init__(
+        self,
+        agent_manager: AgentManager,
+        tool_manager: Any,
+        session_manager: Any | None = None,
+    ) -> None:
         self.agent_manager = agent_manager
         self.tool_manager = tool_manager
         self.session_manager = session_manager
-        self._active_executions: Dict[str, asyncio.Task] = {}
+        self._active_executions: dict[str, asyncio.Task] = {}
 
     async def execute_agent(
         self,
         agent_name: str,
         user_message: str,
         session_id: str,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Execute an agent for a user message
 
         Args:
@@ -223,8 +236,12 @@ class AgentExecutor:
         return result
 
     async def _run_agent_logic(
-        self, agent, user_message: str, session: Session, options: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self,
+        agent: Agent,
+        user_message: str,
+        session: Session,
+        options: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Run the core agent logic
 
         Filters tools based on agent permissions, handles tool execution,
@@ -271,7 +288,7 @@ class AgentExecutor:
                 "metadata": {"error": str(e)},
             }
 
-    def _filter_tools_for_agent(self, agent) -> List[str]:
+    def _filter_tools_for_agent(self, agent: Agent) -> list[str]:
         """Filter available tools based on agent permissions
 
         Args:
@@ -292,7 +309,7 @@ class AgentExecutor:
 
         return allowed_tools
 
-    def _is_tool_allowed(self, tool_name: str, permissions: List[Dict[str, Any]]) -> bool:
+    def _is_tool_allowed(self, tool_name: str, permissions: list[dict[str, Any]]) -> bool:
         """Check if a tool is allowed by agent permissions
 
         Args:
@@ -303,7 +320,8 @@ class AgentExecutor:
             True if tool is allowed, False otherwise
         """
         import fnmatch
-        from dawn_kestrel.tools.framework import ToolContext, Tool
+
+        from dawn_kestrel.tools.framework import Tool, ToolContext
 
         tool = self.tool_manager.tool_registry.get(tool_name)
         if not tool:

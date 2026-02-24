@@ -8,16 +8,16 @@ import pytest
 
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
+    NoOpNotificationHandler,
+    NoOpProgressHandler,
+    Notification,
     NotificationHandler,
-    StateHandler,
+    NotificationType,
+    ProgressHandler,
     ProgressType,
     ProgressUpdate,
-    Notification,
-    NotificationType,
     QuietIOHandler,
-    NoOpProgressHandler,
-    NoOpNotificationHandler,
+    StateHandler,
 )
 
 

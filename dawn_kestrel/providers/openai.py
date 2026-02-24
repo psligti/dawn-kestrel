@@ -4,22 +4,23 @@ OpenAI Provider implementation.
 Streaming support, token counting, and cost calculation.
 """
 
-import httpx
 import json
 import logging
+from collections.abc import AsyncIterator
 from decimal import Decimal
-from typing import AsyncIterator, Dict, Any, Optional
+from typing import Any
+
+import httpx
 
 from .base import (
-    ModelInfo,
     ModelCapabilities,
     ModelCost,
+    ModelInfo,
     ModelLimits,
-    TokenUsage,
+    ProviderID,
     StreamEvent,
-    ProviderID
+    TokenUsage,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class OpenAIProvider:
             )
         ]
 
-    async def stream(self, model: ModelInfo, messages: list, tools: list, options: Optional[Dict[str, Any]] = None) -> AsyncIterator[StreamEvent]:
+    async def stream(self, model: ModelInfo, messages: list, tools: list, options: dict[str, Any] | None = None) -> AsyncIterator[StreamEvent]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -130,21 +131,21 @@ class OpenAIProvider:
                             data_str = line[6:]
                             if data_str == "[DONE]":
                                 continue
-                            
+
                             try:
                                 chunk = json.loads(data_str)
                                 delta = chunk.get("choices", [{}])[0].get("delta", {})
                                 content = delta.get("content", {})
                                 finish_reason = chunk.get("finish_reason")
                                 tool_calls = chunk.get("tool_calls", [])
-                                
+
                                 if "content" in delta:
                                     yield StreamEvent(
                                         event_type="text-delta",
                                         data={"delta": content},
                                         timestamp=0
                                     )
-                                    
+
                                 if "tool_calls" in chunk:
                                     for tool_call in tool_calls:
                                         tool_name = tool_call.get("function", "")
@@ -158,7 +159,7 @@ class OpenAIProvider:
                                             },
                                             timestamp=0
                                         )
-                                        
+
                                     for tool_call in tool_calls:
                                         function = tool_call.get("function", "")
                                         result = tool_call.get("result")
@@ -171,7 +172,7 @@ class OpenAIProvider:
                                                 },
                                                 timestamp=0
                                             )
-                                
+
                                 if finish_reason in ["stop", "length", "content_filter"]:
                                     yield StreamEvent(
                                         event_type="finish",

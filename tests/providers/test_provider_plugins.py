@@ -1,16 +1,14 @@
 """Tests for provider plugin discovery system."""
 
-import pytest
-from unittest.mock import Mock, patch
-from dawn_kestrel.providers.base import ProviderID
 from dawn_kestrel.core.plugin_discovery import load_providers
 from dawn_kestrel.providers import (
     AnthropicProvider,
     OpenAIProvider,
-    ZAIProvider,
     ZAICodingPlanProvider,
+    ZAIProvider,
     get_provider,
 )
+from dawn_kestrel.providers.base import ProviderID
 
 
 class TestProviderPluginDiscovery:
@@ -67,8 +65,8 @@ class TestProviderPluginDiscovery:
         from dawn_kestrel.providers import (
             AnthropicProvider,
             OpenAIProvider,
-            ZAIProvider,
             ZAICodingPlanProvider,
+            ZAIProvider,
         )
 
         assert AnthropicProvider is not None

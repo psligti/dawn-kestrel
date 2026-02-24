@@ -17,26 +17,23 @@ subagents returning PENDING status tasks. This is a workaround for an
 implementation issue where subagents don't mark tasks as COMPLETED.
 """
 
-import pytest
-import logging
-import tempfile
 import shutil
-import asyncio
+import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
-from io import StringIO
+from typing import Any
+from unittest.mock import Mock, patch
 
+import pytest
 from dawn_kestrel.agents.review.fsm_security import (
-    SecurityReviewerAgent,
-    SecurityFinding,
-    SecurityAssessment,
     ReviewState,
-    TodoStatus,
+    SecurityAssessment,
+    SecurityFinding,
+    SecurityReviewerAgent,
 )
+
 from dawn_kestrel.agents.orchestrator import AgentOrchestrator
-from dawn_kestrel.agents.runtime import AgentRuntime
 from dawn_kestrel.agents.registry import AgentRegistry
+from dawn_kestrel.agents.runtime import AgentRuntime
 from dawn_kestrel.core.agent_task import TaskStatus
 
 
@@ -74,7 +71,7 @@ class TestFullSecurityReview:
         shutil.rmtree(base_dir, ignore_errors=True)
 
     @pytest.fixture
-    def mock_git_context(self) -> Dict[str, Any]:
+    def mock_git_context(self) -> dict[str, Any]:
         """Mock git context to return test data.
 
         Returns:
@@ -105,7 +102,7 @@ class TestFullSecurityReview:
 
     @pytest.mark.asyncio
     async def test_end_to_end_review_produces_assessment(
-        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: Dict
+        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: dict
     ):
         """Verify end-to-end review produces assessment."""
         reviewer = SecurityReviewerAgent(
@@ -152,7 +149,7 @@ class TestFullSecurityReview:
 
     @pytest.mark.asyncio
     async def test_fsm_transitions_work_correctly(
-        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: Dict
+        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: dict
     ):
         """Verify FSM transitions follow expected state machine flow."""
         reviewer = SecurityReviewerAgent(
@@ -192,7 +189,7 @@ class TestFullSecurityReview:
 
     @pytest.mark.asyncio
     async def test_confidence_threshold_filters_low_confidence_findings(
-        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: Dict
+        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: dict
     ):
         """Verify confidence threshold filters out low-confidence findings."""
         reviewer = SecurityReviewerAgent(
@@ -239,7 +236,7 @@ class TestFullSecurityReview:
 
     @pytest.mark.asyncio
     async def test_deduplication_prevents_duplicate_findings(
-        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: Dict
+        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: dict
     ):
         """Verify deduplication prevents duplicate findings."""
         reviewer = SecurityReviewerAgent(
@@ -275,7 +272,7 @@ class TestFullSecurityReview:
 
     @pytest.mark.asyncio
     async def test_multiple_iterations_handled_correctly(
-        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: Dict
+        self, vulnerable_repo: Path, orchestrator: AgentOrchestrator, mock_git_context: dict
     ):
         """Verify FSM loop handles multiple iterations correctly."""
         reviewer = SecurityReviewerAgent(

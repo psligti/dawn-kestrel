@@ -5,21 +5,22 @@ in session operations.
 """
 
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, Mock
+
 import pytest
 
-from dawn_kestrel.core.services.session_service import (
-    SessionService,
-    DefaultSessionService,
-)
 from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.result import Ok, Err
+from dawn_kestrel.core.result import Err, Ok
+from dawn_kestrel.core.services.session_service import (
+    DefaultSessionService,
+    SessionService,
+)
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
-    NotificationHandler,
     Notification,
+    NotificationHandler,
     NotificationType,
+    ProgressHandler,
 )
 
 
@@ -163,9 +164,9 @@ class TestDefaultSessionServiceInitialization:
         )
 
         from dawn_kestrel.interfaces.io import (
-            QuietIOHandler,
-            NoOpProgressHandler,
             NoOpNotificationHandler,
+            NoOpProgressHandler,
+            QuietIOHandler,
         )
 
         assert isinstance(service._io_handler, QuietIOHandler)
@@ -675,9 +676,9 @@ class TestDefaultSessionServiceHandlerTypes:
     ) -> None:
         """Test all methods use correct handler types (IOHandler, ProgressHandler, NotificationHandler)."""
         from dawn_kestrel.interfaces.io import (
-            QuietIOHandler,
-            NoOpProgressHandler,
             NoOpNotificationHandler,
+            NoOpProgressHandler,
+            QuietIOHandler,
         )
 
         mock_message_repo = AsyncMock()

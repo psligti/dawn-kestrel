@@ -1,13 +1,12 @@
 """Comprehensive tests for pattern learning mechanism."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import shutil
-from typing import List
-from unittest.mock import MagicMock, patch
+import tempfile
+from pathlib import Path
 
+import pytest
 from dawn_kestrel.agents.review.pattern_learning import PatternLearning
+
 from dawn_kestrel.agents.review.base import BaseReviewerAgent
 
 
@@ -604,7 +603,7 @@ invalid yaml: [
             def get_agent_name(self) -> str:
                 return "TestReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
         reviewer = TestReviewer()
@@ -643,7 +642,7 @@ invalid yaml: [
             def get_agent_name(self) -> str:
                 return "LearningReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
             def learn_entry_point_pattern(self, pattern):

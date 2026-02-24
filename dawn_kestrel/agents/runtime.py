@@ -4,20 +4,25 @@ AgentRuntime - Execute agents with tool filtering and lifecycle management.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-import time
 import logging
+import time
+from pathlib import Path
+from typing import Any
 
+from dawn_kestrel.agents.registry import AgentRegistry
+from dawn_kestrel.ai_session import AISession
+from dawn_kestrel.context.builder import ContextBuilder
 from dawn_kestrel.core.agent_types import (
     AgentResult,
-    AgentContext,
     SessionManagerLike,
 )
-from dawn_kestrel.core.agent_task import AgentTask
-from dawn_kestrel.core.models import Session, Message, TokenUsage
-from dawn_kestrel.core.event_bus import bus, Events
-from dawn_kestrel.ai_session import AISession
+from dawn_kestrel.core.event_bus import Events, bus
+from dawn_kestrel.core.models import TokenUsage
+from dawn_kestrel.core.session_lifecycle import SessionLifecycle
+from dawn_kestrel.core.settings import settings
+from dawn_kestrel.providers.registry import ProviderRegistry
+from dawn_kestrel.tools.framework import ToolRegistry
+from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
 
 MAX_TOOL_LOOPS = 10  # Prevent infinite loops
 
@@ -31,10 +36,10 @@ class AgentRuntime:
         self,
         agent_registry: AgentRegistry,
         base_dir: Path,
-        skill_max_char_budget: Optional[int] = None,
-        session_lifecycle: Optional[SessionLifecycle] = None,
-        provider_registry: Optional["ProviderRegistry"] = None,
-    ):
+        skill_max_char_budget: int | None = None,
+        session_lifecycle: SessionLifecycle | None = None,
+        provider_registry: ProviderRegistry | None = None,
+    ) -> None:
         """Initialize AgentRuntime."""
         self.agent_registry = agent_registry
         self.session_lifecycle = session_lifecycle
@@ -50,11 +55,11 @@ class AgentRuntime:
         session_id: str,
         user_message: str,
         session_manager: SessionManagerLike,
-        tools: Optional[ToolRegistry],
-        skills: List[str],
-        options: Optional[Dict[str, Any]] = None,
-        task_id: Optional[str] = None,
-        session_lifecycle: Optional[SessionLifecycle] = None,
+        tools: ToolRegistry | None,
+        skills: list[str],
+        options: dict[str, Any] | None = None,
+        task_id: str | None = None,
+        session_lifecycle: SessionLifecycle | None = None,
     ) -> AgentResult:
         """Execute an agent with tool filtering and lifecycle management."""
         start_time = time.time()
@@ -79,7 +84,7 @@ class AgentRuntime:
         # Handle both Result[Session | None] and Optional[Session] return types
         # SessionManagerLike protocol says Optional[Session] but DefaultSessionService returns Result
         if hasattr(session_or_result, "is_err"):
-            result = session_or_result  # type: ignore[assignment]
+            result = session_or_result
             if result.is_err():  # type: ignore[union-attr]
                 await bus.publish(
                     Events.AGENT_ERROR,
@@ -92,7 +97,7 @@ class AgentRuntime:
                 raise ValueError(f"Session lookup failed for {session_id}: {result.error}")  # type: ignore[union-attr]
             session = result.unwrap()  # type: ignore[union-attr]
         else:
-            session = session_or_result  # type: ignore[assignment]
+            session = session_or_result
 
         if not session:
             await bus.publish(
@@ -265,7 +270,7 @@ class AgentRuntime:
             )
 
             # Step 6: Execute agent with agentic loop for tool calls
-            execution_options: Dict[str, Any] = {
+            execution_options: dict[str, Any] = {
                 "temperature": agent.temperature,
                 "top_p": agent.top_p,
             }
@@ -399,9 +404,9 @@ class AgentRuntime:
 def create_agent_runtime(
     agent_registry: AgentRegistry,
     base_dir: Path,
-    skill_max_char_budget: Optional[int] = None,
-    session_lifecycle: Optional[SessionLifecycle] = None,
-    provider_registry: Optional["ProviderRegistry"] = None,
+    skill_max_char_budget: int | None = None,
+    session_lifecycle: SessionLifecycle | None = None,
+    provider_registry: ProviderRegistry | None = None,
 ) -> AgentRuntime:
     """Factory function to create AgentRuntime."""
     return AgentRuntime(

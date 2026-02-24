@@ -1,22 +1,22 @@
 """OpenCode Python - Core Session Management"""
 
 from __future__ import annotations
-from typing import Optional, List, Literal, Dict, Any
-from pathlib import Path
-from datetime import datetime
-import uuid
+
 import asyncio
 import logging
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Literal
 
-from dawn_kestrel.storage.store import SessionStorage
-from dawn_kestrel.core.event_bus import bus, Events
+from dawn_kestrel.core.event_bus import Events, bus
 from dawn_kestrel.core.models import (
-    Session,
     Message,
     MessageSummary,
     Part,
+    Session,
 )
-
+from dawn_kestrel.storage.store import SessionStorage
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,9 @@ class SessionManager:
     async def create(
         self,
         title: str,
-        parent_id: Optional[str] = None,
+        parent_id: str | None = None,
         version: str = "1.0.0",
-        summary: Optional["MessageSummary"] = None,
+        summary: MessageSummary | None = None,
     ) -> Session:
         """Create a new session with thread safety"""
         async with self._lock:
@@ -73,7 +73,7 @@ class SessionManager:
 
             return session
 
-    async def get_session(self, session_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Session | None:
         """Get a session by ID"""
         return await self.storage.get_session(session_id, self.project_dir.name)
 
@@ -119,7 +119,7 @@ class SessionManager:
 
             return True
 
-    async def list_sessions(self) -> List[Session]:
+    async def list_sessions(self) -> list[Session]:
         """List all sessions for a project"""
         sessions = await self.storage.list_sessions(self.project_dir.name)
         return sessions
@@ -153,7 +153,7 @@ class SessionManager:
 
         logger.debug(f"Created message {message.id} in session {session_id}")
 
-    async def create_messages(self, session_id: str, messages: List["Message"]) -> None:
+    async def create_messages(self, session_id: str, messages: list[Message]) -> None:
         """Create multiple messages in a session with thread safety"""
         async with self._lock:
             from dawn_kestrel.storage.store import MessageStorage
@@ -165,7 +165,7 @@ class SessionManager:
 
             logger.info(f"Created {len(messages)} messages in session {session_id}")
 
-    async def list_messages(self, session_id: str) -> List["Message"]:
+    async def list_messages(self, session_id: str) -> list[Message]:
         """List all messages for a session"""
         from dawn_kestrel.storage.store import MessageStorage
 
@@ -179,11 +179,11 @@ class SessionManager:
 
         return messages
 
-    async def list_all(self) -> List[Session]:
+    async def list_all(self) -> list[Session]:
         """List all sessions for current project (alias for list_sessions)"""
         return await self.list_sessions()
 
-    async def get_messages(self, session_id: str) -> List["Message"]:
+    async def get_messages(self, session_id: str) -> list[Message]:
         """Get all messages for a session (alias for list_messages)"""
         return await self.list_messages(session_id)
 
@@ -210,7 +210,7 @@ class SessionManager:
 
         return True
 
-    async def add_message(self, message: "Message") -> str:
+    async def add_message(self, message: Message) -> str:
         """Add a message to a session with thread safety"""
         async with self._lock:
             from dawn_kestrel.storage.store import MessageStorage
@@ -245,7 +245,7 @@ class SessionManager:
 
         return part.id
 
-    async def get_export_data(self, session_id: str) -> Dict[str, Any]:
+    async def get_export_data(self, session_id: str) -> dict[str, Any]:
         """Get session data for export (session + all messages + parts)"""
         # Get session
         session = await self.get_session(session_id)
@@ -266,7 +266,7 @@ class SessionManager:
         return export_data
 
     async def import_data(
-        self, session_data: Dict[str, Any], project_id: Optional[str] = None
+        self, session_data: dict[str, Any], project_id: str | None = None
     ) -> Session:
         """Import session data (session + messages)"""
 
@@ -312,17 +312,17 @@ class SessionManager:
 
         return session
 
-    async def get_todos(self, session_id: str) -> List[Dict[str, Any]]:
+    async def get_todos(self, session_id: str) -> list[dict[str, Any]]:
         """Get todos associated with a session"""
         # TODO: Implement todo storage when todo system is complete
         return []
 
-    async def update_todos(self, session_id: str, todos: List[Dict[str, Any]]) -> None:
+    async def update_todos(self, session_id: str, todos: list[dict[str, Any]]) -> None:
         """Update todos for a session"""
         # TODO: Implement todo storage when todo system is complete
         pass
 
-    async def get_user_questions(self, session_id: str) -> List[Dict[str, Any]]:
+    async def get_user_questions(self, session_id: str) -> list[dict[str, Any]]:
         """Get user questions from a session"""
         # TODO: Implement question tracking when question system is complete
         return []

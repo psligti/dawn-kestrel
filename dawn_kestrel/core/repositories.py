@@ -6,25 +6,25 @@ layer and return Result types for explicit error handling without exceptions.
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable, List, Any
+from typing import Any, Protocol, runtime_checkable
 
 from dawn_kestrel.core.models import (
-    Session,
+    AgentPart,
+    CompactionPart,
+    FilePart,
     Message,
     Part,
-    TextPart,
-    FilePart,
-    ToolPart,
-    ReasoningPart,
-    SnapshotPart,
     PatchPart,
-    AgentPart,
-    SubtaskPart,
+    ReasoningPart,
     RetryPart,
-    CompactionPart,
+    Session,
+    SnapshotPart,
+    SubtaskPart,
+    TextPart,
+    ToolPart,
 )
-from dawn_kestrel.core.result import Ok, Err, Result
-from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
+from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.storage.store import MessageStorage, PartStorage, SessionStorage
 
 
 def _dict_to_part(data: dict[str, Any]) -> Part:
@@ -93,7 +93,7 @@ class SessionRepository(Protocol):
         """
         ...
 
-    async def list_by_project(self, project_id: str) -> Result[List[Session]]:
+    async def list_by_project(self, project_id: str) -> Result[list[Session]]:
         """List all sessions for a project.
 
         Returns:
@@ -130,7 +130,7 @@ class MessageRepository(Protocol):
         """
         ...
 
-    async def list_by_session(self, session_id: str, reverse: bool = True) -> Result[List[Message]]:
+    async def list_by_session(self, session_id: str, reverse: bool = True) -> Result[list[Message]]:
         """List all messages for a session.
 
         Args:
@@ -187,7 +187,7 @@ class PartRepository(Protocol):
         """
         ...
 
-    async def list_by_message(self, message_id: str) -> Result[List[Part]]:
+    async def list_by_message(self, message_id: str) -> Result[list[Part]]:
         """List all parts for a message.
 
         Args:
@@ -249,7 +249,7 @@ class SessionRepositoryImpl:
         except Exception as e:
             return Err(f"Failed to delete session: {e}", code="STORAGE_ERROR")
 
-    async def list_by_project(self, project_id: str) -> Result[List[Session]]:
+    async def list_by_project(self, project_id: str) -> Result[list[Session]]:
         """List all sessions for a project."""
         try:
             sessions = await self._storage.list_sessions(project_id)
@@ -293,7 +293,7 @@ class MessageRepositoryImpl:
         except Exception as e:
             return Err(f"Failed to create message: {e}", code="STORAGE_ERROR")
 
-    async def list_by_session(self, session_id: str, reverse: bool = True) -> Result[List[Message]]:
+    async def list_by_session(self, session_id: str, reverse: bool = True) -> Result[list[Message]]:
         """List all messages for a session."""
         try:
             data_list = await self._storage.list_messages(session_id, reverse)
@@ -346,7 +346,7 @@ class PartRepositoryImpl:
         except Exception as e:
             return Err(f"Failed to update part: {e}", code="STORAGE_ERROR")
 
-    async def list_by_message(self, message_id: str) -> Result[List[Part]]:
+    async def list_by_message(self, message_id: str) -> Result[list[Part]]:
         """List all parts for a message."""
         try:
             data_list = await self._storage.list_parts(message_id)

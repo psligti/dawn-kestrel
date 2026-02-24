@@ -7,8 +7,9 @@ Run this example:
     python docs/examples/cli_integration.py
 """
 import asyncio
-from dawn_kestrel.sdk import OpenCodeAsyncClient
+
 from dawn_kestrel.interfaces.io import QuietIOHandler
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 async def cli_integration() -> None:

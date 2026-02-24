@@ -1,9 +1,11 @@
 """OpenCode Python - Skills system"""
 from __future__ import annotations
-from typing import Optional, List, Iterable, Tuple, Any
-from pathlib import Path
-import logging
+
 import importlib
+import logging
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 frontmatter: Any = None
 try:
@@ -33,7 +35,7 @@ class Skill:
 class SkillLoader:
     """Loader for skills from .opencode/skill/ and .claude/skills/ directories"""
 
-    SKILL_SOURCES: Tuple[Tuple[str, str], ...] = (
+    SKILL_SOURCES: tuple[tuple[str, str], ...] = (
         (".opencode", "skill"),
         (".claude", "skills"),
     )
@@ -45,7 +47,7 @@ class SkillLoader:
             base_dir: Base directory for skill discovery
         """
         self.base_dir = Path(base_dir)
-        self._skills_cache: Optional[List[Skill]] = None
+        self._skills_cache: list[Skill] | None = None
 
     def clear_cache(self) -> None:
         """Clear cached skills and force reload on next access."""
@@ -59,7 +61,7 @@ class SkillLoader:
                 continue
             yield from skill_dir.rglob("*/SKILL.md")
 
-    def discover_skills(self) -> List[Skill]:
+    def discover_skills(self) -> list[Skill]:
         """Discover all available skills
 
         Returns:
@@ -68,7 +70,7 @@ class SkillLoader:
         if self._skills_cache is not None:
             return list(self._skills_cache)
 
-        skills: List[Skill] = []
+        skills: list[Skill] = []
         for skill_file in self._iter_skill_files():
             try:
                 skill = self._load_skill_file(skill_file)
@@ -80,7 +82,7 @@ class SkillLoader:
         self._skills_cache = skills
         return list(skills)
 
-    def _load_skill_file(self, file_path: Path) -> Optional[Skill]:
+    def _load_skill_file(self, file_path: Path) -> Skill | None:
         """Load a single SKILL.md file
 
         Args:
@@ -117,7 +119,7 @@ class SkillLoader:
             logger.error(f"Error loading skill {file_path}: {e}")
             return None
 
-    def get_skill_by_name(self, name: str) -> Optional[Skill]:
+    def get_skill_by_name(self, name: str) -> Skill | None:
         """Get a skill by name
 
         Args:
@@ -132,7 +134,7 @@ class SkillLoader:
                 return skill
         return None
 
-    def list_skills(self) -> List[str]:
+    def list_skills(self) -> list[str]:
         """List all available skill names"""
         skills = self.discover_skills()
         return [skill.name for skill in skills]

@@ -33,6 +33,9 @@ Example:
     )
 """
 
+from dawn_kestrel.delegation.convergence import ConvergenceTracker
+from dawn_kestrel.delegation.engine import DelegationEngine
+from dawn_kestrel.delegation.tool import DelegateTool, create_delegation_tool
 from dawn_kestrel.delegation.types import (
     DelegationBudget,
     DelegationConfig,
@@ -41,9 +44,6 @@ from dawn_kestrel.delegation.types import (
     DelegationStopReason,
     TraversalMode,
 )
-from dawn_kestrel.delegation.convergence import ConvergenceTracker
-from dawn_kestrel.delegation.engine import DelegationEngine
-from dawn_kestrel.delegation.tool import DelegateTool, create_delegation_tool
 
 __all__ = [
     # Core types

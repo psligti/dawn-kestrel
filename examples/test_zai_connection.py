@@ -2,9 +2,9 @@
 
 This script tests your z.ai API credentials.
 """
+import asyncio
 import os
 import sys
-import asyncio
 
 from dawn_kestrel.llm import LLMClient
 

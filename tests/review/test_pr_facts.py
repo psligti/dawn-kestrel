@@ -3,32 +3,31 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
-from dawn_kestrel.agents.review.redaction import (
-    sanitize_filename,
-    redact_diff_for_secrets,
-    wrap_for_safe_prompt,
-)
 from dawn_kestrel.agents.review.pr_facts import (
+    ANCHOR_PATTERNS,
     # Constants
     MAX_CANDIDATE_FILES,
-    MAX_TOTAL_FILE_BYTES_FOR_DEEP_REVIEW,
     MAX_DIFF_CHARS_FOR_TRIAGE,
-    MAX_HUNKS_PER_FILE,
     MAX_FILENAME_LENGTH,
-    ANCHOR_PATTERNS,
+    MAX_HUNKS_PER_FILE,
+    MAX_TOTAL_FILE_BYTES_FOR_DEEP_REVIEW,
+    AdjacencySignals,
+    # Exceptions
+    BoundsExceededError,
+    CandidateFiles,
     # Models
     ChangedFiles,
     DiffHunk,
     DiffSummary,
-    RepoMapSummary,
-    AdjacencySignals,
-    CandidateFiles,
     PRFacts,
-    # Exceptions
-    BoundsExceededError,
+    RepoMapSummary,
 )
+from dawn_kestrel.agents.review.redaction import (
+    redact_diff_for_secrets,
+    sanitize_filename,
+    wrap_for_safe_prompt,
+)
+from pydantic import ValidationError
 
 
 class TestFilenameSanitization:

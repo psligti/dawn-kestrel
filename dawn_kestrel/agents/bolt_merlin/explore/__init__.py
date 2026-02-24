@@ -6,8 +6,8 @@ Uses contextual grep to search codebases intelligently.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 EXPLORE_PROMPT = """You are a codebase search specialist. Your job: find files and code, return actionable results.
 

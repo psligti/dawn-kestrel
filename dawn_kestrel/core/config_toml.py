@@ -10,14 +10,13 @@ similar to how VS Code uses .vscode/settings.json or git uses .git/config.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import tomli
 import tomli_w
 
 from dawn_kestrel.core.provider_settings import AccountConfig
 from dawn_kestrel.providers.base import ProviderID
-
 
 DEFAULT_CONFIG_PATH = Path(".dawn-kestrel") / "config.toml"
 
@@ -45,7 +44,7 @@ def find_config_file(project_dir: Path | None = None) -> Path | None:
     return None
 
 
-def load_config(config_path: Path | None = None) -> Dict[str, Any]:
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load TOML configuration file.
 
     Args:
@@ -70,7 +69,7 @@ def load_config(config_path: Path | None = None) -> Dict[str, Any]:
         raise RuntimeError(f"Failed to load config from {config_path}: {e}")
 
 
-def save_config(config: Dict[str, Any], config_path: Path | None = None) -> Path:
+def save_config(config: dict[str, Any], config_path: Path | None = None) -> Path:
     """Save configuration to TOML file.
 
     Creates parent directory if needed.
@@ -101,7 +100,7 @@ def save_config(config: Dict[str, Any], config_path: Path | None = None) -> Path
 def config_to_account_config(
     account_name: str,
     provider_id_str: str,
-    config_data: Dict[str, Any],
+    config_data: dict[str, Any],
 ) -> AccountConfig:
     """Convert TOML config data to AccountConfig.
 
@@ -148,10 +147,10 @@ def config_to_account_config(
 
 
 def update_config_with_account(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     account_config: AccountConfig,
     account_name: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update configuration dictionary with account data.
 
     Args:

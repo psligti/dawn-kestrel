@@ -3,7 +3,6 @@
 This test validates Task 13 acceptance criteria.
 """
 
-import pytest
 from dawn_kestrel.tui.app import OpenCodeTUI
 
 
@@ -13,13 +12,8 @@ class TestTUIIntegration:
     def test_tui_app_launches_with_session_service_and_handlers(self) -> None:
         """Test that TUI app launches with SessionService and handlers."""
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
-        from dawn_kestrel.tui.handlers import (
-            TUIIOHandler,
-            TUIProgressHandler,
-            TUINotificationHandler,
-        )
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)
@@ -40,8 +34,8 @@ class TestTUIIntegration:
     def test_tui_session_list_loads_from_session_service(self) -> None:
         """Test that TUI uses SessionService for loading sessions."""
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)
@@ -55,8 +49,8 @@ class TestTUIIntegration:
     def test_backward_compatibility_tui_visuals_unchanged(self) -> None:
         """Test that backward compatibility is maintained - visuals unchanged."""
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)
@@ -73,8 +67,8 @@ class TestTUIIntegration:
     def test_tui_no_direct_io_calls(self) -> None:
         """Test that TUI doesn't use direct I/O calls (print, input)."""
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)
@@ -91,8 +85,8 @@ class TestTUIIntegration:
     def test_tui_textual_structure_unchanged(self) -> None:
         """Test that Textual app structure is unchanged."""
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.storage.store import SessionStorage
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)
@@ -109,8 +103,8 @@ class TestTUIIntegration:
 
     def test_tui_message_screen_accepts_session_service(self) -> None:
         """Test that TUI message screen can accept session_service parameter."""
-        from dawn_kestrel.tui.screens.message_screen import MessageScreen
         from dawn_kestrel.core.models import Session
+        from dawn_kestrel.tui.screens.message_screen import MessageScreen
 
         session = Session(
             id="test-session-id",
@@ -128,11 +122,11 @@ class TestTUIIntegration:
 
     def test_tui_message_screen_accepts_session_service_when_provided(self) -> None:
         """Test that TUI message screen stores session_service when provided."""
-        from dawn_kestrel.tui.screens.message_screen import MessageScreen
         from dawn_kestrel.core.models import Session
         from dawn_kestrel.core.services.session_service import DefaultSessionService
-        from dawn_kestrel.storage.store import SessionStorage
         from dawn_kestrel.core.settings import get_storage_dir
+        from dawn_kestrel.storage.store import SessionStorage
+        from dawn_kestrel.tui.screens.message_screen import MessageScreen
 
         storage_dir = get_storage_dir()
         storage = SessionStorage(storage_dir)

@@ -13,21 +13,30 @@ Key components:
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Protocol, runtime_checkable, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
 
-from dawn_kestrel.core.mediator import Event, EventMediator, EventType
+from dawn_kestrel.core.commands import TransitionCommand
+from dawn_kestrel.core.mediator import Event, EventType
 from dawn_kestrel.core.observer import Observer
-from dawn_kestrel.core.result import Result, Ok, Err
-from dawn_kestrel.core.commands import TransitionCommand, CommandContext
-from dawn_kestrel.llm.circuit_breaker import CircuitBreaker, CircuitBreakerImpl
-from dawn_kestrel.llm.retry import RetryExecutor, RetryExecutorImpl, ExponentialBackoff
-from dawn_kestrel.llm.rate_limiter import RateLimiter, RateLimiterImpl
-from dawn_kestrel.llm.bulkhead import Bulkhead, BulkheadImpl
+from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.llm.bulkhead import Bulkhead
+from dawn_kestrel.llm.circuit_breaker import CircuitBreaker
+from dawn_kestrel.llm.rate_limiter import RateLimiter
+from dawn_kestrel.llm.retry import RetryExecutor
+
+if TYPE_CHECKING:
+    from dawn_kestrel.workflow.reason_executor import ReasonExecutor
+    from dawn_kestrel.workflow.strategies import ReasoningStrategy
+
+# Type aliases for FSM
+StateName = str
+TransitionMap = dict[str, set[str]]
+HookResult = Result[None]
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +71,7 @@ class FSM(Protocol):
         ...
 
     async def transition_to(
-        self, new_state: str, context: Optional[FSMContext] = None
+        self, new_state: str, context: FSMContext | None = None
     ) -> Result[None]:
         """Transition FSM to new state.
 
@@ -107,9 +116,9 @@ class FSMConfig:
     initial_state: str = "idle"
     states: set[str] = field(default_factory=set)
     transitions: dict[tuple[str, str], TransitionConfig] = field(default_factory=dict)
-    on_transition: Optional[Callable[[str, str, FSMContext], Result[None]]] = None
-    after_transition: Optional[Callable[[str, str, FSMContext], Result[None]]] = None
-    on_error: Optional[Callable[[str, str, Err, FSMContext], None]] = None
+    on_transition: Callable[[str, str, FSMContext], Result[None]] | None = None
+    after_transition: Callable[[str, str, FSMContext], Result[None]] | None = None
+    on_error: Callable[[str, str, Err, FSMContext], None] | None = None
 
 
 @dataclass
@@ -150,9 +159,9 @@ class TransitionConfig:
 
     from_state: str
     to_state: str
-    guards: Optional[list[Callable[[FSMContext], bool]]] = None
-    on_enter: Optional[Callable[[FSMContext], Result[None]]] = None
-    on_exit: Optional[Callable[[FSMContext], Result[None]]] = None
+    guards: list[Callable[[FSMContext], bool]] | None = None
+    on_enter: Callable[[FSMContext], Result[None]] | None = None
+    on_exit: Callable[[FSMContext], Result[None]] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -172,10 +181,10 @@ class FSMReliabilityConfig:
         enabled: Whether reliability wrappers are enabled (default: True).
     """
 
-    circuit_breaker: Optional[CircuitBreaker] = None
-    retry_executor: Optional[RetryExecutor] = None
-    rate_limiter: Optional[RateLimiter] = None
-    bulkhead: Optional[Bulkhead] = None
+    circuit_breaker: CircuitBreaker | None = None
+    retry_executor: RetryExecutor | None = None
+    rate_limiter: RateLimiter | None = None
+    bulkhead: Bulkhead | None = None
     enabled: bool = True
 
 
@@ -205,13 +214,13 @@ class FSMImpl:
         initial_state: str,
         valid_states: set[str],
         valid_transitions: dict[str, set[str]],
-        fsm_id: Optional[str] = None,
+        fsm_id: str | None = None,
         repository: Any = None,
         mediator: Any = None,
-        observers: Optional[list[Observer]] = None,
-        entry_hooks: Optional[dict[str, Callable[[FSMContext], Result[None]]]] = None,
-        exit_hooks: Optional[dict[str, Callable[[FSMContext], Result[None]]]] = None,
-        reliability_config: Optional[FSMReliabilityConfig] = None,
+        observers: list[Observer] | None = None,
+        entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] | None = None,
+        reliability_config: FSMReliabilityConfig | None = None,
     ):
         """Initialize FSM with configurable states and transitions.
 
@@ -245,7 +254,7 @@ class FSMImpl:
         self._observers: set[Observer] = set(observers) if observers else set()
         self._entry_hooks: dict[str, Callable[[FSMContext], Result[None]]] = entry_hooks or {}
         self._exit_hooks: dict[str, Callable[[FSMContext], Result[None]]] = exit_hooks or {}
-        self._reliability_config: Optional[FSMReliabilityConfig] = reliability_config
+        self._reliability_config: FSMReliabilityConfig | None = reliability_config
 
     async def get_state(self) -> str:
         """Get current state of FSM.
@@ -270,7 +279,7 @@ class FSMImpl:
         return to_state in self._valid_transitions[from_state]
 
     async def transition_to(
-        self, new_state: str, context: Optional[FSMContext] = None
+        self, new_state: str, context: FSMContext | None = None
     ) -> Result[TransitionCommand]:
         """Transition FSM to new state.
 
@@ -497,7 +506,20 @@ class FSMBuilder:
         self._repository: Any = None
         self._mediator: Any = None
         self._observers: list[Any] = []
-        self._reliability_config: Optional[FSMReliabilityConfig] = None
+        self._reliability_config: FSMReliabilityConfig | None = None
+        self._initial_state: str = "idle"
+
+    def with_initial_state(self, state: str) -> FSMBuilder:
+        """Set the initial state.
+
+        Args:
+            state: Initial state name.
+
+        Returns:
+            FSMBuilder: self for method chaining.
+        """
+        self._initial_state = state
+        return self
 
     def with_state(self, state: str) -> FSMBuilder:
         """Add a valid state.
@@ -682,7 +704,7 @@ class FSMBuilder:
         self._reliability_config = config
         return self
 
-    def build(self, initial_state: str = "idle") -> Result[FSM]:
+    def build(self, initial_state: str | None = None) -> Result[FSM]:
         """Build FSM instance from builder configuration.
 
         Validates configuration:
@@ -690,7 +712,7 @@ class FSMBuilder:
         - All states used in transitions must be defined
 
         Args:
-            initial_state: Starting state (default: "idle").
+            initial_state: Starting state (default: uses with_initial_state or "idle").
 
         Returns:
             Result[FSM]: Ok with FSM instance, Err if configuration invalid.
@@ -704,7 +726,10 @@ class FSMBuilder:
             >>> if result.is_ok():
             ...     fsm = result.unwrap()
         """
-        undefined_states = set()
+        actual_initial_state: str = (
+            initial_state if initial_state is not None else self._initial_state
+        )
+        undefined_states: set[str] = set()
         for from_state, to_states in self._transitions.items():
             if from_state not in self._states:
                 undefined_states.add(from_state)
@@ -719,14 +744,14 @@ class FSMBuilder:
                 code="UNDEFINED_STATE_IN_TRANSITION",
             )
 
-        if self._states and initial_state not in self._states:
+        if self._states and actual_initial_state not in self._states:
             return Err(
-                f"Invalid initial state: {initial_state}. Valid states are: {sorted(self._states)}",
+                f"Invalid initial state: {actual_initial_state}. Valid states are: {sorted(self._states)}",
                 code="INVALID_INITIAL_STATE",
             )
 
         fsm = FSMImpl(
-            initial_state=initial_state,
+            initial_state=actual_initial_state,
             valid_states=self._states,
             valid_transitions=self._transitions,
             repository=self._repository,
@@ -737,3 +762,173 @@ class FSMBuilder:
             reliability_config=self._reliability_config,
         )
         return Ok(fsm)
+
+
+# Workflow-specific constants
+WORKFLOW_STATES: set[str] = {"intake", "plan", "reason", "act", "synthesize", "check", "done"}
+
+WORKFLOW_TRANSITIONS: dict[str, set[str]] = {
+    "intake": {"plan", "reason"},
+    "plan": {"act", "reason"},
+    "reason": {"act", "synthesize", "check", "done"},
+    "act": {"synthesize"},
+    "synthesize": {"check"},
+    "check": {"plan", "reason", "act", "done"},
+    "done": set(),
+}
+
+
+@dataclass
+class FSMBudget:
+    """Budget limits for workflow FSM execution."""
+
+    max_iterations: int = 100
+    max_tool_calls: int = 1000
+    max_wall_time_seconds: float = 3600.0
+    max_subagent_calls: int = 50
+
+
+@dataclass
+class BudgetConsumed:
+    """Budget consumed during workflow execution."""
+
+    iterations: int = 0
+    tool_calls: int = 0
+    wall_time_seconds: float = 0.0
+    subagent_calls: int = 0
+
+
+@dataclass
+class ReactStep:
+    """A single REACT (Reasoning-Action-Observation) cycle step."""
+
+    reasoning: str
+    action: str
+    observation: str
+    tools_used: list[str] = field(default_factory=list)
+    evidence: list[str] = field(default_factory=list)
+
+
+def compute_novelty_signature(data: dict[str, Any]) -> str:
+    """Compute a hash-based signature for novelty/stagnation detection.
+
+    Args:
+        data: Dictionary of data to hash.
+
+    Returns:
+        A hex string signature.
+    """
+    import hashlib
+    import json
+
+    serialized = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.sha256(serialized.encode()).hexdigest()[:16]
+
+
+class WorkflowFSMBuilder(FSMBuilder):
+    """FSMBuilder pre-configured for workflow state machines.
+
+    This builder extends FSMBuilder with workflow-specific features:
+    - Pre-configured workflow states (intake, plan, act, synthesize, check, done)
+    - Pre-configured workflow transitions
+    - Budget tracking support
+    - Stagnation detection support
+    - REACT cycle tracking
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._budget: FSMBudget = FSMBudget()
+        self._stagnation_threshold: int = 3
+        self._novelty_signatures: set[str] = set()
+        self._react_cycles: list[ReactStep] = []
+        self._budget_consumed: BudgetConsumed = BudgetConsumed()
+        self._reasoning_strategy: Optional[ReasoningStrategy] = None
+        self._reason_executor: Optional[ReasonExecutor] = None
+
+        for state in WORKFLOW_STATES:
+            self.with_state(state)
+        for from_state, to_states in WORKFLOW_TRANSITIONS.items():
+            for to_state in to_states:
+                self.with_transition(from_state, to_state)
+        self.with_initial_state("intake")
+
+    def with_budget(self, budget: FSMBudget) -> WorkflowFSMBuilder:
+        self._budget = budget
+        return self
+
+    def with_stagnation_threshold(self, threshold: int) -> WorkflowFSMBuilder:
+        self._stagnation_threshold = threshold
+        return self
+
+    def with_reasoning_strategy(self, strategy: ReasoningStrategy) -> WorkflowFSMBuilder:
+        """Set the reasoning strategy for the REASON state.
+
+        Args:
+            strategy: The ReasoningStrategy to use for making decisions
+                in the REASON state (e.g., CoTStrategy, ReActStrategy).
+
+        Returns:
+            WorkflowFSMBuilder: Self for method chaining.
+
+        Example:
+            >>> from dawn_kestrel.workflow.strategies import CoTStrategy
+            >>> builder = WorkflowFSMBuilder().with_reasoning_strategy(CoTStrategy())
+        """
+        self._reasoning_strategy = strategy
+        return self
+
+    def with_reason_executor(self, executor: ReasonExecutor) -> WorkflowFSMBuilder:
+        """Set the reason executor for the REASON state.
+
+        Args:
+            executor: The ReasonExecutor to use for executing reasoning
+                decisions in the REASON state.
+
+        Returns:
+            WorkflowFSMBuilder: Self for method chaining.
+
+        Example:
+            >>> from dawn_kestrel.workflow.reason_executor import ReasonExecutor
+            >>> from dawn_kestrel.workflow.strategies import CoTStrategy
+            >>> executor = ReasonExecutor(strategy=CoTStrategy())
+            >>> builder = WorkflowFSMBuilder().with_reason_executor(executor)
+        """
+        self._reason_executor = executor
+        return self
+
+    def check_novelty(self, data: dict[str, Any]) -> bool:
+        signature = compute_novelty_signature(data)
+        if signature in self._novelty_signatures:
+            return False
+        self._novelty_signatures.add(signature)
+        return True
+
+    def is_stagnation_detected(self) -> bool:
+        return len(self._novelty_signatures) >= self._stagnation_threshold
+
+    def is_budget_exceeded(self) -> bool:
+        return (
+            self._budget_consumed.iterations >= self._budget.max_iterations
+            or self._budget_consumed.tool_calls >= self._budget.max_tool_calls
+            or self._budget_consumed.wall_time_seconds >= self._budget.max_wall_time_seconds
+            or self._budget_consumed.subagent_calls >= self._budget.max_subagent_calls
+        )
+
+    def add_react_cycle(self, step: ReactStep) -> None:
+        self._react_cycles.append(step)
+
+    def track_budget_consumed(
+        self,
+        iterations: int = 0,
+        tool_calls: int = 0,
+        wall_time: float = 0.0,
+        subagent_calls: int = 0,
+    ) -> None:
+        self._budget_consumed.iterations += iterations
+        self._budget_consumed.tool_calls += tool_calls
+        self._budget_consumed.wall_time_seconds += wall_time
+        self._budget_consumed.subagent_calls += subagent_calls
+
+    def get_budget_status(self) -> tuple[BudgetConsumed, FSMBudget]:
+        return self._budget_consumed, self._budget

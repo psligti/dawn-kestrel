@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 
 from dawn_kestrel.core.result import Err, Ok, Result
-from dawn_kestrel.workflow import assert_transition, WORKFLOW_FSM_TRANSITIONS
+from dawn_kestrel.workflow import WORKFLOW_FSM_TRANSITIONS, assert_transition
 
 
 class TestFSMResultPatternValidTransitions:

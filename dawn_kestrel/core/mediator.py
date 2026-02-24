@@ -13,9 +13,10 @@ Key concepts:
 """
 
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Awaitable, Callable, Protocol, runtime_checkable, Optional
+from typing import Protocol, runtime_checkable
 
 from dawn_kestrel.core.result import Err, Ok, Result
 
@@ -49,8 +50,8 @@ class Event:
 
     event_type: EventType
     source: str
-    target: Optional[str] = None
-    data: Optional[dict] = None
+    target: str | None = None
+    data: dict | None = None
 
     def __post_init__(self) -> None:
         """Ensure data is initialized as empty dict if None."""
@@ -85,7 +86,7 @@ class EventMediator(Protocol):
         self,
         event_type: EventType,
         handler: Callable[[Event], Awaitable[None]],
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> Result[None]:
         """Subscribe to events of a specific type.
 
@@ -149,7 +150,7 @@ class EventMediatorImpl:
         """
         # Map: event_type -> list[(handler, source_filter)]
         self._handlers: dict[
-            EventType, list[tuple[Callable[[Event], Awaitable[None]], Optional[str]]]
+            EventType, list[tuple[Callable[[Event], Awaitable[None]], str | None]]
         ] = defaultdict(list)
 
     async def publish(self, event: Event) -> Result[None]:
@@ -188,7 +189,7 @@ class EventMediatorImpl:
         self,
         event_type: EventType,
         handler: Callable[[Event], Awaitable[None]],
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> Result[None]:
         """Subscribe to events of a specific type.
 

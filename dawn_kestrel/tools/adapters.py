@@ -13,11 +13,10 @@ This module provides:
 from __future__ import annotations
 
 import logging
-import asyncio
-from typing import Protocol, runtime_checkable, Optional, Dict, Any
+from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
-from dawn_kestrel.tools.framework import ToolContext, ToolResult
+from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.tools.framework import ToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +349,7 @@ def register_adapter(name: str, adapter: ToolAdapter) -> None:
     logger.info(f"Registered tool adapter: {name}")
 
 
-def get_adapter(name: str) -> Optional[ToolAdapter]:
+def get_adapter(name: str) -> ToolAdapter | None:
     """Get registered adapter by name.
 
     Args:

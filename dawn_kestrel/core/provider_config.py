@@ -7,8 +7,7 @@ provider ID, model selection, API keys, and custom options.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
-from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -33,22 +32,22 @@ class ProviderConfig:
     model: str = ""
     """Model ID to use (e.g., "claude-sonnet-4-20250514", "gpt-4")"""
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
     """API key for the provider (optional, can be loaded from settings)"""
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
     """Custom base URL for the provider API (optional)"""
 
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
     """Additional provider-specific options (optional)"""
 
     is_default: bool = False
     """Whether this is the default provider configuration"""
 
-    name: Optional[str] = None
+    name: str | None = None
     """Human-readable name for this configuration (optional)"""
 
-    description: Optional[str] = None
+    description: str | None = None
     """Description of this configuration (optional)"""
 
     def model_post_init(self, __context: Any) -> None:
@@ -56,7 +55,7 @@ class ProviderConfig:
         if not self.provider_id:
             raise ValueError("provider_id is required")
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """
         Convert configuration to dictionary.
 
@@ -75,7 +74,7 @@ class ProviderConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProviderConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ProviderConfig:
         """
         Create ProviderConfig from dictionary.
 
@@ -96,7 +95,7 @@ class ProviderConfig:
             description=data.get("description"),
         )
 
-    def with_model(self, model: str) -> "ProviderConfig":
+    def with_model(self, model: str) -> ProviderConfig:
         """
         Create a new configuration with a different model.
 
@@ -121,12 +120,12 @@ class ProviderConfig:
 def create_provider_config(
     provider_id: str,
     model: str,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
-    options: Optional[Dict[str, Any]] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    options: dict[str, Any] | None = None,
     is_default: bool = False,
-    name: Optional[str] = None,
-    description: Optional[str] = None,
+    name: str | None = None,
+    description: str | None = None,
 ) -> ProviderConfig:
     """
     Factory function to create a ProviderConfig.

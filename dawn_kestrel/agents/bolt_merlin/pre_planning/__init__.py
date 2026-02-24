@@ -6,8 +6,8 @@ goddess of wisdom and deep thought.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 PRE_PLANNING_PROMPT = """You are Pre-Planning, a pre-planning consultant. Your job is to analyze requests and identify hidden intentions, ambiguities, and potential AI failure points BEFORE any planning or execution begins.
 

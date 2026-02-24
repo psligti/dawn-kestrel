@@ -1,15 +1,16 @@
 """OpenCode Python - Export/Import Session Management"""
 
 from __future__ import annotations
-from typing import Optional, Dict, Any
-from pathlib import Path
+
+import gzip
 import json
 import logging
-import gzip
+from pathlib import Path
+from typing import Any
 
+from dawn_kestrel.agents.review.utils.redaction import redact_dict
 from dawn_kestrel.core.session import SessionManager
 from dawn_kestrel.snapshot.index import GitSnapshot
-
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,9 @@ class ExportImportManager:
     async def export_session(
         self,
         session_id: str,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
         format: str = "json",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Export a session to file
 
@@ -62,6 +63,9 @@ class ExportImportManager:
             "messages": messages,
         }
 
+        # Redact sensitive data before export to prevent secrets in files
+        export_data = redact_dict(export_data)
+
         # Write to file
         if format == "json":
             with open(output_path, "w", encoding="utf-8") as f:
@@ -95,8 +99,8 @@ class ExportImportManager:
     async def import_session(
         self,
         import_path: Path,
-        project_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        project_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Import session from file
 
@@ -123,7 +127,7 @@ class ExportImportManager:
         export_data = {}
 
         if format == "json" or format == "jsonl":
-            with open(import_path, "r", encoding="utf-8") as f:
+            with open(import_path, encoding="utf-8") as f:
                 export_data = json.load(f)
         elif format == "jsonl.gz":
             with gzip.open(import_path, "rt", encoding="utf-8") as f:

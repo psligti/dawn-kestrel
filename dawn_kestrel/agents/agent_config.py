@@ -9,11 +9,11 @@ compatibility with existing Agent definitions.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from dawn_kestrel.agents.builtin import Agent
 from dawn_kestrel.core.fsm import FSM
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.result import Err, Ok, Result
 
 
 @dataclass
@@ -36,8 +36,8 @@ class AgentConfig:
     """
 
     agent: Agent
-    lifecycle_fsm: Optional[FSM] = None
-    workflow_fsm: Optional[FSM] = None
+    lifecycle_fsm: FSM | None = None
+    workflow_fsm: FSM | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -93,22 +93,24 @@ class AgentBuilder:
         before using the AgentConfig in concurrent contexts.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize builder with empty configuration."""
         # Required fields
-        self._name: Optional[str] = None
-        self._description: Optional[str] = None
-        self._mode: Optional[str] = None
-        self._permission: Optional[List[Dict[str, Any]]] = None
+        self._name: str | None = None
+        self._description: str | None = None
+        self._mode: str | None = None
+        self._permission: list[dict[str, Any]] | None = None
 
         # Optional fields
-        self._temperature: Optional[float] = None
-        self._options: Optional[Dict[str, Any]] = None
-        self._native: Optional[bool] = None
-        self._prompt: Optional[str] = None
+        self._temperature: float | None = None
+        self._options: dict[str, Any] | None = None
+        self._native: bool | None = None
+        self._prompt: str | None = None
 
-        self._lifecycle_fsm: Optional[FSM] = None
-        self._workflow_fsm: Optional[FSM] = None
+        self._lifecycle_fsm: FSM | None = None
+        self._workflow_fsm: FSM | None = None
+        self._allowed_tools: list[str] | None = None
+        self._denied_tools: list[str] | None = None
 
     def with_name(self, name: str) -> "AgentBuilder":
         """Set the agent name.
@@ -155,7 +157,7 @@ class AgentBuilder:
         self._mode = mode
         return self
 
-    def with_permission(self, permissions: List[Dict[str, Any]]) -> "AgentBuilder":
+    def with_permission(self, permissions: list[dict[str, Any]]) -> "AgentBuilder":
         """Set the agent permissions.
 
         Args:
@@ -200,7 +202,7 @@ class AgentBuilder:
         self._temperature = temperature
         return self
 
-    def with_options(self, options: Dict[str, Any]) -> "AgentBuilder":
+    def with_options(self, options: dict[str, Any]) -> "AgentBuilder":
         """Set additional options.
 
         Args:
@@ -240,8 +242,8 @@ class AgentBuilder:
             AgentBuilder: self for method chaining.
 
         Example:
-            >>> from dawn_kestrel.agents.agent_lifecycle_fsm import create_lifecycle_fsm
-            >>> fsm_result = create_lifecycle_fsm()
+            >>> from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+            >>> fsm_result = WorkflowFSMBuilder().build()
             >>> builder = AgentBuilder().with_lifecycle_fsm(fsm_result.unwrap())
         """
         self._lifecycle_fsm = fsm
@@ -257,18 +259,47 @@ class AgentBuilder:
             AgentBuilder: self for method chaining.
 
         Example:
-            >>> from dawn_kestrel.agents.agent_workflow_fsm import create_workflow_fsm
-            >>> fsm_result = create_workflow_fsm()
+            >>> from dawn_kestrel.core.fsm import WorkflowFSMBuilder
+            >>> fsm_result = WorkflowFSMBuilder().build()
             >>> builder = AgentBuilder().with_workflow_fsm(fsm_result.unwrap())
         """
         self._workflow_fsm = fsm
         return self
 
+    def with_allowed_tools(self, tools: list[str]) -> "AgentBuilder":
+        """Set the explicit tool allowlist.
+
+        Args:
+            tools: List of glob patterns for allowed tools.
+
+        Returns:
+            AgentBuilder: self for method chaining.
+
+        Example:
+            >>> builder = AgentBuilder().with_allowed_tools(["read", "bash", "glob"])
+        """
+        self._allowed_tools = tools
+        return self
+
+    def with_denied_tools(self, tools: list[str]) -> "AgentBuilder":
+        """Set the explicit tool denylist.
+
+        Args:
+            tools: List of glob patterns for denied tools.
+
+        Returns:
+            AgentBuilder: self for method chaining.
+
+        Example:
+            >>> builder = AgentBuilder().with_denied_tools(["write", "edit"])
+        """
+        self._denied_tools = tools
+        return self
+
     def with_default_fsms(self) -> "AgentBuilder":
         """Create and attach default lifecycle and workflow FSMs.
 
-        Uses factory functions create_lifecycle_fsm() and create_workflow_fsm()
-        to create default FSM instances.
+        Uses WorkflowFSMBuilder from core.fsm to create default FSM instances.
 
         Returns:
             AgentBuilder: self for method chaining. If FSM creation fails,
@@ -277,16 +308,13 @@ class AgentBuilder:
         Example:
             >>> builder = AgentBuilder().with_default_fsms()
         """
-        from dawn_kestrel.agents.agent_lifecycle_fsm import create_lifecycle_fsm
-        from dawn_kestrel.agents.agent_workflow_fsm import create_workflow_fsm
+        from dawn_kestrel.core.fsm import WorkflowFSMBuilder
 
-        lifecycle_result = create_lifecycle_fsm()
-        if lifecycle_result.is_ok():
-            self._lifecycle_fsm = lifecycle_result.unwrap()
-
-        workflow_result = create_workflow_fsm()
+        workflow_builder = WorkflowFSMBuilder()
+        workflow_result = workflow_builder.build()
         if workflow_result.is_ok():
             self._workflow_fsm = workflow_result.unwrap()
+            self._lifecycle_fsm = workflow_result.unwrap()
 
         return self
 
@@ -338,6 +366,8 @@ class AgentBuilder:
             temperature=self._temperature,
             prompt=self._prompt,
             options=self._options,
+            allowed_tools=self._allowed_tools,
+            denied_tools=self._denied_tools,
         )
 
         # Wrap in AgentConfig with FSMs

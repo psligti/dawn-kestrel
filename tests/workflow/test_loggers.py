@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from dawn_kestrel.workflow.loggers import ConsoleLogger, JsonLogger
 from dawn_kestrel.workflow.models import (
     ActionType,

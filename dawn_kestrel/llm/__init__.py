@@ -3,39 +3,46 @@
 Provider-agnostic LLM client with policy-driven execution controls.
 """
 
-from .client import (
-    LLMClient,
-    LLMProviderProtocol,
-    LLMRequestOptions,
-    LLMResponse,
-    RetryPolicy,
-    with_retry,
-    with_timeout,
-    with_logging,
-)
-from .rate_limiter import (
-    RateLimiter,
-    RateLimiterImpl,
-    TokenBucket,
+from .bulkhead import (
+    Bulkhead,
+    BulkheadImpl,
 )
 from .circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerImpl,
     CircuitState,
 )
-from .retry import (
-    RetryExecutor,
-    RetryExecutorImpl,
-    BackoffStrategy,
-    ExponentialBackoff,
+from .client import (
+    LLMClient,
+    LLMProviderProtocol,
+    LLMRequestOptions,
+    LLMResponse,
+    RetryPolicy,
+    with_logging,
+    with_retry,
+    with_timeout,
+)
+from .provider_limits import (
+    LocalRateLimitTracker,
+    ProviderRateLimit,
+    RateLimitTracker,
+    create_rate_limit_tracker,
+    get_provider_limit,
+)
+from .rate_limiter import (
+    RateLimiter,
+    RateLimiterImpl,
+    TokenBucket,
 )
 from .reliability import (
     LLMReliability,
     LLMReliabilityImpl,
 )
-from .bulkhead import (
-    Bulkhead,
-    BulkheadImpl,
+from .retry import (
+    BackoffStrategy,
+    ExponentialBackoff,
+    RetryExecutor,
+    RetryExecutorImpl,
 )
 
 __all__ = [
@@ -61,4 +68,9 @@ __all__ = [
     "LLMReliabilityImpl",
     "Bulkhead",
     "BulkheadImpl",
+    "ProviderRateLimit",
+    "get_provider_limit",
+    "RateLimitTracker",
+    "LocalRateLimitTracker",
+    "create_rate_limit_tracker",
 ]

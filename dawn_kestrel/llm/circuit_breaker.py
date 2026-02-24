@@ -23,8 +23,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
-
+from dawn_kestrel.core.result import Err, Ok, Result
 
 logger = logging.getLogger(__name__)
 

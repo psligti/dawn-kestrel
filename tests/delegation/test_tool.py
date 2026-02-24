@@ -8,19 +8,12 @@ Tests verify that DelegateTool provides:
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from dawn_kestrel.delegation.tool import DelegateTool, create_delegation_tool
-from dawn_kestrel.delegation.types import (
-    DelegationBudget,
-    DelegationConfig,
-    DelegationResult,
-    DelegationStopReason,
-    TraversalMode,
-)
 from dawn_kestrel.tools.framework import ToolContext, ToolResult
 
 
@@ -31,10 +24,10 @@ class MockAgentResult:
 
     agent_name: str
     response: str
-    parts: List[Any] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tools_used: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    parts: list[Any] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tools_used: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
 class MockAgentRuntime:
@@ -43,7 +36,7 @@ class MockAgentRuntime:
     def __init__(self):
         self.execute_agent = AsyncMock()
         self.call_count = 0
-        self.call_order: List[str] = []
+        self.call_order: list[str] = []
 
     async def execute_agent_impl(
         self,

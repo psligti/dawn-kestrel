@@ -15,6 +15,7 @@ import tempfile
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from dawn_kestrel.agents.review.fsm_security import SecurityFinding
 
 # Import the agent and related types
 from dawn_kestrel.agents.review.subagents.auth_reviewer import (
@@ -22,9 +23,8 @@ from dawn_kestrel.agents.review.subagents.auth_reviewer import (
     AuthReviewerAgent,
 )
 from dawn_kestrel.agents.review.tools import ToolExecutor, ToolResult
-from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
-from dawn_kestrel.llm import LLMResponse
 
+from dawn_kestrel.llm import LLMResponse
 
 # =============================================================================
 # Mock Fixtures

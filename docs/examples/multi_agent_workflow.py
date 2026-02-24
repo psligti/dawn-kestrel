@@ -10,18 +10,14 @@ Run this example:
     python docs/examples/multi_agent_workflow.py
 """
 import asyncio
-from typing import Any, Dict, List
 from pathlib import Path
+from typing import Any
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient
-from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.agents.memory_manager import MemoryManager
 from dawn_kestrel.agents.orchestrator import AgentOrchestrator, create_agent_orchestrator
-from dawn_kestrel.agents.runtime import AgentRuntime
-from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.interfaces.io import Notification
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.storage.memory_storage import MemoryStorage
-from dawn_kestrel.core.models import Session
 
 
 async def setup_session(client: OpenCodeAsyncClient) -> tuple[str, MemoryManager, AgentOrchestrator]:
@@ -43,12 +39,12 @@ async def setup_session(client: OpenCodeAsyncClient) -> tuple[str, MemoryManager
     return session.id, memory_manager, orchestrator
 
 
-async def agent_a_task(session_id: str, memory_manager: MemoryManager) -> Dict[str, Any]:
+async def agent_a_task(session_id: str, memory_manager: MemoryManager) -> dict[str, Any]:
     """Agent A: Analyzes code and identifies issues.
 
     This agent performs initial analysis and delegates specialized tasks.
     """
-    print(f"\n[Agent A] Starting task analysis...")
+    print("\n[Agent A] Starting task analysis...")
     print(f"[Agent A] Session: {session_id}")
 
     # Store analysis context in memory
@@ -72,12 +68,12 @@ async def agent_a_task(session_id: str, memory_manager: MemoryManager) -> Dict[s
     return analysis
 
 
-async def agent_b_task(session_id: str, memory_manager: MemoryManager) -> Dict[str, Any]:
+async def agent_b_task(session_id: str, memory_manager: MemoryManager) -> dict[str, Any]:
     """Agent B: Performs code style review.
 
     A specialized agent that focuses on code style and consistency.
     """
-    print(f"\n[Agent B] Starting style review...")
+    print("\n[Agent B] Starting style review...")
     print(f"[Agent B] Session: {session_id}")
 
     # Store style review in memory
@@ -100,12 +96,12 @@ async def agent_b_task(session_id: str, memory_manager: MemoryManager) -> Dict[s
     return review
 
 
-async def agent_c_task(session_id: str, memory_manager: MemoryManager) -> Dict[str, Any]:
+async def agent_c_task(session_id: str, memory_manager: MemoryManager) -> dict[str, Any]:
     """Agent C: Performs performance review.
 
     A specialized agent that focuses on performance optimization.
     """
-    print(f"\n[Agent C] Starting performance review...")
+    print("\n[Agent C] Starting performance review...")
     print(f"[Agent C] Session: {session_id}")
 
     # Store performance review in memory
@@ -236,7 +232,7 @@ async def multi_agent_workflow_example() -> None:
         print("-" * 60)
 
         summary = await memory_manager.summarize(session_id)
-        print(f"\nSession Summary:")
+        print("\nSession Summary:")
         print(f"  Total memories: {summary['count']}")
         print(f"  Total characters: {summary['total_characters']}")
         print(f"  Oldest memory: {summary['oldest_timestamp']}")

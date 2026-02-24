@@ -12,22 +12,22 @@ TokenUsage = None
 
 try:
     from dawn_kestrel.core.models import (
-        Session,
-        Message,
-        Part,
-        ToolState,
         FileInfo,
+        Message,
         MessageSummary,
-        SessionShare,
+        Part,
+        Session,
         SessionRevert,
+        SessionShare,
         TokenUsage,
+        ToolState,
     )
 except Exception:
     pass
 
 # Optional imports - only available when dependencies are installed
 try:
-    from dawn_kestrel.core.event_bus import bus, Events
+    from dawn_kestrel.core.event_bus import Events, bus
 
     _event_bus_available = True
 except ImportError:
@@ -55,7 +55,7 @@ __all__ = [
 ]
 
 
-def get_event_bus():
+def get_event_bus():  # type: ignore[no-untyped-def]
     """Get event bus instance if available, None otherwise"""
     if _event_bus_available:
         from dawn_kestrel.core.event_bus import bus
@@ -64,7 +64,7 @@ def get_event_bus():
     return None
 
 
-def get_settings():
+def get_settings():  # type: ignore[no-untyped-def]
     """Get settings instance if available, None otherwise"""
     if _settings_available:
         from dawn_kestrel.core.settings import get_settings

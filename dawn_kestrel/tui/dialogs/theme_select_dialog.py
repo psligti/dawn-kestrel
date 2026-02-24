@@ -1,10 +1,10 @@
 """Theme select dialog for choosing UI themes."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
-from textual.widgets import Label, ListView, ListItem, Static
+from textual.widgets import Label, ListItem, ListView, Static
 
 
 class ThemeSelectDialog(ModalScreen[str]):
@@ -50,14 +50,14 @@ class ThemeSelectDialog(ModalScreen[str]):
     def __init__(
         self,
         title: str = "Select Theme",
-        on_select: Optional[Callable[[str], None]] = None,
+        on_select: Callable[[str], None] | None = None,
     ):
         super().__init__()
         self.title = title
         self.themes = self.THEMES.copy()
         self.options = self.themes.copy()
         self.on_select = on_select
-        self._result: Optional[str] = None
+        self._result: str | None = None
         self._selected_index: int = 0
 
     def compose(self) -> ComposeResult:
@@ -102,7 +102,7 @@ class ThemeSelectDialog(ModalScreen[str]):
                     pass
                 return
 
-    def close_dialog(self, value: Optional[str] = None) -> None:
+    def close_dialog(self, value: str | None = None) -> None:
         """Close dialog and return selected theme.
 
         Args:
@@ -111,7 +111,7 @@ class ThemeSelectDialog(ModalScreen[str]):
         self._result = value
         self.dismiss()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> str | None:
         """Get dialog result.
 
         Returns:

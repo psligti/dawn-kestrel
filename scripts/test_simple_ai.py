@@ -11,7 +11,7 @@ class SimpleAISession:
     def __init__(self):
         self.api_key = os.getenv("ANTHROPIC_API_KEY", "test-key")
         self.model = "claude-sonnet-4"
-    
+
     def test_basic_stream(self):
         print(f"[green]Testing {self.model} stream[/green]")
         print(f"[dim]API Key: {self.api_key[:8]}***[/dim]")
@@ -20,7 +20,7 @@ class SimpleAISession:
         yield "Thinking..."
         yield "Hello, this is a basic test stream."
         yield "STOP"
-        print(f"[green]Stream complete[/green]")
+        print("[green]Stream complete[/green]")
 
 
 def run_test():

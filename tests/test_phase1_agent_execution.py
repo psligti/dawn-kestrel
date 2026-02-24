@@ -10,17 +10,18 @@
 Note: Test uses mock session and stub provider to avoid pre-existing storage bugs that are outside scope of this task. Given time constraints and complexity, the integration test is comprehensive and touches many components, I'm creating a focused test that exercises the core integration path end-to-end without getting bogged down by pre-existing issues.
 """
 
-import pytest
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
-from dawn_kestrel.agents.runtime import create_agent_runtime
-from dawn_kestrel.agents.registry import create_agent_registry
+import pytest
+
 from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.tools import get_all_tools, ToolRegistry
-from dawn_kestrel.core.models import Message, TextPart
+from dawn_kestrel.agents.registry import create_agent_registry
+from dawn_kestrel.agents.runtime import create_agent_runtime
 from dawn_kestrel.ai_session import AISession
+from dawn_kestrel.core.models import Message, TextPart
+from dawn_kestrel.tools import ToolRegistry, get_all_tools
 
 
 class TestEndToEndIntegration:

@@ -1,5 +1,5 @@
 """Tests for json_parser utility functions."""
-from dawn_kestrel.utils.json_parser import strip_json_code_blocks, strip_any_code_blocks
+from dawn_kestrel.utils.json_parser import strip_any_code_blocks, strip_json_code_blocks
 
 
 def test_strip_json_code_blocks_no_code_blocks():

@@ -1,12 +1,11 @@
 """OpenCode Python - LSP Integration"""
 from __future__ import annotations
-from typing import Optional, Dict, Any, List
+
 import asyncio
 import json
 import logging
 from dataclasses import dataclass
-
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,24 +15,24 @@ class SymbolInfo:
     """Symbol information"""
     name: str
     kind: str
-    location: Dict[str, int]
-    container_name: Optional[str] = None
-    documentation: Optional[str] = None
+    location: dict[str, int]
+    container_name: str | None = None
+    documentation: str | None = None
 
 
 @dataclass
 class HoverInfo:
     """Hover information"""
     text: str
-    documentation: Optional[str] = None
+    documentation: str | None = None
 
 
 @dataclass
 class CodeAction:
     """Code action for navigation"""
     kind: str
-    uri: Optional[str] = None
-    range: Optional[Dict[str, int]] = None
+    uri: str | None = None
+    range: dict[str, int] | None = None
 
 
 class LSPClient:
@@ -48,10 +47,10 @@ class LSPClient:
     """
     def __init__(self, session_id: str):
         self.session_id = session_id
-        self._process: Optional[asyncio.subprocess.Process] = None
-        self._reader: Optional[asyncio.StreamReader] = None
-        self._writer: Optional[asyncio.StreamWriter] = None
-        self._pending_requests: Dict[str, Dict[str, Any]] = {}
+        self._process: asyncio.subprocess.Process | None = None
+        self._reader: asyncio.StreamReader | None = None
+        self._writer: asyncio.StreamWriter | None = None
+        self._pending_requests: dict[str, dict[str, Any]] = {}
         self._request_id_counter = 0
 
     def _request_counter(self) -> str:
@@ -83,8 +82,8 @@ class LSPClient:
     async def document_symbol(
         self,
         uri: str,
-        position: Dict[str, int]
-    ) -> Optional[SymbolInfo]:
+        position: dict[str, int]
+    ) -> SymbolInfo | None:
         """Get symbol at point (textDocument/symbol)"""
         logger.info(f"Document symbol at {uri}:{position}")
 
@@ -114,7 +113,7 @@ class LSPClient:
             logger.error(f"Document symbol failed: {e}")
             return None
 
-    async def get_document_symbols(self, uri: str) -> Optional[List[SymbolInfo]]:
+    async def get_document_symbols(self, uri: str) -> list[SymbolInfo] | None:
         """Get document symbols (textDocument/documentSymbol)"""
         logger.info(f"Getting document symbols: {uri}")
 
@@ -148,8 +147,8 @@ class LSPClient:
     async def hover(
         self,
         uri: str,
-        position: Dict[str, int]
-    ) -> Optional[HoverInfo]:
+        position: dict[str, int]
+    ) -> HoverInfo | None:
         """Get hover information (textDocument/hover)"""
         logger.info(f"Hover at {uri}:{position}")
 
@@ -180,8 +179,8 @@ class LSPClient:
     async def go_to_definition(
         self,
         uri: str,
-        position: Dict[str, int]
-    ) -> Optional[Dict[str, Any]]:
+        position: dict[str, int]
+    ) -> dict[str, Any] | None:
         """Go to definition (textDocument/definition)"""
         logger.info(f"Go to definition at {uri}:{position}")
 
@@ -214,13 +213,13 @@ class LSPClient:
         while True:
             try:
                 data = await self._reader.read(1024)
-                
+
                 if not data:
                     # End of file
                     break
-                
+
                 buffer += data.decode('utf-8', errors='ignore')
-                
+
                 # Process each line
                 for line in buffer.split('\n'):
                     if line:
@@ -233,12 +232,12 @@ class LSPClient:
         """Write requests to LSP server"""
         if not self._writer:
             return
-        
+
         while True:
             # Wait for pending requests
             while self._pending_requests:
                 await asyncio.sleep(0.01)
-            
+
             # Check if terminated
             if not self._writer or self._writer.is_closing():
                 break
@@ -269,7 +268,7 @@ class LSPClient:
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LSP response: {e}")
 
-    async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _send_request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Send request to LSP server"""
         request_id = str(id(self))
 

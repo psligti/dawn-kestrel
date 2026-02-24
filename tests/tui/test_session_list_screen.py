@@ -6,11 +6,11 @@ TDD Workflow:
 - REFACTOR: Improve code structure
 """
 
-import pytest
-from datetime import datetime
 
-from dawn_kestrel.tui.screens.session_list_screen import SessionListScreen
+import pytest
+
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.tui.screens.session_list_screen import SessionListScreen
 
 
 @pytest.fixture

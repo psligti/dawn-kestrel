@@ -13,14 +13,13 @@ Each plugin is registered via entry_points in pyproject.toml and loaded dynamica
 """
 
 import logging
-from typing import Dict, Any, Optional
-from importlib.metadata import entry_points, EntryPoint
-
+from importlib.metadata import EntryPoint, entry_points
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
+def _load_plugins(group: str, plugin_type: str) -> dict[str, Any]:
     """
     Generic plugin loader for entry point groups.
 
@@ -34,7 +33,7 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
     Raises:
         No exceptions raised - errors are logged and skipped
     """
-    plugins: Dict[str, Any] = {}
+    plugins: dict[str, Any] = {}
 
     try:
         eps = entry_points()
@@ -87,7 +86,7 @@ def _load_plugins(group: str, plugin_type: str) -> Dict[str, Any]:
     return plugins
 
 
-async def load_tools() -> Dict[str, Any]:
+async def load_tools() -> dict[str, Any]:
     """
     Load tool plugins from dawn_kestrel.tools entry points.
 
@@ -109,30 +108,30 @@ async def load_tools() -> Dict[str, Any]:
     return tools
 
 
-def _load_tools_fallback() -> Dict[str, Any]:
-    from dawn_kestrel.tools.builtin import (
-        BashTool,
-        ReadTool,
-        WriteTool,
-        GrepTool,
-        GlobTool,
-        ASTGrepTool,
-    )
+def _load_tools_fallback() -> dict[str, Any]:
     from dawn_kestrel.tools.additional import (
+        CodeSearchTool,
+        CompactionTool,
         EditTool,
+        ExternalDirectoryTool,
         ListTool,
-        TaskTool,
+        LspTool,
+        MultiEditTool,
         QuestionTool,
+        SkillTool,
+        TaskTool,
         TodoTool,
         TodowriteTool,
         WebFetchTool,
         WebSearchTool,
-        MultiEditTool,
-        CodeSearchTool,
-        LspTool,
-        SkillTool,
-        ExternalDirectoryTool,
-        CompactionTool,
+    )
+    from dawn_kestrel.tools.builtin import (
+        ASTGrepTool,
+        BashTool,
+        GlobTool,
+        GrepTool,
+        ReadTool,
+        WriteTool,
     )
 
     tools = {
@@ -162,7 +161,7 @@ def _load_tools_fallback() -> Dict[str, Any]:
     return tools
 
 
-def load_providers() -> Dict[str, Any]:
+def load_providers() -> dict[str, Any]:
     """
     Load provider plugins from dawn_kestrel.providers entry points.
 
@@ -184,16 +183,15 @@ def load_providers() -> Dict[str, Any]:
     return providers
 
 
-def _load_providers_fallback() -> Dict[str, Any]:
+def _load_providers_fallback() -> dict[str, Any]:
     # Import inside function to avoid circular dependency at module load time
     # Only import providers from separate modules; inline providers in __init__.py
     # are automatically available when providers module is imported
-    from dawn_kestrel.providers.zai import ZAIProvider
-    from dawn_kestrel.providers.zai_coding_plan import ZAICodingPlanProvider
-
     # For inline providers (Anthropic, OpenAI), import __init__ module directly
     # but only within this function to avoid circular dependency
     import dawn_kestrel.providers as providers_module
+    from dawn_kestrel.providers.zai import ZAIProvider
+    from dawn_kestrel.providers.zai_coding_plan import ZAICodingPlanProvider
 
     return {
         "anthropic": providers_module.AnthropicProvider,
@@ -203,7 +201,7 @@ def _load_providers_fallback() -> Dict[str, Any]:
     }
 
 
-async def load_agents() -> Dict[str, Any]:
+async def load_agents() -> dict[str, Any]:
     """
     Load agent plugins from dawn_kestrel.agents entry points.
 
@@ -219,12 +217,12 @@ async def load_agents() -> Dict[str, Any]:
     return agents
 
 
-def _load_agents_fallback() -> Dict[str, Any]:
+def _load_agents_fallback() -> dict[str, Any]:
     """Fallback to load agents if entry points are not available."""
     from dawn_kestrel.agents.builtin import (
         BUILD_AGENT,
-        PLAN_AGENT,
         GENERAL_AGENT,
+        PLAN_AGENT,
     )
 
     builtin_agents = {
@@ -249,7 +247,7 @@ def _load_agents_fallback() -> Dict[str, Any]:
         return builtin_agents
 
 
-def get_plugin_version(entry_point: EntryPoint) -> Optional[str]:
+def get_plugin_version(entry_point: EntryPoint) -> str | None:
     """
     Get version information from a plugin entry point.
 

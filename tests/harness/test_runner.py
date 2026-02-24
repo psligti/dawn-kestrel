@@ -1,18 +1,19 @@
 """Unit tests for AgentRunner using Template Method pattern."""
-import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 import json
+from pathlib import Path
+from unittest.mock import AsyncMock
 
+import pytest
+
+from dawn_kestrel.context.builder import ContextBuilder
 from dawn_kestrel.core.harness.runner import (
     AgentRunner,
     ReviewAgentRunner,
     create_review_agent_runner,
 )
 from dawn_kestrel.llm.client import LLMClient, LLMResponse
-from dawn_kestrel.context.builder import ContextBuilder
+from dawn_kestrel.providers.base import TokenUsage
 from dawn_kestrel.tools.framework import ToolRegistry
-from dawn_kestrel.providers.base import TokenUsage, ModelInfo
 
 
 @pytest.fixture

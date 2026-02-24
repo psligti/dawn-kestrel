@@ -11,18 +11,17 @@ This module provides two runner implementations:
 
 from __future__ import annotations
 
-import logging
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
-from pathlib import Path
 import json
+import logging
+from abc import ABC
+from pathlib import Path
+from typing import Any, Generic, TypeVar, cast
 
 from dawn_kestrel.context.builder import ContextBuilder
 from dawn_kestrel.core.agent_types import AgentContext
+from dawn_kestrel.core.settings import settings
 from dawn_kestrel.llm.client import LLMClient, LLMRequestOptions
 from dawn_kestrel.tools.framework import ToolRegistry
-from dawn_kestrel.core.settings import settings
-
 
 T = TypeVar("T")
 
@@ -65,10 +64,10 @@ class AgentRunner(ABC, Generic[T]):
 
     async def run(
         self,
-        agent_config: Dict[str, Any],
-        tools: Optional[ToolRegistry] = None,
-        skills: Optional[List[str]] = None,
-        options: Optional[Dict[str, Any]] = None,
+        agent_config: dict[str, Any],
+        tools: ToolRegistry | None = None,
+        skills: list[str] | None = None,
+        options: dict[str, Any] | None = None,
     ) -> T:
         """Execute agent using template method pattern.
 
@@ -108,9 +107,9 @@ class AgentRunner(ABC, Generic[T]):
 
     async def _build_context(
         self,
-        agent_config: Dict[str, Any],
-        tools: Optional[ToolRegistry],
-        skills: List[str],
+        agent_config: dict[str, Any],
+        tools: ToolRegistry | None,
+        skills: list[str],
     ) -> AgentContext:
         """Build agent execution context.
 
@@ -146,8 +145,8 @@ class AgentRunner(ABC, Generic[T]):
     def _prepare_messages(
         self,
         context: AgentContext,
-        agent_config: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        agent_config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Prepare messages for LLM call.
 
         Hook method for preparing the message list. Default implementation
@@ -165,8 +164,8 @@ class AgentRunner(ABC, Generic[T]):
 
     async def _call_llm(
         self,
-        messages: List[Dict[str, Any]],
-        options: Optional[Dict[str, Any]] = None,
+        messages: list[dict[str, Any]],
+        options: dict[str, Any] | None = None,
     ) -> str:
         """Call LLM with prepared messages.
 
@@ -205,7 +204,7 @@ class AgentRunner(ABC, Generic[T]):
         raise NotImplementedError("Subclasses must implement _parse_response()")
 
 
-class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
+class ReviewAgentRunner(AgentRunner[dict[str, Any]]):
     """Agent runner specialized for review agents.
 
     Extends AgentRunner to:
@@ -217,10 +216,10 @@ class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
     async def run_review(
         self,
         system_prompt: str,
-        context_data: Dict[str, Any],
-        tools: Optional[ToolRegistry] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        context_data: dict[str, Any],
+        tools: ToolRegistry | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Run a review agent with formatted context.
 
         Args:
@@ -248,8 +247,8 @@ class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
     def _prepare_messages(
         self,
         context: AgentContext,
-        agent_config: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        agent_config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Prepare messages with system prompt and review context.
 
         Args:
@@ -269,7 +268,7 @@ class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
         self,
         response: str,
         context: AgentContext,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Parse review response from JSON.
 
         Args:
@@ -291,7 +290,7 @@ class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
             logger.debug(f"Response content: {response[:500]}")
             raise ValueError(f"Review agent returned invalid JSON: {e}")
 
-    def _format_review_context(self, context_data: Dict[str, Any]) -> str:
+    def _format_review_context(self, context_data: dict[str, Any]) -> str:
         """Format review context for prompt.
 
         Extracted from BaseReviewerAgent.format_inputs_for_prompt()
@@ -339,7 +338,7 @@ class ReviewAgentRunner(AgentRunner[Dict[str, Any]]):
 def create_review_agent_runner(
     llm_client: LLMClient,
     base_dir: Path,
-    skill_max_char_budget: Optional[int] = None,
+    skill_max_char_budget: int | None = None,
 ) -> ReviewAgentRunner:
     """Factory function to create ReviewAgentRunner.
 
@@ -381,7 +380,7 @@ class SimpleReviewAgentRunner:
     def __init__(
         self,
         agent_name: str,
-        allowed_tools: Optional[List[str]] = None,
+        allowed_tools: list[str] | None = None,
         temperature: float = 0.3,
         top_p: float = 0.9,
         max_retries: int = 2,
@@ -403,7 +402,7 @@ class SimpleReviewAgentRunner:
         self.top_p = top_p
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
-        self._llm_client: Optional[LLMClient] = None
+        self._llm_client: LLMClient | None = None
 
     def _build_system_prompt(self, system_prompt: str) -> str:
         """Inject per-agent tool policy into the system prompt."""
@@ -522,7 +521,7 @@ class SimpleReviewAgentRunner:
                     )
                     continue
                 else:
-                    raise ValueError(f"Empty response from LLM after retries") from e
+                    raise ValueError("Empty response from LLM after retries") from e
             except Exception as e:
                 last_error = e
                 if attempt < max_attempts - 1:

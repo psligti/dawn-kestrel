@@ -76,6 +76,7 @@ class TestDelegationBudget:
         assert budget.max_wall_time_seconds == 300.0
         assert budget.max_iterations == 10
         assert budget.stagnation_threshold == 3
+        assert budget.max_concurrent == 3
 
     def test_custom_values(self):
         """DelegationBudget should accept custom values."""
@@ -86,6 +87,7 @@ class TestDelegationBudget:
             max_wall_time_seconds=600.0,
             max_iterations=20,
             stagnation_threshold=5,
+            max_concurrent=10,
         )
         assert budget.max_depth == 5
         assert budget.max_breadth == 10
@@ -93,6 +95,7 @@ class TestDelegationBudget:
         assert budget.max_wall_time_seconds == 600.0
         assert budget.max_iterations == 20
         assert budget.stagnation_threshold == 5
+        assert budget.max_concurrent == 10
 
     def test_rejects_negative_max_depth(self):
         """DelegationBudget should reject negative max_depth."""
@@ -133,6 +136,14 @@ class TestDelegationBudget:
         """DelegationBudget should reject negative stagnation_threshold."""
         with pytest.raises(ValueError, match="stagnation_threshold"):
             DelegationBudget(stagnation_threshold=-1)
+
+    def test_rejects_negative_max_concurrent(self):
+        with pytest.raises(ValueError, match="max_concurrent"):
+            DelegationBudget(max_concurrent=-1)
+
+    def test_rejects_zero_max_concurrent(self):
+        with pytest.raises(ValueError, match="max_concurrent"):
+            DelegationBudget(max_concurrent=0)
 
 
 class TestDelegationConfig:

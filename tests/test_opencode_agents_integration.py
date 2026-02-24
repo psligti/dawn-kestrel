@@ -9,33 +9,30 @@ Tests verify:
 - Expected outcomes match agent descriptions
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, MagicMock, patch
-from typing import Dict, Any
 
 from dawn_kestrel.agents.bolt_merlin import (
-    create_orchestrator_agent,
+    create_autonomous_worker_agent,
     create_consultant_agent,
-    create_librarian_agent,
     create_explore_agent,
     create_frontend_ui_ux_skill,
+    create_librarian_agent,
+    create_master_orchestrator_agent,
     create_multimodal_looker_agent,
-    create_autonomous_worker_agent,
-    create_pre_planning_agent,
+    create_orchestrator_agent,
     create_plan_validator_agent,
     create_planner_agent,
-    create_master_orchestrator_agent,
+    create_pre_planning_agent,
 )
+from dawn_kestrel.agents.builtin import Agent
 from dawn_kestrel.agents.registry import create_agent_registry
 from dawn_kestrel.agents.runtime import create_agent_runtime
-from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.core.models import Session, Message, TokenUsage, TextPart, ToolPart, ToolState
 from dawn_kestrel.core.agent_types import AgentResult
-from dawn_kestrel.tools.framework import ToolRegistry
+from dawn_kestrel.core.models import Message, Session, TextPart, ToolPart, ToolState
+from dawn_kestrel.skills.loader import SkillLoader
 from dawn_kestrel.tools import create_builtin_registry
-from dawn_kestrel.skills.loader import Skill, SkillLoader
-
 
 # ============================================================================
 # Fixtures
@@ -118,7 +115,7 @@ def create_mock_response(
     session_id: str,
     text: str = "Test response",
     tools_used: list = None,
-    tokens: Dict[str, int] = None,
+    tokens: dict[str, int] = None,
 ) -> Message:
     """Helper to create mock response messages."""
     tools_used = tools_used or []

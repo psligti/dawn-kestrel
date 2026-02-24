@@ -7,18 +7,11 @@ TDD Workflow:
 """
 
 import pytest
-from textual.app import App
-from textual.widgets import Static
 
-from dawn_kestrel.tui.screens.message_screen import MessageScreen
 from dawn_kestrel.core.models import (
-    Message,
-    TextPart,
-    Part,
-    ToolPart,
-    ToolState,
     Session,
 )
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
 
 
 @pytest.fixture

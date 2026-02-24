@@ -12,13 +12,13 @@ Exit codes:
     1: Validation fails
 """
 
-import sys
 import re
+import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Any
 
 
-def parse_frontmatter(content: str) -> Tuple[str, Dict[str, Any]]:
+def parse_frontmatter(content: str) -> tuple[str, dict[str, Any]]:
     """Parse YAML frontmatter from markdown content.
 
     Args:
@@ -97,7 +97,7 @@ def parse_frontmatter(content: str) -> Tuple[str, Dict[str, Any]]:
     return yaml_content, frontmatter
 
 
-def validate_patterns(patterns: List[str]) -> List[str]:
+def validate_patterns(patterns: list[str]) -> list[str]:
     """Validate pattern list structure.
 
     Args:
@@ -149,7 +149,7 @@ def validate_patterns(patterns: List[str]) -> List[str]:
     return errors
 
 
-def validate_frontmatter(file_path: Path, frontmatter: Dict[str, Any]) -> List[str]:
+def validate_frontmatter(file_path: Path, frontmatter: dict[str, Any]) -> list[str]:
     """Validate frontmatter structure and required fields.
 
     Args:
@@ -188,7 +188,7 @@ def validate_frontmatter(file_path: Path, frontmatter: Dict[str, Any]) -> List[s
     return errors
 
 
-def validate_file(file_path: Path) -> Tuple[bool, List[str]]:
+def validate_file(file_path: Path) -> tuple[bool, list[str]]:
     """Validate a single reviewer documentation file.
 
     Args:
@@ -244,7 +244,7 @@ def main() -> int:
 
     # Validate each file
     all_valid = True
-    file_errors: Dict[Path, List[str]] = {}
+    file_errors: dict[Path, list[str]] = {}
 
     for file_path in sorted(md_files):
         is_valid, errors = validate_file(file_path)

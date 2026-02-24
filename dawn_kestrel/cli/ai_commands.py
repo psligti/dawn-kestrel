@@ -5,17 +5,16 @@ Provides unified interface for AI sessions, model selection,
 and configuration management across all providers.
 """
 
+
 import click
-from typing import Optional
 import pendulum
 from pydantic import SecretStr
-from rich.table import Table
 from rich.console import Console
+from rich.table import Table
 
 from ..ai_session import AISession
-from ..core.settings import settings
 from ..core.session import SessionManager
-
+from ..core.settings import settings
 
 console = Console()
 
@@ -30,7 +29,8 @@ def model():
 def list_models():
     """List all available models from providers"""
     import asyncio
-    from ..providers import get_available_models, ProviderID
+
+    from ..providers import ProviderID, get_available_models
 
     anthropic_key = settings.get_api_key_for_provider("anthropic") or SecretStr("")
     openai_key = settings.get_api_key_for_provider("openai") or SecretStr("")
@@ -101,10 +101,11 @@ def set_default(provider: str, model: str):
 @click.option("--model", "-m", default=None, help="Model to use")
 @click.option("--provider", "-p", default=None, help="AI provider")
 @click.option("--session", "-s", default=None, help="Resume existing session")
-def run(message: str, model: Optional[str], provider: Optional[str], session: Optional[str]):
+def run(message: str, model: str | None, provider: str | None, session: str | None):
     """Run a message through AI session"""
     import asyncio
     from pathlib import Path
+
     from dawn_kestrel.storage.store import SessionStorage
 
     provider_id = provider or "anthropic"
@@ -166,10 +167,11 @@ def new_session():
     """Create a new AI session"""
     import asyncio
     from pathlib import Path
+
     from dawn_kestrel.storage.store import SessionStorage
-    from ..core.settings import settings
 
     from ..core.session import SessionManager
+    from ..core.settings import settings
 
     async def create():
         storage_dir = settings.storage_dir_path()
@@ -192,8 +194,10 @@ def list_sessions():
     """List all sessions"""
     import asyncio
     from pathlib import Path
-    from dawn_kestrel.storage.store import SessionStorage
+
     from rich.table import Table
+
+    from dawn_kestrel.storage.store import SessionStorage
 
     async def list():
         storage_dir = settings.storage_dir_path()
@@ -233,6 +237,7 @@ def export_session(session_id: str):
     import asyncio
     import json
     from pathlib import Path
+
     from dawn_kestrel.storage.store import SessionStorage
 
     async def export():
@@ -259,6 +264,7 @@ def import_session(file_path: str):
     import asyncio
     import json
     from pathlib import Path
+
     from dawn_kestrel.storage.store import SessionStorage
 
     async def import_():
@@ -271,7 +277,7 @@ def import_session(file_path: str):
             console.print(f"[red]File not found: {file_path}[/red]")
             return
 
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             session_data = json.load(f)
 
         session = await session_mgr.import_data(session_data)

@@ -4,17 +4,17 @@ ToolExecutionTracker - Track and persist tool executions.
 Provides persistent storage for tool execution history with
 query capabilities and event emission.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
 import json
 import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from dawn_kestrel.core.event_bus import bus, Events
+from dawn_kestrel.core.event_bus import Events, bus
 from dawn_kestrel.core.models import ToolState
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ToolExecutionTracker:
     storage/tool_execution/{session_id}/{execution_id}.json
     """
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path) -> None:
         """Initialize ToolExecutionTracker
 
         Args:
@@ -43,9 +43,9 @@ class ToolExecutionTracker:
         message_id: str,
         tool_id: str,
         state: ToolState,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        start_time: float | None = None,
+        end_time: float | None = None,
+    ) -> dict[str, Any]:
         """Log a tool execution record
 
         Args:
@@ -73,16 +73,18 @@ class ToolExecutionTracker:
 
         await self.persist(execution_record)
 
-        await bus.publish(Events.TOOL_STARTED, {
-            "execution_id": execution_id,
-            "session_id": session_id,
-            "tool_id": tool_id,
-            "state": state.status,
-        })
+        await bus.publish(
+            Events.TOOL_STARTED,
+            {
+                "execution_id": execution_id,
+                "session_id": session_id,
+                "tool_id": tool_id,
+                "state": state.status,
+            },
+        )
 
         logger.debug(
-            f"Logged tool execution: {tool_id} (status: {state.status}) "
-            f"in session {session_id}"
+            f"Logged tool execution: {tool_id} (status: {state.status}) in session {session_id}"
         )
 
         return execution_record
@@ -91,8 +93,8 @@ class ToolExecutionTracker:
         self,
         execution_id: str,
         state: ToolState,
-        end_time: Optional[float] = None,
-    ) -> Optional[Dict[str, Any]]:
+        end_time: float | None = None,
+    ) -> dict[str, Any] | None:
         """Update an existing execution record
 
         Args:
@@ -118,7 +120,7 @@ class ToolExecutionTracker:
 
         execution_file = self.storage_dir / session_id / f"{execution_id}.json"
         try:
-            with open(execution_file, "r") as f:
+            with open(execution_file) as f:
                 record = json.load(f)
 
             record["state"] = state.model_dump(mode="json")
@@ -130,19 +132,25 @@ class ToolExecutionTracker:
                 json.dump(record, f, indent=2)
 
             if state.status == "completed":
-                await bus.publish(Events.TOOL_COMPLETED, {
-                    "execution_id": execution_id,
-                    "session_id": session_id,
-                    "tool_id": record["tool_id"],
-                    "output": state.output,
-                })
+                await bus.publish(
+                    Events.TOOL_COMPLETED,
+                    {
+                        "execution_id": execution_id,
+                        "session_id": session_id,
+                        "tool_id": record["tool_id"],
+                        "output": state.output,
+                    },
+                )
             elif state.status == "error":
-                await bus.publish(Events.TOOL_ERROR, {
-                    "execution_id": execution_id,
-                    "session_id": session_id,
-                    "tool_id": record["tool_id"],
-                    "error": state.error,
-                })
+                await bus.publish(
+                    Events.TOOL_ERROR,
+                    {
+                        "execution_id": execution_id,
+                        "session_id": session_id,
+                        "tool_id": record["tool_id"],
+                        "error": state.error,
+                    },
+                )
 
             logger.debug(f"Updated execution record: {execution_id} (status: {state.status})")
 
@@ -155,9 +163,9 @@ class ToolExecutionTracker:
     async def get_execution_history(
         self,
         session_id: str,
-        tool_id: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        tool_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         """Get execution history for a session
 
         Args:
@@ -175,7 +183,7 @@ class ToolExecutionTracker:
         executions = []
         for execution_file in session_dir.glob("*.json"):
             try:
-                with open(execution_file, "r") as f:
+                with open(execution_file) as f:
                     record = json.load(f)
 
                 if tool_id and record.get("tool_id") != tool_id:
@@ -196,7 +204,7 @@ class ToolExecutionTracker:
     async def get_execution(
         self,
         execution_id: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get a specific execution record
 
         Args:
@@ -210,7 +218,7 @@ class ToolExecutionTracker:
             execution_file = session_dir / f"{execution_id}.json"
             if execution_file.exists():
                 try:
-                    with open(execution_file, "r") as f:
+                    with open(execution_file) as f:
                         return json.load(f)
                 except Exception as e:
                     logger.warning(f"Failed to read execution file {execution_file}: {e}")
@@ -218,7 +226,7 @@ class ToolExecutionTracker:
 
         return None
 
-    async def persist(self, record: Dict[str, Any]) -> None:
+    async def persist(self, record: dict[str, Any]) -> None:
         """Persist an execution record to disk
 
         Args:

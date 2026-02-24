@@ -5,14 +5,13 @@ Enables creating child sessions from specific messages and
 reverting sessions to previous snapshot states.
 """
 
+import importlib.util
 import logging
 import time
-from typing import Optional, List
 from pathlib import Path
-import importlib.util
+from typing import Any
 
 from ..core.models import Session, SnapshotPart, TextPart
-from typing import Any
 
 
 def _load_snapshot_file() -> Any:
@@ -33,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 async def fork_session(
-    session: Session, message_id: str, title: Optional[str] = None
-) -> Optional[str]:
+    session: Session, message_id: str, title: str | None = None
+) -> str | None:
     """Fork session by creating child from specific message"""
     if not session.project_id:
         logger.error("Cannot fork session without project ID")
@@ -60,7 +59,7 @@ async def fork_session(
 
     logger.info(f"Created child session: {child_session.id} (fork from {message_id[:8]}...)")
 
-    from ..core.event_bus import bus, Events
+    from ..core.event_bus import Events, bus
 
     await bus.publish(
         Events.SESSION_CREATED,
@@ -78,7 +77,7 @@ async def fork_session(
     return child_session.id
 
 
-async def list_child_sessions(session: Session) -> List[Session]:
+async def list_child_sessions(session: Session) -> list[Session]:
     """List all child sessions for current session"""
     from ..storage.store import SessionStorage
 
@@ -93,10 +92,10 @@ async def list_child_sessions(session: Session) -> List[Session]:
 
 
 async def revert_session(
-    session: Session, snapshot_id: str, files: Optional[List[str]] = None
+    session: Session, snapshot_id: str, files: list[str] | None = None
 ) -> bool:
     """Revert files to previous snapshot state"""
-    from ..storage.store import SessionStorage, PartStorage, MessageStorage
+    from ..storage.store import MessageStorage, PartStorage, SessionStorage
 
     storage = SessionStorage(Path(session.directory))
 
@@ -169,7 +168,7 @@ async def revert_session(
 
     await part_storage.create_part(session.id, revert_part)
 
-    from ..core.event_bus import bus, Events
+    from ..core.event_bus import Events, bus
 
     await bus.publish(
         Events.SESSION_UPDATED,
@@ -228,7 +227,7 @@ async def export_session_tree(session: Session) -> str:
     return output
 
 
-def _format_tree(sessions: List[dict[str, Any]], indent: str = "") -> str:
+def _format_tree(sessions: list[dict[str, Any]], indent: str = "") -> str:
     if not sessions:
         return ""
 

@@ -1,7 +1,6 @@
 """Tests for keybinding system in OpenCode TUI"""
-import pytest
-from textual.binding import Binding
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 
 from dawn_kestrel.tui.keybindings import keybindings
 

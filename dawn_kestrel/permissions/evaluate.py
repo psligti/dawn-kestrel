@@ -1,7 +1,8 @@
 """OpenCode Python - Permission model"""
 from __future__ import annotations
-from typing import Literal, List
+
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -35,7 +36,7 @@ class PermissionEvaluator:
     def evaluate(
         permission: str,
         pattern: str,
-        rulesets: List[List[PermissionRule]],
+        rulesets: list[list[PermissionRule]],
     ) -> PermissionRule:
         """Evaluate a permission against multiple rulesets
 
@@ -83,6 +84,6 @@ DEFAULT_RULES = [
 ]
 
 
-def get_default_rulesets() -> List[List[PermissionRule]]:
+def get_default_rulesets() -> list[list[PermissionRule]]:
     """Get all default rulesets"""
     return [DEFAULT_RULES]

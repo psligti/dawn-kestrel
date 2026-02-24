@@ -4,9 +4,9 @@ Verifies that scroll navigation methods work correctly.
 """
 
 import pytest
-from dawn_kestrel.tui.screens.message_screen import MessageScreen
-from dawn_kestrel.tui.app import OpenCodeTUI
+
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.tui.screens.message_screen import MessageScreen
 
 
 @pytest.fixture

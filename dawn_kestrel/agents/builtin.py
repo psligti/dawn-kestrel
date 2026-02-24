@@ -1,8 +1,9 @@
 """OpenCode Python - Agent definitions"""
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
+
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -12,16 +13,18 @@ class Agent:
     name: str
     description: str
     mode: str  # "subagent", "primary", "all"
-    permission: List[Dict[str, Any]]  # Ruleset
+    permission: list[dict[str, Any]]  # Ruleset
     native: bool = True
     hidden: bool = False
-    top_p: Optional[float] = None
-    temperature: Optional[float] = None
-    color: Optional[str] = None
-    model: Optional[Dict[str, str]] = None  # providerID/modelID
-    prompt: Optional[str] = None  # Custom system prompt
-    options: Optional[Dict[str, Any]] = None
-    steps: Optional[int] = None
+    top_p: float | None = None
+    temperature: float | None = None
+    color: str | None = None
+    model: dict[str, str] | None = None  # providerID/modelID
+    prompt: str | None = None  # Custom system prompt
+    options: dict[str, Any] | None = None
+    steps: int | None = None
+    allowed_tools: list[str] | None = None  # Explicit allowlist (glob patterns)
+    denied_tools: list[str] | None = None  # Explicit denylist (glob patterns)
 
 
 # Built-in agents matching TypeScript OpenCode
@@ -105,7 +108,7 @@ PLAN_DEFAULTS = [
 ]
 
 
-def get_all_agents() -> List[Agent]:
+def get_all_agents() -> list[Agent]:
     """Get all available agents"""
     return [
         BUILD_AGENT,
@@ -115,7 +118,7 @@ def get_all_agents() -> List[Agent]:
     ]
 
 
-def get_agent_by_name(name: str) -> Optional[Agent]:
+def get_agent_by_name(name: str) -> Agent | None:
     """Get an agent by name (case-insensitive)"""
     name_lower = name.lower()
     agents = get_all_agents()

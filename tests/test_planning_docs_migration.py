@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CANONICAL_SPEC_PATH = REPO_ROOT / "docs/planning-agent-orchestration.md"
 INTEGRATION_MAP_PATH = REPO_ROOT / ".sisyphus/integration-map.md"

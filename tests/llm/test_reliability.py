@@ -8,20 +8,20 @@ Tests verify that LLMReliability wrapper correctly combines:
 Pattern ordering is critical: rate limit → circuit breaker → retry
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
+from dawn_kestrel.core.models import Message
+from dawn_kestrel.core.result import Err, Ok
+from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl
+from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
 from dawn_kestrel.llm.reliability import (
     LLMReliability,
     LLMReliabilityImpl,
 )
-from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
-from dawn_kestrel.llm.circuit_breaker import CircuitBreakerImpl, CircuitState
-from dawn_kestrel.llm.retry import RetryExecutorImpl, ExponentialBackoff
-from dawn_kestrel.core.result import Ok, Err, Result
-from dawn_kestrel.core.models import Message
-
+from dawn_kestrel.llm.retry import RetryExecutorImpl
 
 # =============================================================================
 # Fixtures

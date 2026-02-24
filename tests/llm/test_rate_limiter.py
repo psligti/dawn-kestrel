@@ -5,12 +5,8 @@ Tests follow TDD workflow: RED -> GREEN -> REFACTOR
 
 import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch
 
-import pytest
-
-from dawn_kestrel.core.result import Err, Ok, Result
-
+from dawn_kestrel.core.result import Err, Ok
 
 # =============================================================================
 # TokenBucket Tests
@@ -327,7 +323,7 @@ class TestRateLimiterProtocol:
 
     async def test_rate_limiter_has_required_methods(self):
         """Test that RateLimiter implementation has required methods."""
-        from dawn_kestrel.llm.rate_limiter import RateLimiter, RateLimiterImpl
+        from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
 
         limiter = RateLimiterImpl()
 

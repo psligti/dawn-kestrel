@@ -8,16 +8,12 @@ This module tests the DependencyAuditorAgent functionality:
 - Error handling for missing tools
 """
 
-from unittest.mock import Mock, MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock, Mock, patch
 
 from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 from dawn_kestrel.agents.review.subagents.dependency_auditor import (
     DependencyAuditorAgent,
 )
-from dawn_kestrel.agents.review.tools import ToolResult
-
 
 # Mock safety JSON output with vulnerable packages
 MOCK_SAFETY_OUTPUT = """

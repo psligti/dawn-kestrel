@@ -9,38 +9,38 @@ Provides a complete message display screen with:
 - Support for all Part types
 """
 
-from textual.screen import Screen
-from textual.containers import Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Input, Button
-from textual.app import ComposeResult
-from textual.reactive import reactive
-from typing import Optional, List, Dict, Any, cast
 import asyncio
 import logging
-import pendulum
+from typing import Any, cast
 
+import pendulum
+from textual.app import ComposeResult
+from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import Button, Input, Static
+
+from dawn_kestrel.ai_session import AISession
 from dawn_kestrel.core.models import (
+    AgentPart,
+    CompactionPart,
+    FilePart,
     Message,
     Part,
+    PatchPart,
+    ReasoningPart,
+    RetryPart,
+    Session,
+    SnapshotPart,
+    SubtaskPart,
     TextPart,
     ToolPart,
-    FilePart,
-    ReasoningPart,
-    SnapshotPart,
-    PatchPart,
-    AgentPart,
-    SubtaskPart,
-    RetryPart,
-    CompactionPart,
     ToolState,
-    Session,
 )
-from dawn_kestrel.tui.message_view import MessageView
-from dawn_kestrel.ai_session import AISession
-from dawn_kestrel.providers import get_provider, ProviderID
-from dawn_kestrel.providers.base import StreamEvent
 from dawn_kestrel.core.settings import settings
-
+from dawn_kestrel.providers import ProviderID, get_provider
+from dawn_kestrel.providers.base import StreamEvent
+from dawn_kestrel.tui.message_view import MessageView
 
 logger = logging.getLogger(__name__)
 
@@ -138,14 +138,14 @@ class MessageScreen(Screen):
         ("shift+g", "jump_to_top", "Jump to Top"),
     ]
 
-    messages: reactive[List[Message]] = reactive([])
+    messages: reactive[list[Message]] = reactive([])
     session: Session
-    ai_session: Optional[AISession] = None
+    ai_session: AISession | None = None
     is_streaming: reactive[bool] = reactive(False)
-    messages_container: Optional[ScrollableContainer] = None
-    _current_assistant_message: Optional[Message]
-    _current_text_part: Optional[TextPart]
-    _current_assistant_view: Optional[MessageView]
+    messages_container: ScrollableContainer | None = None
+    _current_assistant_message: Message | None
+    _current_text_part: TextPart | None
+    _current_assistant_view: MessageView | None
 
     def __init__(self, session: Session, session_service: Any | None = None, **kwargs):
         super().__init__(**kwargs)
@@ -182,10 +182,11 @@ class MessageScreen(Screen):
 
     async def _load_messages(self) -> None:
         """Load existing messages for session"""
-        from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import settings
         from pathlib import Path
+
+        from dawn_kestrel.core.session import SessionManager
+        from dawn_kestrel.core.settings import settings
+        from dawn_kestrel.storage.store import SessionStorage
 
         try:
             if self.session_service:
@@ -239,11 +240,12 @@ class MessageScreen(Screen):
 
     async def _create_user_message(self, text: str) -> Message:
         """Create a user message"""
-        from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import settings
-        from pathlib import Path
         import uuid
+        from pathlib import Path
+
+        from dawn_kestrel.core.session import SessionManager
+        from dawn_kestrel.core.settings import settings
+        from dawn_kestrel.storage.store import SessionStorage
 
         message_id = str(uuid.uuid4())
         timestamp = pendulum.now().timestamp()
@@ -384,7 +386,7 @@ class MessageScreen(Screen):
 
             self._scroll_to_bottom()
 
-    def _build_message_history(self) -> List[Dict[str, Any]]:
+    def _build_message_history(self) -> list[dict[str, Any]]:
         """Build message history for AI API"""
         history = []
 
@@ -419,7 +421,7 @@ class MessageScreen(Screen):
 
         return history
 
-    def _parts_to_text(self, parts: List[Part]) -> str:
+    def _parts_to_text(self, parts: list[Part]) -> str:
         """Convert parts list to text string"""
         text_parts = []
         for part in parts:
@@ -526,7 +528,7 @@ class MessageScreen(Screen):
 
     async def _display_message(self, message: Message, is_streaming: bool = False) -> None:
         """Display a message in the timeline"""
-        parts_data: List[Dict[str, Any]] = []
+        parts_data: list[dict[str, Any]] = []
         for p in message.parts:
             if isinstance(
                 p,
@@ -606,7 +608,7 @@ class MessageScreen(Screen):
     async def _update_assistant_display(self) -> None:
         """Update the currently streaming assistant message display"""
         if self._current_assistant_view and self._current_assistant_message:
-            parts_data: List[Dict[str, Any]] = []
+            parts_data: list[dict[str, Any]] = []
             for p in self._current_assistant_message.parts:
                 if isinstance(
                     p,
@@ -640,10 +642,11 @@ class MessageScreen(Screen):
 
     async def _save_assistant_message(self) -> None:
         """Save assistant message to storage"""
-        from dawn_kestrel.core.session import SessionManager
-        from dawn_kestrel.storage.store import SessionStorage
-        from dawn_kestrel.core.settings import settings
         from pathlib import Path
+
+        from dawn_kestrel.core.session import SessionManager
+        from dawn_kestrel.core.settings import settings
+        from dawn_kestrel.storage.store import SessionStorage
 
         assert self._current_assistant_message is not None, "Current assistant message must be set"
 

@@ -6,10 +6,8 @@ and replaces global singleton functions.
 
 import os
 from pathlib import Path
-import pytest
-from pydantic import ValidationError
 
-from dawn_kestrel.core.settings import Settings, get_storage_dir, get_config_dir, get_cache_dir
+from dawn_kestrel.core.settings import Settings, get_cache_dir, get_config_dir, get_storage_dir
 
 
 class TestConfigurationObjectBasics:

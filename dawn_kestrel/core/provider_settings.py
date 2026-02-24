@@ -7,9 +7,9 @@ supporting multiple accounts per provider with validation.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pydantic import BaseModel, SecretStr, ValidationError, field_validator
+from pydantic import BaseModel, SecretStr, field_validator
 
 from dawn_kestrel.providers.base import ProviderID
 
@@ -42,10 +42,10 @@ class AccountConfig(BaseModel):
     model: str = ""
     """Model ID to use (required)"""
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
     """Custom base URL for the provider API (optional)"""
 
-    options: Dict[str, Any] = {}
+    options: dict[str, Any] = {}
     """Additional provider-specific options (optional)"""
 
     is_default: bool = False
@@ -127,7 +127,7 @@ class AccountConfig(BaseModel):
         """
         return self.api_key.get_secret_value()
 
-    def model_dump_safe(self) -> Dict[str, Any]:
+    def model_dump_safe(self) -> dict[str, Any]:
         """
         Convert model to dictionary without exposing secrets.
 

@@ -9,8 +9,9 @@ GitHub endpoints: https://docs.github.com/en/developers/apps/authorizing-oauth-a
 
 from __future__ import annotations
 
-from typing import Any
 import time
+from typing import Any
+
 import httpx
 
 

@@ -6,20 +6,18 @@ constraints regardless of input complexity.
 """
 
 import asyncio
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from dawn_kestrel.delegation.engine import DelegationEngine
 from dawn_kestrel.delegation.types import (
     DelegationBudget,
     DelegationConfig,
-    DelegationStopReason,
     TraversalMode,
 )
-from dawn_kestrel.delegation.engine import DelegationEngine
 
 
 # Mock AgentResult for testing
@@ -29,10 +27,10 @@ class MockAgentResult:
 
     agent_name: str
     response: str
-    parts: List[Any] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tools_used: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    parts: list[Any] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tools_used: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
 class MockAgentRuntime:
@@ -42,8 +40,8 @@ class MockAgentRuntime:
         self.execute_agent = AsyncMock()
         self.delay = delay
         self.call_count = 0
-        self.call_order: List[str] = []
-        self.call_depths: List[int] = []
+        self.call_order: list[str] = []
+        self.call_depths: list[int] = []
 
     async def execute_agent_impl(
         self,

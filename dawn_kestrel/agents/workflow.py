@@ -17,7 +17,7 @@ including budget constraints (iterations, subagent_calls, wall_time) and stop re
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 import pydantic as pd
 
@@ -37,10 +37,10 @@ class IntakeOutput(pd.BaseModel):
     intent: str
     """Concise restatement of what the agent is trying to achieve"""
 
-    constraints: List[str] = pd.Field(default_factory=list)
+    constraints: list[str] = pd.Field(default_factory=list)
     """Known limitations (tools, permissions, time, boundaries of scope)"""
 
-    initial_evidence: List[str] = pd.Field(default_factory=list)
+    initial_evidence: list[str] = pd.Field(default_factory=list)
     """What is already known or assumed (from repo snapshot, files, context)"""
 
     model_config = pd.ConfigDict(extra="forbid")
@@ -77,7 +77,7 @@ class TodoItem(pd.BaseModel):
     status: Literal["pending", "in_progress", "completed", "skipped", "blocked"] = "pending"
     """Current status"""
 
-    dependencies: List[str] = pd.Field(default_factory=list)
+    dependencies: list[str] = pd.Field(default_factory=list)
     """List of todo item IDs this depends on"""
 
     notes: str = ""
@@ -99,7 +99,7 @@ class PlanOutput(pd.BaseModel):
         strategy_selected: Which strategy/approach was chosen
     """
 
-    todos: List[TodoItem] = pd.Field(default_factory=list)
+    todos: list[TodoItem] = pd.Field(default_factory=list)
     """Prioritized list of todo items"""
 
     reasoning: str = ""
@@ -131,7 +131,7 @@ class ToolExecution(pd.BaseModel):
     tool_name: str
     """Name of the tool that was executed"""
 
-    arguments: Dict[str, Any] = pd.Field(default_factory=dict)
+    arguments: dict[str, Any] = pd.Field(default_factory=dict)
     """Arguments passed to the tool (sanitized)"""
 
     status: Literal["success", "failure", "timeout"]
@@ -143,7 +143,7 @@ class ToolExecution(pd.BaseModel):
     duration_seconds: float = 0.0
     """Time taken for execution"""
 
-    artifacts: List[str] = pd.Field(default_factory=list)
+    artifacts: list[str] = pd.Field(default_factory=list)
     """List of file paths or evidence references created"""
 
     model_config = pd.ConfigDict(extra="forbid")
@@ -166,7 +166,7 @@ class ActOutput(pd.BaseModel):
         failure: Any failure or error encountered (empty string if none)
     """
 
-    action: Optional[ToolExecution] = None
+    action: ToolExecution | None = None
     """Single tool execution performed (one action per iteration)"""
 
     acted_todo_id: str = ""
@@ -175,7 +175,7 @@ class ActOutput(pd.BaseModel):
     tool_result_summary: str = ""
     """High-level summary of the tool result"""
 
-    artifacts: List[str] = pd.Field(default_factory=list)
+    artifacts: list[str] = pd.Field(default_factory=list)
     """List of all artifacts/evidence references created"""
 
     failure: str = ""
@@ -227,14 +227,14 @@ class SynthesizedFinding(pd.BaseModel):
     confidence: float = 0.5
     """Confidence score (0.0-1.0)"""
 
-    related_todos: List[str] = pd.Field(default_factory=list)
+    related_todos: list[str] = pd.Field(default_factory=list)
     """IDs of related todo items"""
 
     model_config = pd.ConfigDict(extra="forbid")
 
     @pd.field_validator("confidence", mode="before")
     @classmethod
-    def validate_confidence_range(cls, v: Optional[float]) -> float:
+    def validate_confidence_range(cls, v: float | None) -> float:
         """Validate confidence is in 0.0-1.0 range."""
         if v is None:
             return 0.5
@@ -257,10 +257,10 @@ class SynthesizeOutput(pd.BaseModel):
         confidence_level: Overall confidence in results (0.0-1.0)
     """
 
-    findings: List[SynthesizedFinding] = pd.Field(default_factory=list)
+    findings: list[SynthesizedFinding] = pd.Field(default_factory=list)
     """Merged findings from tool results and analysis"""
 
-    updated_todos: List[TodoItem] = pd.Field(default_factory=list)
+    updated_todos: list[TodoItem] = pd.Field(default_factory=list)
     """Updated todo items with new statuses"""
 
     summary: str = ""
@@ -276,7 +276,7 @@ class SynthesizeOutput(pd.BaseModel):
 
     @pd.field_validator("confidence_level", mode="before")
     @classmethod
-    def validate_confidence_level_range(cls, v: Optional[float]) -> float:
+    def validate_confidence_level_range(cls, v: float | None) -> float:
         """Validate confidence_level is in 0.0-1.0 range."""
         if v is None:
             return 0.5
@@ -323,14 +323,14 @@ class CheckOutput(pd.BaseModel):
     This is part of the sub-loop (plan → act → synthesize → check).
 
     Routing logic:
-    - todo_complete=True AND more pending todos → next_phase="plan" (pick next todo)
+    - todo_complete=True AND more pending todos → next_phase="reason" (pick next todo)
     - todo_complete=False → next_phase="act" (continue current todo)
     - all todos complete → next_phase="done"
 
     Attributes:
         current_todo_id: ID of the todo being evaluated
         todo_complete: Whether the current todo is complete
-        next_phase: Where to route next (act, plan, done)
+        next_phase: Where to route next (act, reason, done). "plan" is deprecated, use "reason".
         confidence: Confidence in current results (0.0-1.0)
         budget_consumed: Budget tracking for all resources
         blocking_question: Optional blocking question if escalation needed
@@ -345,8 +345,8 @@ class CheckOutput(pd.BaseModel):
     todo_complete: bool = False
     """Whether the current todo is complete"""
 
-    next_phase: Literal["act", "plan", "done"] = "act"
-    """Where to route next (act, plan, done)"""
+    next_phase: Literal["act", "plan", "reason", "done"] = "act"
+    """Where to route next (act, reason, done). "plan" is deprecated alias for "reason"."""
 
     confidence: float = 0.5
     """Confidence in current results (0.0-1.0)"""
@@ -356,7 +356,7 @@ class CheckOutput(pd.BaseModel):
 
     @pd.field_validator("confidence", mode="before")
     @classmethod
-    def validate_confidence_range(cls, v: Optional[float]) -> float:
+    def validate_confidence_range(cls, v: float | None) -> float:
         if v is None:
             return 0.5
         if not 0.0 <= v <= 1.0:
@@ -565,16 +565,18 @@ CRITICAL RULES:
 - todo_complete: true if the todo is done, false if more work needed
 - next_phase determines where to route next:
   - "act": Continue working on current todo (todo_complete=false)
-  - "plan": Pick next todo (todo_complete=true, more todos pending)
+  - "reason": Pick next todo (todo_complete=true, more todos pending)
+  - "plan": DEPRECATED - redirects to "reason" with warning
   - "done": All todos complete
 - confidence must be between 0.0 and 1.0
 - Return ONLY the JSON object, no other text, no markdown code blocks
 
 ROUTING LOGIC:
 - If todo is incomplete → next_phase="act"
-- If todo is complete AND more todos pending → next_phase="plan"  
+- If todo is complete AND more todos pending → next_phase="reason"
 - If todo is complete AND no more todos → next_phase="done"
 - If blocking question prevents progress → set blocking_question and next_phase="done"
+- Note: "plan" is deprecated, use "reason" instead
 
 EXAMPLE VALID OUTPUT (TODO INCOMPLETE - CONTINUE ACT):
 {{
@@ -599,7 +601,7 @@ EXAMPLE VALID OUTPUT (TODO COMPLETE - NEXT TODO):
 {{
   "current_todo_id": "todo-1",
   "todo_complete": true,
-  "next_phase": "plan",
+  "next_phase": "reason",
   "confidence": 0.85,
   "budget_consumed": {{
     "iterations": 4,

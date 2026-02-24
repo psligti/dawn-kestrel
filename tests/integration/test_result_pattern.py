@@ -42,9 +42,10 @@ Evidence:
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
-from dawn_kestrel.core.result import Ok, Err
+from dawn_kestrel.core.result import Err, Ok
 
 
 class TestResultPatternSessionFlow:
@@ -59,12 +60,12 @@ class TestResultPatternSessionFlow:
     @pytest.fixture
     async def client(self, temp_storage_dir):
         """Create async SDK client with temp storage."""
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.core.di_container import (
             configure_container,
             container,
             reset_container,
         )
+        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
         configure_container(
             storage_path=temp_storage_dir,
@@ -231,12 +232,12 @@ class TestResultPatternErrorCases:
     @pytest.fixture
     async def client(self, temp_storage_dir):
         """Create async SDK client with temp storage."""
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.core.di_container import (
             configure_container,
             container,
             reset_container,
         )
+        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
         configure_container(
             storage_path=temp_storage_dir,
@@ -374,12 +375,12 @@ class TestResultPatternPropagation:
     @pytest.fixture
     async def client(self, temp_storage_dir):
         """Create async SDK client with temp storage."""
-        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.core.di_container import (
             configure_container,
             container,
             reset_container,
         )
+        from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
         configure_container(
             storage_path=temp_storage_dir,

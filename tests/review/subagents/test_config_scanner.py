@@ -12,14 +12,12 @@ This test suite verifies:
 import os
 import tempfile
 import textwrap
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
-
 from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 from dawn_kestrel.agents.review.subagents.config_scanner import ConfigScannerAgent
 from dawn_kestrel.agents.review.tools import ToolResult
-
 
 # =============================================================================
 # Test Fixtures

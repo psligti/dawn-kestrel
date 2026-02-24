@@ -6,10 +6,11 @@ Tests concurrent operations and data consistency under high concurrency scenario
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock
+
 import pytest
 
-from dawn_kestrel.core.session import SessionManager
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.session import SessionManager
 
 
 @pytest.fixture

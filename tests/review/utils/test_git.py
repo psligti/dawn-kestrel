@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from git import Repo as GitRepo, Diff, Commit, Tree, Blob
-from git.exc import InvalidGitRepositoryError, NoSuchPathError
+from unittest.mock import Mock, patch
 
+import pytest
 from dawn_kestrel.agents.review.utils.git import (
-    get_changed_files,
-    get_diff,
-    get_repo_tree,
     GitError,
     InvalidRefError,
     RepositoryNotFoundError,
+    get_changed_files,
+    get_diff,
+    get_repo_tree,
 )
+from git import Blob, Commit, Diff, Tree
+from git import Repo as GitRepo
+from git.exc import InvalidGitRepositoryError, NoSuchPathError
 
 
 @pytest.fixture

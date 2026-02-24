@@ -1,1 +1,8 @@
-{"active_plan": null, "started_at": null, "session_ids": [], "plan_name": null, "completed_at": null, "last_plan": "iron-rook-migration"}
+{
+  "active_plan": "/Users/parkersligting/develop/pt/dawn-kestrel/.sisyphus/plans/eval-models.md",
+  "started_at": "2026-02-20T17:08:35.264Z",
+  "session_ids": ["ses_3844dc5dcffeFGIGAwO0kXUcT7"],
+  "plan_name": "eval-models",
+  "agent": "atlas",
+  "previous_plan": "enterprise-features"
+}

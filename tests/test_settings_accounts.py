@@ -10,14 +10,13 @@ Tests Settings class multi-account provider settings including:
 """
 
 from pathlib import Path
-from typing import Dict
 
 import pytest
 from pydantic import SecretStr
 from pydantic_settings.main import SettingsConfigDict
 
-from dawn_kestrel.core.settings import Settings
 from dawn_kestrel.core.provider_settings import AccountConfig
+from dawn_kestrel.core.settings import Settings
 from dawn_kestrel.providers.base import ProviderID
 
 
@@ -57,7 +56,7 @@ class TestSettingsAccounts:
 
     def test_get_accounts_by_provider_filters_correctly(self) -> None:
         """Test get_accounts_by_provider returns filtered dict for provider."""
-        accounts: Dict[str, AccountConfig] = {
+        accounts: dict[str, AccountConfig] = {
             "openai-1": AccountConfig(
                 account_name="openai-1",
                 provider_id=ProviderID.OPENAI,
@@ -87,7 +86,7 @@ class TestSettingsAccounts:
 
     def test_get_accounts_by_provider_returns_empty_for_no_matches(self) -> None:
         """Test get_accounts_by_provider returns empty dict if no matches."""
-        accounts: Dict[str, AccountConfig] = {
+        accounts: dict[str, AccountConfig] = {
             "anthropic-1": AccountConfig(
                 account_name="anthropic-1",
                 provider_id=ProviderID.ANTHROPIC,
@@ -101,7 +100,7 @@ class TestSettingsAccounts:
 
     def test_get_default_account_returns_default(self) -> None:
         """Test get_default_account returns account with is_default=True."""
-        accounts: Dict[str, AccountConfig] = {
+        accounts: dict[str, AccountConfig] = {
             "openai-1": AccountConfig(
                 account_name="openai-1",
                 provider_id=ProviderID.OPENAI,
@@ -125,7 +124,7 @@ class TestSettingsAccounts:
 
     def test_get_default_account_falls_back_to_provider_default(self) -> None:
         """Test get_default_account falls back to provider_default account."""
-        accounts: Dict[str, AccountConfig] = {
+        accounts: dict[str, AccountConfig] = {
             "openai-1": AccountConfig(
                 account_name="openai-1",
                 provider_id=ProviderID.OPENAI,

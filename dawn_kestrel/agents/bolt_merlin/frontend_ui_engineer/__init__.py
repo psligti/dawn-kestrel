@@ -6,8 +6,8 @@ cohesive, and emotionally engaging interfaces.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 FRONTEND_UI_UX_SKILL = """# Role: Designer-Turned-Developer
 

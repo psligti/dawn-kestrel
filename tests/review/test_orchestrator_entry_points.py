@@ -15,14 +15,13 @@ from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import List
 
 import pytest
-
-from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.contracts import ReviewInputs, ReviewOutput, Scope, MergeGate
 from dawn_kestrel.agents.review.discovery import EntryPoint, EntryPointDiscovery
 from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
+
+from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
+from dawn_kestrel.agents.review.contracts import MergeGate, ReviewInputs, ReviewOutput, Scope
 
 
 class TestReviewerAgent(BaseReviewerAgent):
@@ -37,7 +36,7 @@ class TestReviewerAgent(BaseReviewerAgent):
     def get_agent_name(self) -> str:
         return self._agent_name
 
-    def get_allowed_tools(self) -> List[str]:
+    def get_allowed_tools(self) -> list[str]:
         return []
 
     async def review(self, context: ReviewContext) -> ReviewOutput:
@@ -64,7 +63,7 @@ class TestReviewerAgent(BaseReviewerAgent):
     def get_relevant_file_patterns(self) -> list[str]:
         return ["*.py"]
 
-    def is_relevant_to_changes(self, changed_files: List[str]) -> bool:
+    def is_relevant_to_changes(self, changed_files: list[str]) -> bool:
         return self._is_relevant
 
 

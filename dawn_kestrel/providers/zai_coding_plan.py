@@ -7,16 +7,8 @@ Streaming support, token counting, and cost calculation.
 import logging
 from decimal import Decimal
 
-from .base import (
-    ModelInfo,
-    ModelCapabilities,
-    ModelCost,
-    ModelLimits,
-    StreamEvent,
-    ProviderID
-)
+from .base import ModelCapabilities, ModelCost, ModelInfo, ModelLimits, ProviderID
 from .zai_base import ZAIBaseProvider
-
 
 logger = logging.getLogger(__name__)
 

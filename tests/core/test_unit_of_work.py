@@ -4,14 +4,13 @@ Tests cover transaction lifecycle, entity registration, commit/rollback behavior
 and error handling.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime
 
-from dawn_kestrel.core.models import Session, Message, TextPart
-from dawn_kestrel.core.result import Ok, Err
+import pytest
+
+from dawn_kestrel.core.models import Message, Session, TextPart
+from dawn_kestrel.core.result import Err, Ok
 from dawn_kestrel.core.unit_of_work import UnitOfWork, UnitOfWorkImpl
-
 
 # ============================================================================
 # Fixtures

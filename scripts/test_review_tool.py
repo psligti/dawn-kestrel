@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import sys
-import subprocess
 from pathlib import Path
 
 
 def test_cli_import():
     try:
-        from dawn_kestrel.agents.review.cli import review, generate_docs
+        from dawn_kestrel.agents.review.cli import generate_docs, review
 
         print("✓ CLI commands imported successfully")
         print(f"  - review command name: {review.name}")
@@ -20,7 +19,7 @@ def test_cli_import():
 def test_click_commands():
     try:
         from click.testing import CliRunner
-        from dawn_kestrel.agents.review.cli import review, generate_docs
+        from dawn_kestrel.agents.review.cli import generate_docs, review
 
         runner = CliRunner()
 

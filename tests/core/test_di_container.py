@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 import pytest
 
 from dawn_kestrel.core.di_container import (
     Container,
-    container,
     configure_container,
+    container,
     reset_container,
 )
 
@@ -126,9 +126,9 @@ class TestServiceProvider:
             )
             service = container.service()
             from dawn_kestrel.core.repositories import (
-                SessionRepositoryImpl,
                 MessageRepositoryImpl,
                 PartRepositoryImpl,
+                SessionRepositoryImpl,
             )
 
             assert isinstance(service._session_repo, SessionRepositoryImpl)
@@ -359,12 +359,12 @@ class TestIntegration:
             runtime = container.agent_runtime()
 
             # Verify types
-            from dawn_kestrel.storage.store import SessionStorage
-            from dawn_kestrel.core.session_lifecycle import SessionLifecycle
-            from dawn_kestrel.core.services.session_service import DefaultSessionService
             from dawn_kestrel.agents.registry import AgentRegistry
-            from dawn_kestrel.providers.registry import ProviderRegistry
             from dawn_kestrel.agents.runtime import AgentRuntime
+            from dawn_kestrel.core.services.session_service import DefaultSessionService
+            from dawn_kestrel.core.session_lifecycle import SessionLifecycle
+            from dawn_kestrel.providers.registry import ProviderRegistry
+            from dawn_kestrel.storage.store import SessionStorage
 
             assert isinstance(storage, SessionStorage)
             assert isinstance(lifecycle, SessionLifecycle)
@@ -375,9 +375,9 @@ class TestIntegration:
 
             # Verify wiring
             from dawn_kestrel.core.repositories import (
-                SessionRepositoryImpl,
                 MessageRepositoryImpl,
                 PartRepositoryImpl,
+                SessionRepositoryImpl,
             )
 
             assert isinstance(service._session_repo, SessionRepositoryImpl)

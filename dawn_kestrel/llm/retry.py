@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.result import Err, Ok, Result
 from dawn_kestrel.llm.circuit_breaker import CircuitBreaker
-
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class RetryExecutor(Protocol):
         self,
         operation: Callable[[], Any],
         max_attempts: int = 3,
-        backoff: Optional[BackoffStrategy] = None,
+        backoff: BackoffStrategy | None = None,
     ) -> Result[Any]:
         """Execute operation with retry logic.
 
@@ -263,9 +263,9 @@ class RetryExecutorImpl:
     def __init__(
         self,
         max_attempts: int = 3,
-        backoff: Optional[BackoffStrategy] = None,
-        transient_errors: Optional[set[type[Exception]]] = None,
-        circuit_breaker: Optional[CircuitBreaker] = None,
+        backoff: BackoffStrategy | None = None,
+        transient_errors: set[type[Exception]] | None = None,
+        circuit_breaker: CircuitBreaker | None = None,
     ):
         """Initialize retry executor.
 
@@ -294,8 +294,8 @@ class RetryExecutorImpl:
     async def execute(
         self,
         operation: Callable[[], Any],
-        max_attempts: Optional[int] = None,
-        backoff: Optional[BackoffStrategy] = None,
+        max_attempts: int | None = None,
+        backoff: BackoffStrategy | None = None,
     ) -> Result[Any]:
         """Execute operation with retry logic.
 
@@ -318,7 +318,7 @@ class RetryExecutorImpl:
         self._stats["last_attempt_count"] = 0
         self._stats["retry_count"] = 0
 
-        last_error: Optional[Err] = None
+        last_error: Err | None = None
         attempts = 0
 
         for attempt in range(max_attempts):

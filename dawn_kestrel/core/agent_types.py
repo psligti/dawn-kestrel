@@ -4,15 +4,16 @@ Phase 1 agent execution types and contracts.
 Defines the core data models and protocols for agent execution,
 including AgentResult, AgentContext, and protocol interfaces.
 """
+
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable, List, Dict, Any, Optional
 from dataclasses import dataclass, field
+from typing import Any, Protocol, runtime_checkable
 
 from dawn_kestrel.core.models import (
-    Session,
     Message,
     Part,
+    Session,
     TokenUsage,
 )
 from dawn_kestrel.tools.framework import ToolRegistry
@@ -27,11 +28,11 @@ class SessionManagerLike(Protocol):
     to interact with session storage and message history.
     """
 
-    async def get_session(self, session_id: str) -> Optional[Session]:
+    async def get_session(self, session_id: str) -> Session | None:
         """Get a session by ID"""
         ...
 
-    async def list_messages(self, session_id: str) -> List[Message]:
+    async def list_messages(self, session_id: str) -> list[Message]:
         """List all messages for a session"""
         ...
 
@@ -56,9 +57,9 @@ class ProviderLike(Protocol):
     async def stream(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        system: Optional[str] = None,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        system: str | None = None,
         **options: Any,
     ):
         """
@@ -71,11 +72,11 @@ class ProviderLike(Protocol):
     async def generate(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List[Dict[str, Any]]] = None,
-        system: Optional[str] = None,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        system: str | None = None,
         **options: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate a complete response from the AI provider.
 
@@ -100,25 +101,25 @@ class AgentResult:
     response: str
     """Text response from the agent"""
 
-    parts: List[Part] = field(default_factory=list)
+    parts: list[Part] = field(default_factory=list)
     """Parts generated during execution (text, tool, reasoning, etc.)"""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional execution metadata"""
 
-    tools_used: List[str] = field(default_factory=list)
+    tools_used: list[str] = field(default_factory=list)
     """List of tool IDs used during execution"""
 
-    tokens_used: Optional[TokenUsage] = None
+    tokens_used: TokenUsage | None = None
     """Token usage statistics for the execution"""
 
     duration: float = 0.0
     """Execution duration in seconds"""
 
-    error: Optional[str] = None
+    error: str | None = None
     """Error message if execution failed"""
 
-    task_id: Optional[str] = None
+    task_id: str | None = None
     """Task ID if agent was invoked via task tool"""
 
     model_config = {"extra": "forbid"}
@@ -140,22 +141,31 @@ class AgentContext:
     tools: ToolRegistry
     """Registry of available tools (filtered by permissions)"""
 
-    messages: List[Message]
+    messages: list[Message]
     """Conversation history for the session"""
 
-    memories: List[Dict[str, Any]] = field(default_factory=list)
+    memories: list[dict[str, Any]] = field(default_factory=list)
     """Agent memories or context snippets"""
 
-    session: Optional[Session] = None
+    session: Session | None = None
     """Session metadata and configuration"""
 
-    agent: Optional[Dict[str, Any]] = None
+    agent: dict[str, Any] | None = None
     """Agent configuration (name, permissions, etc.)"""
 
     model: str = "gpt-4o-mini"
     """Model identifier to use for execution"""
 
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     """Additional context metadata"""
+
+    workspace_id: str | None = None
+    """Workspace identifier for isolation (e.g., multi-tenant)"""
+
+    credential_scope: str | None = None
+    """Credential scope for per-repo/per-org credential resolution"""
+
+    config_overrides: dict[str, Any] = field(default_factory=dict)
+    """Session-specific configuration overrides"""
 
     model_config = {"extra": "forbid"}

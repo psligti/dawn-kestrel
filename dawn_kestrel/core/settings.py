@@ -1,18 +1,19 @@
 """OpenCode Python - Configuration system with Pydantic Settings"""
 
 from __future__ import annotations
-from typing import Any, Optional, Dict
-from pathlib import Path
+
 import os
 import warnings
+from pathlib import Path
+
 import pydantic_settings
 from pydantic import Field, SecretStr
-from pydantic_settings.main import SettingsConfigDict
 from pydantic_settings import (
-    PydanticBaseSettingsSource,
-    EnvSettingsSource,
     DotEnvSettingsSource,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
 )
+from pydantic_settings.main import SettingsConfigDict
 
 __all__ = [
     "Settings",
@@ -24,8 +25,8 @@ __all__ = [
     "get_cache_dir",
 ]
 
-from dawn_kestrel.providers import ProviderID
 from dawn_kestrel.core.provider_settings import AccountConfig
+from dawn_kestrel.providers import ProviderID
 
 
 class Settings(pydantic_settings.BaseSettings):
@@ -37,7 +38,7 @@ class Settings(pydantic_settings.BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     # Multi-account provider settings
-    accounts: Dict[str, AccountConfig] = Field(default_factory=dict)
+    accounts: dict[str, AccountConfig] = Field(default_factory=dict)
 
     # Provider settings
     provider_default: str = Field(
@@ -142,7 +143,7 @@ class Settings(pydantic_settings.BaseSettings):
             file_secret_settings,
         )
 
-    def get_account(self, account_name: str) -> Optional[AccountConfig]:
+    def get_account(self, account_name: str) -> AccountConfig | None:
         """
         Retrieve an account configuration by name.
 
@@ -154,7 +155,7 @@ class Settings(pydantic_settings.BaseSettings):
         """
         return self.accounts.get(account_name)
 
-    def get_accounts_by_provider(self, provider_id: ProviderID) -> Dict[str, AccountConfig]:
+    def get_accounts_by_provider(self, provider_id: ProviderID) -> dict[str, AccountConfig]:
         """
         Retrieve all account configurations for a specific provider.
 
@@ -171,7 +172,7 @@ class Settings(pydantic_settings.BaseSettings):
             if account.provider_id == provider_id
         }
 
-    def get_default_account(self) -> Optional[AccountConfig]:
+    def get_default_account(self) -> AccountConfig | None:
         """
         Retrieve the default account configuration.
 
@@ -211,7 +212,7 @@ class Settings(pydantic_settings.BaseSettings):
             is_default=True,
         )
 
-    def _parse_provider_default(self) -> Optional[ProviderID]:
+    def _parse_provider_default(self) -> ProviderID | None:
         """Parse provider_default and warn on invalid values."""
         try:
             return ProviderID(self.provider_default)
@@ -223,7 +224,7 @@ class Settings(pydantic_settings.BaseSettings):
             )
             return None
 
-    def _get_api_key_from_env(self, provider_id: ProviderID) -> Optional[SecretStr]:
+    def _get_api_key_from_env(self, provider_id: ProviderID) -> SecretStr | None:
         """Retrieve provider API key from environment variables."""
         provider_name = provider_id.value.replace(".", "").replace("-", "_").upper()
         for prefix in ("DAWN_KESTREL_", "OPENCODE_PYTHON_"):
@@ -254,7 +255,7 @@ class Settings(pydantic_settings.BaseSettings):
 
         return ProviderID(self.provider_default)
 
-    def get_default_model(self, provider_id: Optional[ProviderID | str] = None) -> str:
+    def get_default_model(self, provider_id: ProviderID | str | None = None) -> str:
         """
         Retrieve the default model for a provider from accounts.
 
@@ -281,7 +282,7 @@ class Settings(pydantic_settings.BaseSettings):
 
         return self.model_default
 
-    def get_api_key_for_provider(self, provider_id: ProviderID | str) -> Optional[SecretStr]:
+    def get_api_key_for_provider(self, provider_id: ProviderID | str) -> SecretStr | None:
         """
         Retrieve API key for a specific provider from accounts.
 

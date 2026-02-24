@@ -3,12 +3,12 @@ import pytest
 from pydantic import ValidationError
 
 from dawn_kestrel.agents.review.contracts import (
-    ReviewOutput,
-    Scope,
     Check,
-    Skip,
     Finding,
     MergeGate,
+    ReviewOutput,
+    Scope,
+    Skip,
 )
 
 

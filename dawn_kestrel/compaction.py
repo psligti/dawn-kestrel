@@ -7,25 +7,26 @@ messages with compaction agent, and prunes old tool outputs.
 
 import logging
 import uuid
-from typing import Optional, List, Any, cast
+from typing import Any, cast
 
-from .core.settings import settings
 from .core.models import (
-    Session,
-    Message as MessageModel,
-    Message,
-    TextPart,
-    FilePart,
-    ToolPart,
-    ReasoningPart,
-    SnapshotPart,
-    PatchPart,
     AgentPart,
-    SubtaskPart,
-    RetryPart,
     CompactionPart,
+    FilePart,
+    Message,
+    PatchPart,
+    ReasoningPart,
+    RetryPart,
+    Session,
+    SnapshotPart,
+    SubtaskPart,
+    TextPart,
+    ToolPart,
 )
-
+from .core.models import (
+    Message as MessageModel,
+)
+from .core.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,10 @@ class SessionCompactor:
             return True
         return False
 
-    async def compact(self, session: Session, messages: list[MessageModel]) -> Optional[str]:
+    async def compact(self, session: Session, messages: list[MessageModel]) -> str | None:
         """Compact session by creating summary and pruning old messages"""
-        from .storage.store import MessageStorage, PartStorage
         from .core.repositories import MessageRepositoryImpl, PartRepositoryImpl
+        from .storage.store import MessageStorage, PartStorage
 
         storage_dir = settings.storage_dir_path()
 
@@ -172,7 +173,7 @@ class SessionCompactor:
 
         tool_summary = f"Executed {len(tool_calls)} tool calls: {', '.join(tool_calls[:10])}"
 
-        file_changes: List[str] = []
+        file_changes: list[str] = []
         for msg in messages:
             for part in msg.parts:
                 if isinstance(part, PatchPart):

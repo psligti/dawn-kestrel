@@ -13,11 +13,11 @@ import tempfile
 from unittest.mock import Mock
 
 import pytest
+from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 
 # Import agent and related types
 from dawn_kestrel.agents.review.subagents.injection_scanner import InjectionScannerAgent
 from dawn_kestrel.agents.review.tools import ToolExecutor, ToolResult
-from dawn_kestrel.agents.review.fsm_security import SecurityFinding, SubagentTask
 
 # =============================================================================
 # Mock Fixtures

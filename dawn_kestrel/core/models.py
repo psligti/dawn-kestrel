@@ -1,85 +1,94 @@
 """OpenCode Python - Core data models with Pydantic"""
-from __future__ import annotations
-from typing import Literal, Optional, Union, Any, Dict, List
-from datetime import datetime
-import logging
-import pydantic as pd
 
+from __future__ import annotations
+
+import logging
+from datetime import datetime
+from typing import Any, Literal, Union
+
+import pydantic as pd
 
 logger = logging.getLogger(__name__)
 
 
 class ToolState(pd.BaseModel):
     """Tool execution state"""
+
     status: Literal["pending", "running", "completed", "error"]
-    input: Dict[str, Any] = pd.Field(default_factory=dict)
-    output: Optional[str] = None
-    title: Optional[str] = None
-    metadata: Dict[str, Any] = pd.Field(default_factory=dict)
-    time_start: Optional[float] = None
-    time_end: Optional[float] = None
-    error: Optional[str] = None
+    input: dict[str, Any] = pd.Field(default_factory=dict)
+    output: str | None = None
+    title: str | None = None
+    metadata: dict[str, Any] = pd.Field(default_factory=dict)
+    time_start: float | None = None
+    time_end: float | None = None
+    error: str | None = None
 
 
 class FileInfo(pd.BaseModel):
     """File information"""
+
     path: str
     mime: str
-    filename: Optional[str] = None
+    filename: str | None = None
     size: int = 0
-    last_modified: Optional[float] = None
+    last_modified: float | None = None
 
 
 class TextPart(pd.BaseModel):
     """Text content part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["text"]
     text: str
-    time: Dict[str, Any] = {}
-    metadata: Optional[Dict[str, Any]] = None
-    synthetic: Optional[bool] = None
-    ignored: Optional[bool] = None
+    time: dict[str, Any] = {}
+    metadata: dict[str, Any] | None = None
+    synthetic: bool | None = None
+    ignored: bool | None = None
 
 
 class FilePart(pd.BaseModel):
     """File attachment part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["file"]
     url: str
     mime: str
-    filename: Optional[str] = None
-    source: Optional[Dict[str, Any]] = None
+    filename: str | None = None
+    source: dict[str, Any] | None = None
 
 
 class ToolPart(pd.BaseModel):
     """Tool execution part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["tool"]
     tool: str
-    call_id: Optional[str] = None
+    call_id: str | None = None
     state: ToolState
-    source: Optional[Dict[str, Any]] = None
+    source: dict[str, Any] | None = None
 
 
 class ReasoningPart(pd.BaseModel):
     """LLM reasoning/thinking part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["reasoning"]
     text: str
-    time: Dict[str, Any] = {}
-    metadata: Optional[Dict[str, Any]] = None
+    time: dict[str, Any] = {}
+    metadata: dict[str, Any] | None = None
 
 
 class SnapshotPart(pd.BaseModel):
     """Git snapshot part"""
+
     id: str
     session_id: str
     message_id: str
@@ -89,26 +98,29 @@ class SnapshotPart(pd.BaseModel):
 
 class PatchPart(pd.BaseModel):
     """File patch summary part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["patch"]
     hash: str
-    files: List[str]
+    files: list[str]
 
 
 class AgentPart(pd.BaseModel):
     """Agent delegation part"""
+
     id: str
     session_id: str
     message_id: str
     part_type: Literal["agent"]
     name: str
-    source: Optional[Dict[str, Any]] = None
+    source: dict[str, Any] | None = None
 
 
 class SubtaskPart(pd.BaseModel):
     """Subtask invocation part"""
+
     id: str
     session_id: str
     message_id: str
@@ -118,6 +130,7 @@ class SubtaskPart(pd.BaseModel):
 
 class RetryPart(pd.BaseModel):
     """Retry attempt part"""
+
     id: str
     session_id: str
     message_id: str
@@ -127,6 +140,7 @@ class RetryPart(pd.BaseModel):
 
 class CompactionPart(pd.BaseModel):
     """Session compaction marker part"""
+
     id: str
     session_id: str
     message_id: str
@@ -151,94 +165,114 @@ Part = Union[
 
 class TokenUsage(pd.BaseModel):
     """Token usage tracking"""
+
     input: int = 0
     output: int = 0
     reasoning: int = 0
-    cache: Dict[str, int] = {"read": 0, "write": 0}
+    cache_read: int = 0
+    cache_write: int = 0
 
 
 class Message(pd.BaseModel):
     """Message model - container for parts"""
+
     id: str
     session_id: str
     role: Literal["user", "assistant", "system"]
-    time: Dict[str, Any] = pd.Field(default_factory=dict)
+    time: dict[str, Any] = pd.Field(default_factory=dict)
     text: str = ""
-    parts: List[Union[TextPart, FilePart, ToolPart, ReasoningPart, SnapshotPart, PatchPart, AgentPart, SubtaskPart, RetryPart, CompactionPart]] = []
-    summary: Optional[MessageSummary] = None
-    token_usage: Optional[TokenUsage] = None
-    metadata: Dict[str, Any] = pd.Field(default_factory=dict)
+    parts: list[
+        TextPart
+        | FilePart
+        | ToolPart
+        | ReasoningPart
+        | SnapshotPart
+        | PatchPart
+        | AgentPart
+        | SubtaskPart
+        | RetryPart
+        | CompactionPart
+    ] = []
+    summary: MessageSummary | None = None
+    token_usage: TokenUsage | None = None
+    metadata: dict[str, Any] = pd.Field(default_factory=dict)
 
     model_config = pd.ConfigDict(extra="forbid")
 
 
 class MessageSummary(pd.BaseModel):
     """Message summary info"""
-    title: Optional[str] = None
-    body: Optional[str] = None
-    diffs: Optional[List[Dict[str, Any]]] = None
+
+    title: str | None = None
+    body: str | None = None
+    diffs: list[dict[str, Any]] | None = None
 
 
 class UserMessage(Message):
     """User message - alias for Message with role='user'"""
+
     pass
 
 
 class AssistantMessage(Message):
     """Assistant message - alias for Message with role='assistant'"""
-    finish: Optional[str] = None
+
+    finish: str | None = None
     """Message summary info"""
-    title: Optional[str] = None
-    body: Optional[str] = None
-    diffs: Optional[List[Dict[str, Any]]] = None
+    title: str | None = None
+    body: str | None = None
+    diffs: list[dict[str, Any]] | None = None
 
 
 class SessionShare(pd.BaseModel):
     """Session share metadata"""
-    url: Optional[str] = None
+
+    url: str | None = None
 
 
 class SessionRevert(pd.BaseModel):
     """Session revert state"""
+
     message_id: str
-    part_id: Optional[str] = None
+    part_id: str | None = None
     snapshot: str
-    diff: Optional[str] = None
+    diff: str | None = None
 
 
 class Session(pd.BaseModel):
     """Session model"""
+
     id: str
     slug: str
     project_id: str
     directory: str
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     title: str
     version: str
-    summary: Optional[MessageSummary] = None
-    share: Optional[SessionShare] = None
-    permission: Optional[List[Dict[str, Any]]] = None
-    revert: Optional[SessionRevert] = None
+    summary: MessageSummary | None = None
+    share: SessionShare | None = None
+    permission: list[dict[str, Any]] | None = None
+    revert: SessionRevert | None = None
     time_created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
     time_updated: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
-    time_compacting: Optional[float] = None
-    time_archived: Optional[float] = None
+    time_compacting: float | None = None
+    time_archived: float | None = None
     message_counter: int = pd.Field(default=0, description="Counter for generated message IDs")
     message_count: int = pd.Field(default=0, description="Total number of messages in session")
     total_cost: float = pd.Field(default=0.0, description="Total cost of session in USD")
+    metadata: dict[str, Any] = pd.Field(default_factory=dict)
 
-    model_config = pd.ConfigDict(
-        extra="forbid"
-    )
+    model_config = pd.ConfigDict(extra="forbid")
 
 
 class Memory(pd.BaseModel):
     """Memory model - stores agent memories with embeddings"""
+
     id: str
     session_id: str
     content: str
-    embedding: Optional[List[float]] = None
-    metadata: Dict[str, Any] = pd.Field(default_factory=dict)
+    embedding: list[float] | None = None
+    metadata: dict[str, Any] = pd.Field(default_factory=dict)
     created: float = pd.Field(default_factory=lambda: datetime.now().timestamp())
 
     model_config = pd.ConfigDict(extra="forbid")
@@ -246,9 +280,10 @@ class Memory(pd.BaseModel):
 
 class MemorySummary(pd.BaseModel):
     """Memory summary model for compressed conversation history"""
+
     session_id: str
     summary: str = ""
-    key_points: List[str] = pd.Field(default_factory=list)
+    key_points: list[str] = pd.Field(default_factory=list)
     original_token_count: int = 0
     compressed_token_count: int = 0
     compression_ratio: float = 1.0

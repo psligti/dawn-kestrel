@@ -7,19 +7,17 @@ errors correctly without raising exceptions.
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from dawn_kestrel.core.models import Session, Message, TextPart
+from dawn_kestrel.core.models import Message, Session, TextPart
 from dawn_kestrel.core.repositories import (
-    SessionRepositoryImpl,
     MessageRepositoryImpl,
     PartRepositoryImpl,
+    SessionRepositoryImpl,
 )
-from dawn_kestrel.core.result import Ok, Err
-from dawn_kestrel.storage.store import SessionStorage, MessageStorage, PartStorage
+from dawn_kestrel.storage.store import MessageStorage, PartStorage, SessionStorage
 
 
 class TestSessionRepository:

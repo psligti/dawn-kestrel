@@ -6,16 +6,14 @@ Tests TD-001, TD-002, TD-003:
 - Todo completion count accuracy
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from dawn_kestrel.agents.review.fsm_security import (
     SecurityReviewerAgent,
-    SecurityFinding,
-    SecurityTodo,
     TodoStatus,
-    ReviewState,
 )
+
 from dawn_kestrel.core.agent_task import TaskStatus, create_agent_task
 
 

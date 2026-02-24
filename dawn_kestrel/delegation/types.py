@@ -1,7 +1,8 @@
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable, List, Optional
+from typing import Any
 
 
 class TraversalMode(str, Enum):
@@ -29,6 +30,7 @@ class DelegationBudget:
     max_wall_time_seconds: float = 300.0
     max_iterations: int = 10
     stagnation_threshold: int = 3
+    max_concurrent: int = 3  # Max concurrent subtask executions
 
     def __post_init__(self):
         if self.max_depth <= 0:
@@ -43,6 +45,8 @@ class DelegationBudget:
             raise ValueError(f"max_iterations must be > 0, got {self.max_iterations}")
         if self.stagnation_threshold <= 0:
             raise ValueError(f"stagnation_threshold must be > 0, got {self.stagnation_threshold}")
+        if self.max_concurrent <= 0:
+            raise ValueError(f"max_concurrent must be > 0, got {self.max_concurrent}")
 
 
 @dataclass
@@ -50,10 +54,10 @@ class DelegationConfig:
     mode: TraversalMode = TraversalMode.BFS
     budget: DelegationBudget = field(default_factory=DelegationBudget)
     check_convergence: bool = True
-    evidence_keys: List[str] = field(default_factory=lambda: ["result", "findings"])
-    on_agent_spawn: Optional[Callable[[str, int], Awaitable[None]]] = None
-    on_agent_complete: Optional[Callable[[str, Any], Awaitable[None]]] = None
-    on_convergence_check: Optional[Callable[[List[Any]], Awaitable[bool]]] = None
+    evidence_keys: list[str] = field(default_factory=lambda: ["result", "findings"])
+    on_agent_spawn: Callable[[str, int], Awaitable[None]] | None = None
+    on_agent_complete: Callable[[str, Any], Awaitable[None]] | None = None
+    on_convergence_check: Callable[[list[Any]], Awaitable[bool]] | None = None
 
 
 @dataclass
@@ -63,11 +67,11 @@ class DelegationContext:
     total_agents_spawned: int = 0
     active_agents: int = 0
     completed_agents: int = 0
-    results: List[Any] = field(default_factory=list)
-    errors: List[Exception] = field(default_factory=list)
+    results: list[Any] = field(default_factory=list)
+    errors: list[Exception] = field(default_factory=list)
     start_time: float = field(default_factory=time.time)
     iteration_count: int = 0
-    novelty_signatures: List[str] = field(default_factory=list)
+    novelty_signatures: list[str] = field(default_factory=list)
     stagnation_count: int = 0
 
     def elapsed_seconds(self) -> float:
@@ -78,12 +82,12 @@ class DelegationContext:
 class DelegationResult:
     success: bool
     stop_reason: DelegationStopReason
-    results: List[Any]
-    errors: List[Exception]
+    results: list[Any]
+    errors: list[Exception]
     total_agents: int
     max_depth_reached: int
     elapsed_seconds: float
     iterations: int
     converged: bool
     stagnation_detected: bool
-    final_novelty_signature: Optional[str] = None
+    final_novelty_signature: str | None = None

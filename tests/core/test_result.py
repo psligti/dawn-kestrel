@@ -11,7 +11,7 @@ Tests verify that Result types provide explicit error handling with:
 
 import json
 import threading
-from typing import Any, Generic, TypeVar
+
 import pytest
 
 # This import will fail initially - this is TDD RED phase
@@ -138,7 +138,7 @@ class TestResultBindComposition:
 
     def test_bind_chains_ok_results(self):
         """Bind chains Ok results successfully."""
-        from dawn_kestrel.core.result import Ok, bind
+        from dawn_kestrel.core.result import Ok
 
         result = Ok(10)
         chained = result.bind(lambda x: Ok(x * 2))
@@ -147,7 +147,7 @@ class TestResultBindComposition:
 
     def test_bind_stops_at_first_err(self):
         """Bind stops at first Err and returns it."""
-        from dawn_kestrel.core.result import Ok, Err, bind
+        from dawn_kestrel.core.result import Err, Ok
 
         result = Ok(10)
         chained = result.bind(lambda x: Err("error"))
@@ -156,7 +156,7 @@ class TestResultBindComposition:
 
     def test_bind_passes_through_err(self):
         """Bind passes through Err unchanged."""
-        from dawn_kestrel.core.result import Err, bind
+        from dawn_kestrel.core.result import Err
 
         result = Err("initial error")
         chained = result.bind(lambda x: Ok(42))
@@ -165,7 +165,7 @@ class TestResultBindComposition:
 
     def test_bind_with_multiple_chains(self):
         """Bind works with multiple chained operations."""
-        from dawn_kestrel.core.result import Ok, bind
+        from dawn_kestrel.core.result import Ok
 
         result = Ok(2)
         chained = (
@@ -315,7 +315,7 @@ class TestResultThreadSafety:
 
     def test_multiple_threads_create_results_independently(self):
         """Multiple threads can create Results independently."""
-        from dawn_kestrel.core.result import Ok, Err, Pass
+        from dawn_kestrel.core.result import Err, Ok, Pass
 
         results = []
         errors = []
@@ -354,7 +354,7 @@ class TestResultThreadSafety:
 
     def test_result_bind_is_thread_safe(self):
         """Result bind operations are thread-safe."""
-        from dawn_kestrel.core.result import Ok, bind
+        from dawn_kestrel.core.result import Ok
 
         results = []
         errors = []
@@ -410,7 +410,7 @@ class TestResultTypeChecking:
 
     def test_ok_not_instance_of_err_or_pass(self):
         """Ok is not instance of Err or Pass."""
-        from dawn_kestrel.core.result import Ok, Err, Pass
+        from dawn_kestrel.core.result import Err, Ok, Pass
 
         result = Ok(42)
         assert not isinstance(result, Err)
@@ -418,7 +418,7 @@ class TestResultTypeChecking:
 
     def test_err_not_instance_of_ok_or_pass(self):
         """Err is not instance of Ok or Pass."""
-        from dawn_kestrel.core.result import Ok, Err, Pass
+        from dawn_kestrel.core.result import Err, Ok, Pass
 
         result = Err("error")
         assert not isinstance(result, Ok)
@@ -426,7 +426,7 @@ class TestResultTypeChecking:
 
     def test_pass_not_instance_of_ok_or_err(self):
         """Pass is not instance of Ok or Err."""
-        from dawn_kestrel.core.result import Ok, Err, Pass
+        from dawn_kestrel.core.result import Err, Ok, Pass
 
         result = Pass()
         assert not isinstance(result, Ok)

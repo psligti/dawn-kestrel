@@ -1,10 +1,10 @@
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List
+from typing import Any, Optional
 
 from dawn_kestrel.core.event_bus import Events, bus
-from dawn_kestrel.permissions.evaluate import get_default_rulesets, PermissionEvaluator
+from dawn_kestrel.permissions.evaluate import PermissionEvaluator, get_default_rulesets
 
 
 class ToolRegistry:
@@ -14,10 +14,10 @@ class ToolRegistry:
     """
 
     def __init__(self) -> None:
-        self.tools: Dict[str, "Tool"] = {}
-        self.tool_metadata: Dict[str, Dict[str, Any]] = {}
+        self.tools: dict[str, Tool] = {}
+        self.tool_metadata: dict[str, dict[str, Any]] = {}
 
-    async def register(self, tool: "Tool", tool_id: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    async def register(self, tool: "Tool", tool_id: str, metadata: dict[str, Any] | None = None) -> None:
         """Register a tool with optional metadata"""
         self.tools[tool_id] = tool
 
@@ -28,11 +28,11 @@ class ToolRegistry:
         """Get a tool by ID"""
         return self.tools.get(tool_id)
 
-    async def get_all(self) -> Dict[str, "Tool"]:
+    async def get_all(self) -> dict[str, "Tool"]:
         """Get all registered tools"""
         return self.tools
 
-    def get_metadata(self, tool_id: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, tool_id: str) -> dict[str, Any] | None:
         """Get metadata for a tool"""
         return self.tool_metadata.get(tool_id)
 
@@ -49,7 +49,7 @@ class Tool(ABC):
     @abstractmethod
     async def execute(
         self,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         ctx: "ToolContext",
     ) -> "ToolResult":
         """Execute tool with given arguments
@@ -63,7 +63,7 @@ class Tool(ABC):
         """
         pass
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Get JSON schema for tool parameters
 
         Returns:
@@ -88,12 +88,12 @@ class ToolContext:
     message_id: str
     agent: str
     abort: asyncio.Event
-    messages: List[Dict[str, Any]]
-    call_id: Optional[str] = None
-    time_created: Optional[float] = None
-    time_finished: Optional[float] = None
+    messages: list[dict[str, Any]]
+    call_id: str | None = None
+    time_created: float | None = None
+    time_finished: float | None = None
 
-    async def update_metadata(self, title: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    async def update_metadata(self, title: str, metadata: dict[str, Any] | None = None) -> None:
         """Update tool metadata during execution
 
         Emits tool metadata update event
@@ -109,7 +109,7 @@ class ToolContext:
         self,
         permission: str,
         pattern: str,
-        always: Optional[List[str]] = None,
+        always: list[str] | None = None,
     ) -> bool:
         """Request permission from user
 
@@ -161,5 +161,5 @@ class ToolResult:
     """Result from tool execution"""
     title: str
     output: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    attachments: Optional[List[Dict[str, Any]]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    attachments: list[dict[str, Any]] | None = None

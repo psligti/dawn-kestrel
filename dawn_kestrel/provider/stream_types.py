@@ -1,9 +1,9 @@
 """OpenCode Python - Stream Types and Events"""
-from pydantic import BaseModel, Field
-from typing import Literal, Dict, Any, Optional
-import uuid
 import logging
+import uuid
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class StreamEvent(BaseModel):
 class TextStartEvent(StreamEvent):
     """Text content starts"""
     type: Literal["text-start"] = "text-start"
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
 
 
 
@@ -41,8 +41,8 @@ class TextEndEvent(StreamEvent):
 class ReasoningStartEvent(StreamEvent):
     """Reasoning/thinking starts"""
     type: Literal["reasoning-start"] = "reasoning-start"
-    parent_id: Optional[str] = None
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    parent_id: str | None = None
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
@@ -64,15 +64,15 @@ class ToolInputStartEvent(StreamEvent):
     type: Literal["tool-input-start"] = "tool-input-start"
     tool_call_id: str
     tool: str
-    input: Dict[str, Any]
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    input: dict[str, Any]
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
 class ToolInputDeltaEvent(StreamEvent):
     """Tool input delta"""
     type: Literal["tool-input-delta"] = "tool-input-delta"
-    input_delta: Dict[str, Any]
+    input_delta: dict[str, Any]
 
 
 
@@ -87,8 +87,8 @@ class ToolCallEvent(StreamEvent):
     type: Literal["tool-call"] = "tool-call"
     tool_call_id: str
     tool_name: str
-    input: Dict[str, Any]
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    input: dict[str, Any]
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
@@ -98,8 +98,8 @@ class ToolResultEvent(StreamEvent):
     tool_call_id: str
     tool_name: str
     output: str
-    error: Optional[str] = None
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    error: str | None = None
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
@@ -109,25 +109,25 @@ class ToolErrorEvent(StreamEvent):
     tool_call_id: str
     tool_name: str
     error: str
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
 class FinishStepEvent(StreamEvent):
     """LLM turn completes"""
     type: Literal["finish-step"] = "finish-step"
-    finish_reason: Optional[str] = None
-    usage: Optional[Dict[str, Any]] = Field(default=None)
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    finish_reason: str | None = None
+    usage: dict[str, Any] | None = Field(default=None)
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 
 class FinishEvent(StreamEvent):
     """Full response completes"""
     type: Literal["finish"] = "finish"
-    finish_reason: Optional[str] = None
-    usage: Optional[Dict[str, Any]] = Field(default=None)
-    provider_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    finish_reason: str | None = None
+    usage: dict[str, Any] | None = Field(default=None)
+    provider_metadata: dict[str, Any] | None = Field(default=None)
 
 
 AnyStreamEvent = (

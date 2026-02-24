@@ -7,8 +7,9 @@ Run this example:
     python docs/examples/tui_integration.py
 """
 import asyncio
-from dawn_kestrel.sdk import OpenCodeAsyncClient
+
 from dawn_kestrel.interfaces.io import QuietIOHandler
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 async def tui_integration() -> None:

@@ -4,16 +4,15 @@ This module tests that domain exceptions are wrapped in Result types
 instead of being raised, both in services and SDK clients.
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.core.result import Err, Ok, Result
 from dawn_kestrel.core.services.session_service import DefaultSessionService
 from dawn_kestrel.sdk.client import OpenCodeAsyncClient, OpenCodeSyncClient
-from dawn_kestrel.core.result import Result, Ok, Err
-from dawn_kestrel.core.repositories import SessionRepository, MessageRepository
-from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.exceptions import OpenCodeError
 
 
 class MockSessionRepository:

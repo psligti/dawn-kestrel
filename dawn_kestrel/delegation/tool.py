@@ -4,7 +4,7 @@ Provides a Tool interface for the DelegationEngine, allowing agents to
 spawn and coordinate subagents with convergence guarantees.
 """
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
 
@@ -52,7 +52,7 @@ class DelegateTool(Tool):
         self._registry = registry
         self._session_manager = session_manager
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Get JSON schema for tool parameters.
 
         Returns:
@@ -88,7 +88,7 @@ class DelegateTool(Tool):
             "required": ["agent", "prompt"],
         }
 
-    async def execute(self, args: Dict[str, Any], ctx: ToolContext) -> ToolResult:
+    async def execute(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         """Execute the delegation.
 
         Args:

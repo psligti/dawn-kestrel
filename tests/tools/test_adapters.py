@@ -4,23 +4,24 @@ Tests cover protocol compliance, adapter implementations, and registration syste
 Follows TDD workflow: RED-GREEN-REFACTOR.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from dawn_kestrel.tools.framework import ToolContext, ToolResult
-from dawn_kestrel.core.result import Ok, Err
 
 # Note: These tests will fail initially (RED phase)
 # Import will fail until adapters module is created
 try:
     from dawn_kestrel.tools.adapters import (
-        ToolAdapter,
         BashToolAdapter,
-        ReadToolAdapter,
-        WriteToolAdapter,
         GenericToolAdapter,
-        register_adapter,
+        ReadToolAdapter,
+        ToolAdapter,
+        WriteToolAdapter,
         get_adapter,
         list_adapters,
+        register_adapter,
     )
 
     IMPORTS_AVAILABLE = True

@@ -1,13 +1,15 @@
 """Tests for async SDK client."""
 from __future__ import annotations
 
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from dawn_kestrel.sdk.client import OpenCodeAsyncClient
-from dawn_kestrel.core.models import Session
-from dawn_kestrel.core.exceptions import SessionError
-from dawn_kestrel.core.agent_types import AgentResult
+
 from dawn_kestrel.agents.builtin import Agent
+from dawn_kestrel.core.agent_types import AgentResult
+from dawn_kestrel.core.exceptions import SessionError
+from dawn_kestrel.core.models import Session
+from dawn_kestrel.sdk.client import OpenCodeAsyncClient
 
 
 class TestOpenCodeAsyncClientInitialization:
@@ -19,7 +21,6 @@ class TestOpenCodeAsyncClientInitialization:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient initialization with default config."""
-        from dawn_kestrel.core.config import SDKConfig
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -28,7 +29,7 @@ class TestOpenCodeAsyncClientInitialization:
         mock_service_cls.return_value = mock_service
 
         client = OpenCodeAsyncClient()
-        
+
         assert client is not None
         assert client._service is not None
         assert client._on_progress is None
@@ -50,7 +51,7 @@ class TestOpenCodeAsyncClientInitialization:
 
         config = SDKConfig(auto_confirm=True)
         client = OpenCodeAsyncClient(config=config)
-        
+
         assert client is not None
         assert client._service is not None
         assert client._on_progress is None
@@ -62,7 +63,11 @@ class TestOpenCodeAsyncClientInitialization:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test OpenCodeAsyncClient initialization with custom handlers."""
-        from dawn_kestrel.interfaces.io import QuietIOHandler, NoOpProgressHandler, NoOpNotificationHandler
+        from dawn_kestrel.interfaces.io import (
+            NoOpNotificationHandler,
+            NoOpProgressHandler,
+            QuietIOHandler,
+        )
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -79,7 +84,7 @@ class TestOpenCodeAsyncClientInitialization:
             progress_handler=progress_handler,
             notification_handler=notification_handler,
         )
-        
+
         assert client is not None
         assert client._service is not None
         assert client._on_progress is None
@@ -102,10 +107,10 @@ class TestOpenCodeAsyncClientCallbacks:
         mock_service_cls.return_value = mock_service
 
         client = OpenCodeAsyncClient()
-        
+
         progress_callback = Mock()
         client.on_progress(progress_callback)
-        
+
         assert client._on_progress == progress_callback
 
     @patch("dawn_kestrel.sdk.client.SessionStorage")
@@ -114,7 +119,6 @@ class TestOpenCodeAsyncClientCallbacks:
         self, mock_storage_cls, mock_service_cls
     ) -> None:
         """Test notification callback registration."""
-        from dawn_kestrel.interfaces.io import Notification, NotificationType
 
         mock_storage = Mock()
         mock_storage_cls.return_value = mock_storage
@@ -123,10 +127,10 @@ class TestOpenCodeAsyncClientCallbacks:
         mock_service_cls.return_value = mock_service
 
         client = OpenCodeAsyncClient()
-        
+
         notification_callback = Mock()
         client.on_notification(notification_callback)
-        
+
         assert client._on_notification == notification_callback
 
 
@@ -249,7 +253,7 @@ class TestOpenCodeAsyncClientSessionMethods:
 
         client = OpenCodeAsyncClient()
         result = await client.list_sessions()
-        
+
         assert result == [session1, session2]
         mock_storage.list_sessions.assert_called_once()
 
@@ -270,7 +274,7 @@ class TestOpenCodeAsyncClientSessionMethods:
 
         client = OpenCodeAsyncClient()
         result = await client.delete_session(session_id="ses_001")
-        
+
         assert result is True
         mock_service.delete_session.assert_called_once_with("ses_001")
 
@@ -291,7 +295,7 @@ class TestOpenCodeAsyncClientSessionMethods:
 
         client = OpenCodeAsyncClient()
         result = await client.delete_session(session_id="nonexistent")
-        
+
         assert result is False
         mock_service.delete_session.assert_called_once_with("nonexistent")
 
@@ -316,7 +320,7 @@ class TestOpenCodeAsyncClientSessionMethods:
             role="user",
             content="Test message",
         )
-        
+
         assert result == "msg_001"
         mock_service.add_message.assert_called_once_with("ses_001", "user", "Test message")
 
@@ -338,7 +342,7 @@ class TestOpenCodeAsyncClientSessionMethods:
         )
 
         client = OpenCodeAsyncClient()
-        
+
         with pytest.raises(SessionError, match="Failed to create session"):
             await client.create_session(title="Test")
 
@@ -404,7 +408,8 @@ class TestOpenCodeAsyncClientAgentMethods:
         self, mock_storage_cls, mock_service_cls, mock_runtime_execute
     ) -> None:
         """Test OpenCodeAsyncClient.execute_agent() method."""
-        from unittest.mock import Mock, AsyncMock
+        from unittest.mock import AsyncMock, Mock
+
         from dawn_kestrel.core.agent_types import AgentResult
 
         mock_storage = Mock()
@@ -453,7 +458,8 @@ class TestOpenCodeAsyncClientAgentMethods:
         self, mock_storage_cls, mock_service_cls, mock_runtime_execute
     ) -> None:
         """Test OpenCodeAsyncClient.execute_agent() with options."""
-        from unittest.mock import Mock, AsyncMock
+        from unittest.mock import AsyncMock, Mock
+
         from dawn_kestrel.core.agent_types import AgentResult
 
         mock_storage = Mock()

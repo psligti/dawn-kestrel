@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import sys
-from pathlib import Path
-from typing import Any
 
-import click
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
@@ -162,137 +158,6 @@ async def connect_command() -> None:
                 if "access_token" in tokens:
                     api_key = tokens["access_token"]
                     console.print("[green]✓ Access token obtained[/green]")
-                else:
-                    console.print(f"[red]✗ Failed to get token: {tokens}[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print("[cyan]Step 2: Requesting device code from GitHub...[/cyan]")
-
-                client = GitHubOAuthClient(client_id=client_id)
-
-                try:
-                    device_response = client.request_device_code(
-                        scopes=["read:org", "codespace", "copilot"],
-                    )
-
-                except RuntimeError as e:
-                    console.print(f"[red]✗ Failed to get device code: {e}[/red]")
-                    sys.exit(1)
-
-                user_code = device_response.get("user_code", "")
-                verification_uri = device_response.get("verification_uri", "")
-
-                if not verification_uri:
-                    console.print("[red]✗ No verification URL returned[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print(f"[dim]Please visit: {verification_uri}[/dim]")
-                console.print(f"[dim]Enter code: {user_code}[/dim]")
-                console.print()
-                console.print("[cyan]Step 3: Waiting for authorization...[/cyan]")
-
-                console.print()
-                console.print("[bold]Step 4: Exchanging code for access token...[/bold]")
-                console.print(
-                    "[dim](Waiting up to 15 minutes for you to authorize on GitHub)[/dim]"
-                )
-                console.print()
-
-                try:
-                    tokens = await client.poll_for_token(device_response)
-                except RuntimeError as e:
-                    console.print(f"[red]✗ Token exchange/polling failed: {e}[/red]")
-                    sys.exit(1)
-
-                if "access_token" in tokens:
-                    api_key = tokens["access_token"]
-                    console.print("[green]✓ Access token obtained[/green]")
-                else:
-                    console.print(f"[red]✗ Failed to get token: {tokens}[/red]")
-                    sys.exit(1)
-
-                user_code = device_response.get("user_code", "")
-                verification_uri = device_response.get("verification_uri", "")
-
-                if not verification_uri:
-                    console.print("[red]✗ No verification URL returned[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print(f"[dim]Please visit: {verification_uri}[/dim]")
-                console.print(f"[dim]Enter code: {user_code}[/dim]")
-                console.print()
-                console.print("[cyan]Step 3: Waiting for device code...[/cyan]")
-
-                device_code = Prompt.ask("Enter device code", default="")
-
-                if not device_code:
-                    console.print("[red]✗ No code entered. Authentication cancelled.[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print("[cyan]Step 4: Exchanging code for access token...[/cyan]")
-
-                try:
-                    tokens = client.exchange_device_code(device_code)
-                except RuntimeError as e:
-                    console.print(f"[red]✗ Token exchange failed: {e}[/red]")
-                    sys.exit(1)
-
-                if "access_token" in tokens:
-                    api_key = tokens["access_token"]
-                    console.print("[green]✓ Access token obtained[/green]")
-                else:
-                    console.print(f"[red]✗ Failed to get token: {tokens}[/red]")
-                    sys.exit(1)
-
-                if not verification_url:
-                    console.print("[red]✗ No verification URL returned[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print(f"[dim]Verification URL: {verification_url}[/dim]")
-                console.print()
-                console.print("[cyan]Step 2: Opening browser...[/cyan]")
-
-                try:
-                    import webbrowser
-
-                    webbrowser.open(verification_url)
-                except ImportError:
-                    console.print("[yellow]⚠ webbrowser not available. Open URL manually.[/yellow]")
-                except Exception:
-                    console.print("[yellow]⚠ Could not open browser. Open URL manually.[/yellow]")
-
-                console.print()
-                console.print("[bold]Step 3: Enter the device code from GitHub[/bold]")
-                console.print("[dim](After authorizing on GitHub, you'll see a code)[/dim]")
-                console.print()
-
-                device_code = Prompt.ask("Device code", default="")
-
-                if not device_code:
-                    console.print("[red]✗ No code entered. Authentication cancelled.[/red]")
-                    sys.exit(1)
-
-                console.print()
-                console.print("[cyan]Step 4: Exchanging code for access token...[/cyan]")
-
-                try:
-                    tokens = client.exchange_code_for_token(device_code)
-                except RuntimeError as e:
-                    console.print(f"[red]✗ Token exchange failed: {e}[/red]")
-                    sys.exit(1)
-
-                if "access_token" in tokens:
-                    api_key = tokens["access_token"]
-                    console.print("[green]✓ Access token obtained[/green]")
-
-                    if "expires_in" in tokens:
-                        expires_minutes = int(tokens["expires_in"]) / 60
-                        console.print(f"[dim]  Expires in: {expires_minutes} minutes[/dim]")
                 else:
                     console.print(f"[red]✗ Failed to get token: {tokens}[/red]")
                     sys.exit(1)

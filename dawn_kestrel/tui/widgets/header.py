@@ -1,10 +1,7 @@
 """Session Header Widget for OpenCode TUI"""
 from __future__ import annotations
 
-from typing import Optional
-
 from textual.reactive import reactive
-from textual.widget import Widget
 from textual.widgets import Static
 
 
@@ -21,8 +18,8 @@ class SessionHeader(Static):
 
     # Reactive properties for updates
     session_title: reactive[str] = reactive("")
-    parent_session_id: reactive[Optional[str]] = reactive(None)
-    model: reactive[Optional[str]] = reactive(None)
+    parent_session_id: reactive[str | None] = reactive(None)
+    model: reactive[str | None] = reactive(None)
 
     DEFAULT_CSS = """
     SessionHeader {
@@ -49,8 +46,8 @@ class SessionHeader(Static):
     def __init__(
         self,
         session_title: str = "",
-        parent_session_id: Optional[str] = None,
-        model: Optional[str] = None,
+        parent_session_id: str | None = None,
+        model: str | None = None,
         **kwargs
     ) -> None:
         """Initialize SessionHeader
@@ -98,13 +95,13 @@ class SessionHeader(Static):
         self._update_content()
 
     def watch_parent_session_id(
-        self, old_value: Optional[str], new_value: Optional[str]
+        self, old_value: str | None, new_value: str | None
     ) -> None:
         """Called when parent_session_id changes"""
         self._parent_session_id = new_value
         self._update_content()
 
-    def watch_model(self, old_value: Optional[str], new_value: Optional[str]) -> None:
+    def watch_model(self, old_value: str | None, new_value: str | None) -> None:
         """Called when model changes"""
         self._model = new_value
         self._update_content()
@@ -116,11 +113,11 @@ class SessionHeader(Static):
         return self._session_title
 
     @property
-    def parent_session_id_value(self) -> Optional[str]:
+    def parent_session_id_value(self) -> str | None:
         """Get current parent session ID"""
         return self._parent_session_id
 
     @property
-    def model_value(self) -> Optional[str]:
+    def model_value(self) -> str | None:
         """Get current model"""
         return self._model

@@ -1,15 +1,16 @@
 """Test self-verification functionality in BaseReviewerAgent."""
 
-import pytest
-from unittest.mock import Mock
-from pathlib import Path
-import tempfile
-import subprocess
 import shlex
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
+from dawn_kestrel.agents.review.verifier import GrepFindingsVerifier
 
 from dawn_kestrel.agents.review.base import BaseReviewerAgent
 from dawn_kestrel.agents.review.contracts import Finding
-from dawn_kestrel.agents.review.verifier import GrepFindingsVerifier
 
 
 class MockReviewerAgent(BaseReviewerAgent):
@@ -17,7 +18,7 @@ class MockReviewerAgent(BaseReviewerAgent):
 
     async def review(self, context):
         """Mock review implementation."""
-        from dawn_kestrel.agents.review.contracts import ReviewOutput, Scope, MergeGate
+        from dawn_kestrel.agents.review.contracts import MergeGate, ReviewOutput, Scope
 
         return ReviewOutput(
             agent="mock",

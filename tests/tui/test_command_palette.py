@@ -1,6 +1,6 @@
 """Command Palette Dialog Tests - TDD phase tests"""
 import pytest
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.widgets import Input, Label, Static
 
 from dawn_kestrel.tui.dialogs import CommandPaletteDialog

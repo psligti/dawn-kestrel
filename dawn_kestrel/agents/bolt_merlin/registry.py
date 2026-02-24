@@ -11,26 +11,28 @@ All agents are available as instantiated AgentConfig objects ready for use.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from collections.abc import Callable
+
+from dawn_kestrel.agents.agent_config import AgentConfig
+from dawn_kestrel.core.result import Result
 
 logger = logging.getLogger(__name__)
 
 # Import all Bolt Merlin agent factories
-from .orchestrator import create_orchestrator_agent
-from .master_orchestrator import create_master_orchestrator_agent
-from .planner import create_planner_agent
 from .autonomous_worker import create_autonomous_worker_agent
 from .consultant import create_consultant_agent
-from .pre_planning import create_pre_planning_agent
-from .plan_validator import create_plan_validator_agent
-from .librarian import create_librarian_agent
 from .explore import create_explore_agent
 from .frontend_ui_engineer import create_frontend_ui_ux_skill
+from .librarian import create_librarian_agent
+from .master_orchestrator import create_master_orchestrator_agent
 from .multimodal_looker import create_multimodal_looker_agent
-
+from .orchestrator import create_orchestrator_agent
+from .plan_validator import create_plan_validator_agent
+from .planner import create_planner_agent
+from .pre_planning import create_pre_planning_agent
 
 # Agent factory registry - maps agent names to their creation functions
-_AGENT_FACTORIES: Dict[str, Any] = {
+_AGENT_FACTORIES: dict[str, Callable[[], Result[AgentConfig]]] = {
     "orchestrator": create_orchestrator_agent,
     "master_orchestrator": create_master_orchestrator_agent,
     "planner": create_planner_agent,
@@ -46,10 +48,10 @@ _AGENT_FACTORIES: Dict[str, Any] = {
 
 
 # Cache for instantiated agents
-_agent_cache: Optional[Dict[str, Any]] = None
+_agent_cache: dict[str, AgentConfig] | None = None
 
 
-def get_bolt_merlin_agents() -> Dict[str, Any]:
+def get_bolt_merlin_agents() -> dict[str, AgentConfig]:
     """
     Get all Bolt Merlin agents as instantiated AgentConfig objects.
 
@@ -74,7 +76,7 @@ def get_bolt_merlin_agents() -> Dict[str, Any]:
 
     logger.info("Instantiating Bolt Merlin agents...")
 
-    agents: Dict[str, Any] = {}
+    agents: dict[str, AgentConfig] = {}
     failed_agents: list[str] = []
 
     for agent_name, factory_func in _AGENT_FACTORIES.items():
@@ -115,7 +117,7 @@ def get_bolt_merlin_agent_names() -> list[str]:
     return list(_AGENT_FACTORIES.keys())
 
 
-def get_bolt_merlin_agent(agent_name: str) -> Any:
+def get_bolt_merlin_agent(agent_name: str) -> AgentConfig | None:
     """
     Get a specific Bolt Merlin agent by name.
 
@@ -144,7 +146,7 @@ def get_bolt_merlin_agent(agent_name: str) -> Any:
         return None
 
 
-def clear_agent_cache():
+def clear_agent_cache() -> None:
     """
     Clear the agent cache, forcing re-instantiation on next call.
 
@@ -160,7 +162,10 @@ def clear_agent_cache():
     logger.debug("Cleared Bolt Merlin agent cache")
 
 
-def register_bolt_merlin_agent(name: str, factory: Any):
+def register_bolt_merlin_agent(
+    name: str,
+    factory: Callable[[], Result[AgentConfig]],
+) -> None:
     """
     Register a custom Bolt Merlin agent factory.
 
@@ -183,7 +188,7 @@ def register_bolt_merlin_agent(name: str, factory: Any):
     logger.info(f"Registered custom Bolt Merlin agent: {name}")
 
 
-def get_bolt_merlin_agent_descriptions() -> Dict[str, str]:
+def get_bolt_merlin_agent_descriptions() -> dict[str, str]:
     """
     Get descriptions of all Bolt Merlin agents.
 

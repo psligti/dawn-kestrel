@@ -11,13 +11,11 @@ Run this example:
     python docs/examples/memory_usage.py
 """
 import asyncio
-from typing import Any, Dict, List
 from pathlib import Path
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient
-from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.agents.memory_manager import MemoryManager
 from dawn_kestrel.core.models import Session
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 async def setup_memory_system() -> tuple[Session, MemoryManager]:
@@ -166,14 +164,14 @@ async def memory_retrieval_example(session: Session, memory_manager: MemoryManag
         )
 
         if retrieved:
-            print(f"\n  Memory details:")
+            print("\n  Memory details:")
             print(f"    ID: {retrieved.id}")
             print(f"    Content: {retrieved.content}")
             print(f"    Session: {retrieved.session_id}")
             print(f"    Created: {retrieved.created}")
             print(f"    Metadata: {retrieved.metadata}")
         else:
-            print(f"  Memory not found!")
+            print("  Memory not found!")
 
     print()
 
@@ -190,7 +188,7 @@ async def memory_summarization_example(session: Session, memory_manager: MemoryM
     # Generate summary of all memories
     summary = await memory_manager.summarize(session_id=session.id)
 
-    print(f"\nSession Summary:")
+    print("\nSession Summary:")
     print(f"  Total memories: {summary['count']}")
     print(f"  Total characters: {summary['total_characters']}")
     print(f"  Oldest timestamp: {summary['oldest_timestamp']}")
@@ -239,9 +237,9 @@ async def memory_lifecycle_example(session: Session, memory_manager: MemoryManag
         )
 
         if deleted:
-            print(f"  ✓ Memory deleted successfully")
+            print("  ✓ Memory deleted successfully")
         else:
-            print(f"  ✗ Deletion failed")
+            print("  ✗ Deletion failed")
 
         # Verify deletion
         remaining = await memory_manager.search(session_id=session.id)

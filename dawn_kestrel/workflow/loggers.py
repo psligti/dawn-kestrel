@@ -10,7 +10,7 @@ Loggers:
 
 import json
 
-from dawn_kestrel.workflow.models import ThinkingFrame, ReactStep, RunLog
+from dawn_kestrel.workflow.models import ReactStep, RunLog, ThinkingFrame
 
 
 class ConsoleLogger:

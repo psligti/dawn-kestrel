@@ -7,16 +7,16 @@ exceptions from dawn_kestrel.core.exceptions.
 
 import pytest
 
-from dawn_kestrel.core.http_client import HTTPClientError
 from dawn_kestrel.core.exceptions import (
-    OpenCodeError,
-    SessionError,
-    MessageError,
-    ToolExecutionError,
     IOHandlerError,
-    PromptError,
+    MessageError,
     NotificationError,
+    OpenCodeError,
+    PromptError,
+    SessionError,
+    ToolExecutionError,
 )
+from dawn_kestrel.core.http_client import HTTPClientError
 
 
 class TestHTTPClientError:

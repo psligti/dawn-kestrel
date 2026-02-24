@@ -1,11 +1,13 @@
 """OpenCode Python - Event bus for async communication"""
-from __future__ import annotations
-from typing import Callable, Dict, List, Any, Optional
-from dataclasses import dataclass, field
-import asyncio
-from collections import defaultdict
-import logging
 
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections import defaultdict
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,13 +15,19 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Event:
     """Event data container"""
+
     name: str
-    data: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    trace_id: str | None = None
+    parent_span_id: str | None = None
+    duration_ms: float | None = None
+    span_name: str | None = None
 
 
 @dataclass
 class EventSubscription:
     """Event subscription with callback"""
+
     event_name: str
     callback: Callable[[Event], Any]
     once: bool = False
@@ -30,7 +38,7 @@ class EventBus:
 
     def __init__(self) -> None:
         """Initialize event bus"""
-        self._subscriptions: Dict[str, List[EventSubscription]] = defaultdict(list)
+        self._subscriptions: dict[str, list[EventSubscription]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
     async def subscribe(
@@ -59,14 +67,17 @@ class EventBus:
 
         return unsubscribe
 
-    async def publish(self, event_name: str, data: Optional[Dict[str, Any]] = None) -> None:
+    async def publish(self, event_name: str, data: dict[str, Any] | None = None) -> None:
         """Publish an event
 
         Args:
             event_name: Name of event to publish
             data: Data to send with event
         """
-        event = Event(name=event_name, data=data or {})
+        from dawn_kestrel.agents.review.utils.redaction import redact_dict
+
+        redacted_data = redact_dict(data) if data else {}
+        event = Event(name=event_name, data=redacted_data)
 
         async with self._lock:
             subscriptions = self._subscriptions[event_name].copy()
@@ -87,7 +98,7 @@ class EventBus:
                 if subscription in self._subscriptions[event_name]:
                     self._subscriptions[event_name].remove(subscription)
 
-    async def clear_subscriptions(self, event_name: Optional[str] = None) -> None:
+    async def clear_subscriptions(self, event_name: str | None = None) -> None:
         """Clear all subscriptions or subscriptions for an event"""
         async with self._lock:
             if event_name:
@@ -103,6 +114,7 @@ bus = EventBus()
 # Event names
 class Events:
     """Predefined event names"""
+
     SESSION_CREATED = "session.created"
     SESSION_UPDATED = "session.updated"
     SESSION_DELETED = "session.deleted"

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.result import Err, Ok, Result
 from dawn_kestrel.storage.store import SessionStorage
 
 

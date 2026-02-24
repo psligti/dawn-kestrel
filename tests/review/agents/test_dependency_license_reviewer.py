@@ -1,10 +1,11 @@
 """Tests for DependencyLicenseReviewer."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from dawn_kestrel.agents.review.agents.dependencies import DependencyLicenseReviewer
+import pytest
 from dawn_kestrel.agents.review.agents import dependencies as dependencies_module
+from dawn_kestrel.agents.review.agents.dependencies import DependencyLicenseReviewer
+
 from dawn_kestrel.agents.review.base import ReviewContext
 from dawn_kestrel.agents.review.contracts import ReviewOutput
 

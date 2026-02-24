@@ -1,13 +1,14 @@
 """Model selection dialog for TUI using ModelInfo objects."""
 
-from typing import Any, Dict, List, Optional, Callable
+from collections.abc import Callable
+from typing import Any
 
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
-from textual.widgets import ListView, ListItem, Static, Label
+from textual.widgets import Label, ListItem, ListView, Static
 
-from dawn_kestrel.providers.base import ModelInfo
 from dawn_kestrel.core.settings import settings
+from dawn_kestrel.providers.base import ModelInfo
 
 
 class ModelSelectDialog(ModalScreen[ModelInfo]):
@@ -45,20 +46,20 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
     def __init__(
         self,
         title: str = "Select Model",
-        models: Optional[List[ModelInfo]] = None,
-        on_select: Optional[Callable[[ModelInfo], None]] = None
+        models: list[ModelInfo] | None = None,
+        on_select: Callable[[ModelInfo], None] | None = None
     ):
         super().__init__()
         self.title = title
         self.models = models or []
         self.on_select = on_select
-        self._result: Optional[ModelInfo] = None
+        self._result: ModelInfo | None = None
         self._selected_index: int = 0
 
         # Generate options from models
         self.options = self._generate_options()
 
-    def _generate_options(self) -> List[Dict[str, Any]]:
+    def _generate_options(self) -> list[dict[str, Any]]:
         """Generate select options from ModelInfo objects.
 
         Returns:
@@ -113,7 +114,7 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
                     self.on_select(model)
                 return
 
-    def close_dialog(self, value: Optional[ModelInfo] = None) -> None:
+    def close_dialog(self, value: ModelInfo | None = None) -> None:
         """Close dialog and return selected model.
 
         Args:
@@ -125,7 +126,7 @@ class ModelSelectDialog(ModalScreen[ModelInfo]):
             self._result = value
         self.dismiss()
 
-    def get_result(self) -> Optional[ModelInfo]:
+    def get_result(self) -> ModelInfo | None:
         """Get dialog result.
 
         Returns:

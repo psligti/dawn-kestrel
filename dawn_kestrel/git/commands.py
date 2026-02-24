@@ -1,13 +1,12 @@
 """OpenCode Python - Git Commands"""
 
 from __future__ import annotations
-from typing import Dict
-from pathlib import Path
-import subprocess
+
 import logging
+import subprocess
+from pathlib import Path
 
-from dawn_kestrel.core.security import validate_git_hash, SecurityError
-
+from dawn_kestrel.core.security import SecurityError, validate_git_hash
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +97,7 @@ class GitCommands:
 
         logger.info(f"Checked out files from snapshot: {hash_value}")
 
-    def get_diff_stats(self, from_hash: str, to_hash: str) -> Dict[str, Dict[str, int]]:
+    def get_diff_stats(self, from_hash: str, to_hash: str) -> dict[str, dict[str, int]]:
         """Get diff statistics"""
         try:
             from_validated = validate_git_hash(from_hash)
@@ -112,7 +111,7 @@ class GitCommands:
             raise RuntimeError(f"git diff --numstat failed: {result.stderr}")
 
         # Parse stats
-        stats: Dict[str, Dict[str, int]] = {}
+        stats: dict[str, dict[str, int]] = {}
         for line in result.stdout.strip().split("\n"):
             if not line:
                 continue

@@ -16,7 +16,6 @@ from typing import Any, Protocol, runtime_checkable
 from dawn_kestrel.core.models import Message
 from dawn_kestrel.core.result import Err, Ok, Result
 
-
 # =============================================================================
 # RoutingStrategy Protocol
 # =============================================================================

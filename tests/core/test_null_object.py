@@ -4,17 +4,15 @@ This module tests the Null Object pattern which provides safe defaults
 for optional handler dependencies, eliminating null checks.
 """
 
-import asyncio
 import pytest
 
 from dawn_kestrel.interfaces.io import (
     IOHandler,
-    ProgressHandler,
-    NotificationHandler,
     Notification,
+    NotificationHandler,
     NotificationType,
+    ProgressHandler,
 )
-
 
 # ============ NullIOHandler Tests ============
 
@@ -148,7 +146,7 @@ def test_null_notification_show_is_noop():
 @pytest.mark.asyncio
 async def test_get_null_handler_io_returns_existing():
     """Test that get_null_handler returns existing IO handler."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullIOHandler
+    from dawn_kestrel.core.null_object import NullIOHandler, get_null_handler
 
     existing = NullIOHandler()
     result = get_null_handler("io", existing)
@@ -160,7 +158,7 @@ async def test_get_null_handler_io_returns_existing():
 @pytest.mark.asyncio
 async def test_get_null_handler_progress_returns_existing():
     """Test that get_null_handler returns existing Progress handler."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullProgressHandler
+    from dawn_kestrel.core.null_object import NullProgressHandler, get_null_handler
 
     existing = NullProgressHandler()
     result = get_null_handler("progress", existing)
@@ -172,7 +170,7 @@ async def test_get_null_handler_progress_returns_existing():
 @pytest.mark.asyncio
 async def test_get_null_handler_notification_returns_existing():
     """Test that get_null_handler returns existing Notification handler."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullNotificationHandler
+    from dawn_kestrel.core.null_object import NullNotificationHandler, get_null_handler
 
     existing = NullNotificationHandler()
     result = get_null_handler("notification", existing)
@@ -184,7 +182,7 @@ async def test_get_null_handler_notification_returns_existing():
 @pytest.mark.asyncio
 async def test_get_null_handler_io_none_returns_null_io():
     """Test that get_null_handler returns NullIOHandler when None passed."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullIOHandler
+    from dawn_kestrel.core.null_object import NullIOHandler, get_null_handler
 
     result = get_null_handler("io", None)
 
@@ -195,7 +193,7 @@ async def test_get_null_handler_io_none_returns_null_io():
 @pytest.mark.asyncio
 async def test_get_null_handler_progress_none_returns_null_progress():
     """Test that get_null_handler returns NullProgressHandler when None passed."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullProgressHandler
+    from dawn_kestrel.core.null_object import NullProgressHandler, get_null_handler
 
     result = get_null_handler("progress", None)
 
@@ -206,7 +204,7 @@ async def test_get_null_handler_progress_none_returns_null_progress():
 @pytest.mark.asyncio
 async def test_get_null_handler_notification_none_returns_null_notification():
     """Test that get_null_handler returns NullNotificationHandler when None passed."""
-    from dawn_kestrel.core.null_object import get_null_handler, NullNotificationHandler
+    from dawn_kestrel.core.null_object import NullNotificationHandler, get_null_handler
 
     result = get_null_handler("notification", None)
 
@@ -257,8 +255,8 @@ async def test_null_handlers_with_existing_code_work():
     """Test that null handlers work with existing code patterns."""
     from dawn_kestrel.core.null_object import (
         NullIOHandler,
-        NullProgressHandler,
         NullNotificationHandler,
+        NullProgressHandler,
     )
 
     # Simulate existing code pattern from session_service.py
@@ -282,7 +280,7 @@ async def test_null_handlers_with_existing_code_work():
     notification_handler.show(
         Notification(
             notification_type=NotificationType.SUCCESS,
-            message=f"Session created",
+            message="Session created",
         )
     )
 

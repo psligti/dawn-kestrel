@@ -8,22 +8,20 @@ Tests cover:
 - CommandQueue management and event publishing
 """
 
-import asyncio
 from datetime import datetime
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from dawn_kestrel.core.commands import (
-    Command,
-    CommandContext,
     BaseCommand,
+    CommandContext,
+    CommandQueue,
     CreateSessionCommand,
     ExecuteToolCommand,
-    CommandQueue,
 )
-from dawn_kestrel.core.mediator import Event, EventMediatorImpl, EventType
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.mediator import EventMediatorImpl, EventType
+from dawn_kestrel.core.result import Err, Ok
 
 
 class TestCommandProtocol:

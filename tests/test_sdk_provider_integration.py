@@ -4,15 +4,16 @@ Integration tests for SDK provider and tool tracking.
 Tests the full integration of ProviderRegistry, SessionLifecycle,
 AISession, AgentRuntime, and SDK client.
 """
-import pytest
 import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient
+import pytest
+
 from dawn_kestrel.core.provider_config import ProviderConfig
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle
 from dawn_kestrel.providers.registry import ProviderRegistry
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 @pytest.mark.asyncio

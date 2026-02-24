@@ -6,8 +6,8 @@ who stole fire from the gods and gave it to humanity.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 PLANNER_PROMPT = """You are Planner, a strategic planning agent. Your job is to create comprehensive work plans that are clear, atomic, and executable.
 
@@ -234,7 +234,7 @@ Every plan must:
 """
 
 
-def create_planner_agent():
+def create_planner_agent() -> AgentConfig:
     """Create Planner agent configuration.
 
     Returns:

@@ -12,17 +12,12 @@ Tests cover:
 All tests follow Python 3.9 compatibility (typing.Optional[T] instead of T | None).
 """
 
-import json
 import logging
 import subprocess
-from typing import List
 from unittest.mock import Mock, patch
 
 import pytest
-
-from dawn_kestrel.agents.review.fsm_security import SecurityFinding
-from dawn_kestrel.agents.review.tools import ToolExecutor, ToolResult, create_tool_executor
-
+from dawn_kestrel.agents.review.tools import ToolExecutor, create_tool_executor
 
 # ============================================================================
 # Mock Tool Output Fixtures

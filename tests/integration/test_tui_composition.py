@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
 
@@ -130,8 +131,8 @@ class TestTUICompositionRoot:
         from dawn_kestrel.tui.app import OpenCodeTUI
         from dawn_kestrel.tui.handlers import (
             TUIIOHandler,
-            TUIProgressHandler,
             TUINotificationHandler,
+            TUIProgressHandler,
         )
 
         app = OpenCodeTUI(session_service=None)
@@ -207,6 +208,7 @@ class TestTUIResultHandling:
         - unwrap() returns None
         """
         import asyncio
+
         from dawn_kestrel.tui.app import OpenCodeTUI
 
         app = OpenCodeTUI(session_service=None)
@@ -278,9 +280,10 @@ class TestTUISessionManagement:
         - Session in unwrapped list
         """
         import asyncio
-        from dawn_kestrel.tui.app import OpenCodeTUI
-        from dawn_kestrel.storage.store import SessionStorage
+
         from dawn_kestrel.core.models import Session
+        from dawn_kestrel.storage.store import SessionStorage
+        from dawn_kestrel.tui.app import OpenCodeTUI
 
         # Create session
         storage = SessionStorage(base_dir=configured_container.storage_dir())

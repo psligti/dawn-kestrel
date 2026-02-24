@@ -12,14 +12,12 @@ Tests verify that DelegationEngine provides:
 """
 
 import asyncio
-import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from dawn_kestrel.core.result import Err, Ok
 from dawn_kestrel.delegation.types import (
     DelegationBudget,
     DelegationConfig,
@@ -35,10 +33,10 @@ class MockAgentResult:
 
     agent_name: str
     response: str
-    parts: List[Any] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tools_used: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    parts: list[Any] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tools_used: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
 class MockAgentRuntime:
@@ -47,7 +45,7 @@ class MockAgentRuntime:
     def __init__(self):
         self.execute_agent = AsyncMock()
         self.call_count = 0
-        self.call_order: List[str] = []
+        self.call_order: list[str] = []
 
     async def execute_agent_impl(
         self,
@@ -147,10 +145,10 @@ class TestBFSMode:
     """Test BFS (breadth-first) execution mode."""
 
     @pytest.mark.asyncio
-    async def test_bfs_executes_children_in_parallel(
+    async def test_bfs_executes_children_via_queue(
         self, mock_runtime, mock_registry, mock_session_manager
     ):
-        """BFS mode executes all children in parallel via asyncio.gather."""
+        """BFS mode executes children using queue/worker pattern."""
         from dawn_kestrel.delegation.engine import DelegationEngine
 
         config = DelegationConfig(mode=TraversalMode.BFS)
@@ -162,18 +160,14 @@ class TestBFSMode:
             {"agent": "child3", "prompt": "prompt3"},
         ]
 
-        with patch("asyncio.gather", wraps=asyncio.gather) as mock_gather:
-            result = await engine.delegate(
-                agent_name="root",
-                prompt="root prompt",
-                session_id="test_session",
-                session_manager=mock_session_manager,
-                tools=None,
-                children=children,
-            )
-
-            # Verify gather was called (indicates parallel execution)
-            mock_gather.assert_called()
+        result = await engine.delegate(
+            agent_name="root",
+            prompt="root prompt",
+            session_id="test_session",
+            session_manager=mock_session_manager,
+            tools=None,
+            children=children,
+        )
 
         assert result.is_ok()
         # Should have executed 1 root + 3 children = 4 agents
@@ -485,20 +479,17 @@ class TestAdaptiveMode:
             {"agent": "child2", "prompt": "p2"},
         ]
 
-        with patch("asyncio.gather", wraps=asyncio.gather) as mock_gather:
-            result = await engine.delegate(
-                agent_name="root",
-                prompt="root prompt",
-                session_id="test_session",
-                session_manager=mock_session_manager,
-                tools=None,
-                children=children,
-            )
-
-            # BFS should be used at depth 0, which calls asyncio.gather
-            mock_gather.assert_called()
+        result = await engine.delegate(
+            agent_name="root",
+            prompt="root prompt",
+            session_id="test_session",
+            session_manager=mock_session_manager,
+            tools=None,
+            children=children,
+        )
 
         assert result.is_ok()
+        assert mock_runtime.call_count == 3
 
     @pytest.mark.asyncio
     async def test_adaptive_uses_dfs_at_deep_depth(
@@ -614,6 +605,62 @@ class TestBoundaryEnforcement:
         assert result.is_ok()
         # max_total_agents=2 means root + 1 child only
         assert mock_runtime.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_max_concurrent_limits_parallel_execution(
+        self, mock_runtime, mock_registry, mock_session_manager
+    ):
+        from dawn_kestrel.delegation.engine import DelegationEngine
+
+        concurrent_count = 0
+        max_concurrent_seen = 0
+        lock = asyncio.Lock()
+
+        async def track_concurrency(*args, **kwargs):
+            nonlocal concurrent_count, max_concurrent_seen
+            async with lock:
+                concurrent_count += 1
+                max_concurrent_seen = max(max_concurrent_seen, concurrent_count)
+            await asyncio.sleep(0.05)
+            async with lock:
+                concurrent_count -= 1
+            return MockAgentResult(
+                agent_name=kwargs.get("agent_name", "unknown"),
+                response="Success",
+            )
+
+        mock_runtime.execute_agent.side_effect = track_concurrency
+
+        config = DelegationConfig(
+            mode=TraversalMode.BFS,
+            budget=DelegationBudget(max_concurrent=2),
+        )
+        engine = DelegationEngine(config, mock_runtime, mock_registry)
+
+        children = [{"agent": f"child{i}", "prompt": f"p{i}"} for i in range(5)]
+
+        result = await engine.delegate(
+            agent_name="root",
+            prompt="root prompt",
+            session_id="test_session",
+            session_manager=mock_session_manager,
+            tools=None,
+            children=children,
+        )
+
+        assert result.is_ok()
+        assert max_concurrent_seen <= 2
+
+    @pytest.mark.asyncio
+    async def test_max_concurrent_default_value(
+        self, mock_runtime, mock_registry, mock_session_manager
+    ):
+        from dawn_kestrel.delegation.engine import DelegationEngine
+
+        config = DelegationConfig(mode=TraversalMode.BFS)
+        engine = DelegationEngine(config, mock_runtime, mock_registry)
+
+        assert engine.config.budget.max_concurrent == 3
 
     @pytest.mark.asyncio
     async def test_max_wall_time_boundary(self, mock_runtime, mock_registry, mock_session_manager):

@@ -62,12 +62,12 @@ files = [
 for filename, agent_name, prompt_check, pattern in files:
     print(f"Processing {filename}...")
     filepath = f"/Users/parkersligting/develop/pt/agentic_coding/.worktrees/harness-agent-rework/tests/review/agents/{filename}"
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         content = f.read()
 
     # Check if metadata test already exists
     if f"def test_{agent_name}_reviewer_metadata_helpers(" in content:
-        print(f"  Metadata test already exists, skipping")
+        print("  Metadata test already exists, skipping")
         continue
 
     # Add metadata test after the last test method

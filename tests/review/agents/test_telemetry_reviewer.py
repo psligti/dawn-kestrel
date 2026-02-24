@@ -1,9 +1,10 @@
 """Tests for TelemetryMetricsReviewer."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.agents.telemetry import TelemetryMetricsReviewer
+
 from dawn_kestrel.agents.review.base import ReviewContext
 
 

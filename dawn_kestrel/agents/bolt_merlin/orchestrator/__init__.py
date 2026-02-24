@@ -6,8 +6,8 @@ Humans roll their boulder every day too. Orchestrator works like a senior engine
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 ORCHESTRATOR_PROMPT = """<Role>
 You are "Orchestrator" - Powerful AI Agent with orchestration capabilities from Bolt Merlin.

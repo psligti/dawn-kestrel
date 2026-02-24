@@ -8,12 +8,10 @@ Tests cover:
 Tests follow TDD: RED (failing) -> GREEN (implementation) -> REFACTOR (cleanup)
 """
 
+
 import pytest
-from typing import Any
 
 from dawn_kestrel.core.models import Message
-from dawn_kestrel.core.result import Ok, Err
-
 
 # =============================================================================
 # Mock Provider for Testing
@@ -328,7 +326,7 @@ class TestStrategySelector:
 
     def test_strategy_selector_registers_strategy(self):
         """Verify strategy selector can register strategies."""
-        from dawn_kestrel.core.strategies import StrategySelector, RoundRobinRouting
+        from dawn_kestrel.core.strategies import RoundRobinRouting, StrategySelector
 
         selector = StrategySelector()
         strategy = RoundRobinRouting()
@@ -341,7 +339,7 @@ class TestStrategySelector:
     @pytest.mark.asyncio
     async def test_strategy_selector_selects_registered_strategy(self):
         """Verify strategy selector selects registered strategy."""
-        from dawn_kestrel.core.strategies import StrategySelector, RoundRobinRouting
+        from dawn_kestrel.core.strategies import RoundRobinRouting, StrategySelector
 
         selector = StrategySelector()
         strategy = RoundRobinRouting()
@@ -367,7 +365,7 @@ class TestStrategySelector:
     @pytest.mark.asyncio
     async def test_strategy_selector_respects_environment_context(self):
         """Verify strategy selector respects environment in context."""
-        from dawn_kestrel.core.strategies import StrategySelector, RoundRobinRouting
+        from dawn_kestrel.core.strategies import RoundRobinRouting, StrategySelector
 
         selector = StrategySelector()
         selector.register("routing", RoundRobinRouting())

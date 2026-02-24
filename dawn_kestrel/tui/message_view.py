@@ -1,12 +1,12 @@
 """OpenCode Python - Message and Part rendering for TUI"""
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+from textual.app import ComposeResult
 from textual.containers import Container, Horizontal
 from textual.widgets import Static
-from textual.app import ComposeResult
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,12 @@ class MessagePartView(Container):
         if self.part_type == "text":
             text = self.part_data.get("text", "")
             yield Static(text, classes="part-content")
-        
+
         elif self.part_type == "tool":
             tool_name = self.part_data.get("tool", "unknown")
             state = self.part_data.get("state", {})
             status = state.get("status", "unknown") if isinstance(state, dict) else "unknown"
-            
+
             status_class = f"tool-status-{status}"
             status_emoji = {
                 "pending": "⏳",
@@ -72,15 +72,15 @@ class MessagePartView(Container):
                 "error": "❌",
                 "unknown": "❓",
             }.get(status, "❓")
-            
+
             yield Static(f"[bold cyan]{status_emoji} {tool_name}[/bold cyan]", classes="part-header")
             yield Static(f"[dim]Status: [{status_class}]{status}[/][/dim]", classes="part-content")
-            
+
             if isinstance(state, dict):
                 input_data = state.get("input", {})
                 if input_data:
                     yield Static(f"[dim]Input: {input_data}[/dim]", classes="part-content")
-                
+
                 output = state.get("output", "")
                 if output:
                     yield Static("[dim]Output:[/dim]", classes="part-header")
@@ -90,21 +90,21 @@ class MessagePartView(Container):
                     if len(output.split("\n")) > 10:
                         output_lines = output.split('\n')
                         yield Static(f"[dim]... ({len(output_lines)} more lines)[/dim]", classes="part-content")
-            
+
         elif self.part_type == "file":
             filename = self.part_data.get("filename", "")
             mime = self.part_data.get("mime", "")
             yield Static(f"[bold green]📎 {filename}[/bold green] [dim]({mime})[/dim]", classes="part-header")
-        
+
         elif self.part_type == "reasoning":
             text = self.part_data.get("text", "")
             yield Static("[bold yellow]💭 Thinking[/bold yellow]", classes="part-header")
             yield Static(f"[dim]{text}[/dim]", classes="part-content")
-        
+
         elif self.part_type == "snapshot":
             snapshot_id = self.part_data.get("snapshot", "")
             yield Static(f"[bold magenta]📸 Snapshot:[/bold magenta] {snapshot_id}", classes="part-header")
-        
+
         elif self.part_type == "patch":
             files = self.part_data.get("files", [])
             files_count = len(files)
@@ -115,21 +115,21 @@ class MessagePartView(Container):
                     yield Static(f"[dim]  • {file}[/dim]", classes="part-content")
                 if len(files) > 5:
                     yield Static(f"[dim]  ... and {len(files) - 5} more[/dim]", classes="part-content")
-        
+
         elif self.part_type == "agent":
             agent_name = self.part_data.get("name", "")
             yield Static(f"[bold purple]🤖 Agent:[/bold purple] {agent_name}", classes="part-header")
-        
+
         elif self.part_type == "subtask":
             session_id = self.part_data.get("session_id", "")
             category = self.part_data.get("category", "")
             yield Static(f"[bold purple]📋 Subtask:[/bold purple] {category}", classes="part-header")
             yield Static(f"[dim]{session_id}[/dim]", classes="part-content")
-        
+
         elif self.part_type == "retry":
             attempt = self.part_data.get("attempt", 1)
             yield Static(f"[bold orange]🔄 Retry:[/bold orange] Attempt {attempt}", classes="part-header")
-        
+
         elif self.part_type == "compaction":
             auto = self.part_data.get("auto", False)
             yield Static(f"[bold cyan]📦 Compaction:[/bold cyan] {'Auto' if auto else 'Manual'}", classes="part-header")
@@ -208,30 +208,30 @@ class MessageView(Container):
 
     def compose(self) -> ComposeResult:
         is_streaming = self.message_data.get("is_streaming", False)
-        
+
         role_color = {
             "user": "green",
             "assistant": "blue",
             "system": "gray",
         }.get(self.role, "white")
-        
+
         role_emoji = {
             "user": "👤",
             "assistant": "🤖",
             "system": "⚙️",
         }.get(self.role, "❓")
-        
+
         timestamp = self._format_timestamp()
-        
+
         with Horizontal(classes="message-header"):
             yield Static(f"[{role_color}]{role_emoji} {self.role.upper()}[/]", classes=f"role-badge {self.role}")
             yield Static(timestamp, classes="timestamp")
-        
+
         if is_streaming:
             yield Static("[cyan]✍️ Thinking...[/cyan]", classes="streaming-indicator")
-        
+
         parts = self.message_data.get("parts", [])
-        
+
         if parts:
             for part_data in parts:
                 part_view = MessagePartView(part_data)
@@ -246,7 +246,7 @@ class MessageView(Container):
             created = time_data.get("created") or time_data.get("updated")
         else:
             created = None
-        
+
         if created:
             try:
                 import pendulum
@@ -254,7 +254,7 @@ class MessageView(Container):
                 return dt.strftime("HH:mm:ss")
             except Exception:
                 return str(created)[:8]
-        
+
         return ""
 
     def _compose_content(self) -> ComposeResult:

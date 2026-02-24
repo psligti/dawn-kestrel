@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Any, Protocol, runtime_checkable
 
-from dawn_kestrel.core.result import Ok, Err, Result
-
+from dawn_kestrel.core.result import Err, Ok, Result
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class BulkheadImpl:
                 self._active_counts[resource] = self._active_counts.get(resource, 0) + 1
 
                 return Ok(semaphore)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return Err(
                     f"Failed to acquire semaphore for {resource} after {timeout}s",
                     code="ACQUISITION_TIMEOUT",
@@ -276,7 +276,7 @@ class BulkheadImpl:
                 timeout = self.get_timeout(resource)
                 result_value = await asyncio.wait_for(func(), timeout=timeout)
                 return Ok(result_value)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return Err(f"Execution timeout for {resource}", code="EXECUTION_TIMEOUT")
             except Exception as e:
                 logger.error(f"Function execution error: {e}", exc_info=True)

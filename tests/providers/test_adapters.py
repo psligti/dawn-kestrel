@@ -4,22 +4,22 @@ Tests cover protocol compliance, adapter implementations, and registration syste
 Follows TDD workflow: RED-GREEN-REFACTOR.
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
-from dawn_kestrel.core.models import Message
-from dawn_kestrel.core.result import Ok, Err
 
+import pytest
+
+from dawn_kestrel.core.models import Message
 
 # Note: These tests will fail initially (RED phase)
 # Import will fail until adapters module is created
 try:
     from dawn_kestrel.providers.adapters import (
-        ProviderAdapter,
         OpenAIAdapter,
+        ProviderAdapter,
         ZAIAdapter,
-        register_adapter,
         get_adapter,
         list_adapters,
+        register_adapter,
     )
 
     IMPORTS_AVAILABLE = True
@@ -95,9 +95,9 @@ async def test_openai_adapter_returns_ok_on_success():
 
     # Mock get_models to return model info
     from dawn_kestrel.providers.base import (
-        ModelInfo,
         ModelCapabilities,
         ModelCost,
+        ModelInfo,
         ModelLimits,
         ProviderID,
         StreamEvent,
@@ -215,9 +215,9 @@ async def test_zai_adapter_returns_ok_on_success():
 
     # Mock get_models to return model info
     from dawn_kestrel.providers.base import (
-        ModelInfo,
         ModelCapabilities,
         ModelCost,
+        ModelInfo,
         ModelLimits,
         ProviderID,
         StreamEvent,

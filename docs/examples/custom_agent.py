@@ -10,12 +10,10 @@ Run this example:
     python docs/examples/custom_agent.py
 """
 import asyncio
-from typing import Any, Dict, List
-from pathlib import Path
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient
-from dawn_kestrel.interfaces.io import Notification
 from dawn_kestrel.core.exceptions import OpenCodeError
+from dawn_kestrel.interfaces.io import Notification
+from dawn_kestrel.sdk import OpenCodeAsyncClient
 
 
 async def create_custom_agent() -> dict:
@@ -89,7 +87,7 @@ async def custom_agent_example() -> None:
     print("Step 2: Registering custom agent...")
     try:
         registered_agent = await client.register_agent(agent_config)
-        print(f"  ✓ Agent registered successfully!")
+        print("  ✓ Agent registered successfully!")
         print(f"  Registered agent: {registered_agent.name}")
     except ValueError as e:
         print(f"  ⚠ Agent already registered or registration failed: {e}")
@@ -123,7 +121,7 @@ async def custom_agent_example() -> None:
             }
         )
 
-        print(f"  ✓ Agent execution completed!")
+        print("  ✓ Agent execution completed!")
         print(f"  Response preview: {result.response[:200]}...")
         print(f"  Tools used: {', '.join(result.tools_used) if result.tools_used else 'None'}")
         print(f"  Duration: {result.duration:.2f} seconds")

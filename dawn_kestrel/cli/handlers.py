@@ -18,10 +18,10 @@ from rich.progress import (
 )
 
 from dawn_kestrel.interfaces.io import (
+    IOHandler,
     Notification,
     NotificationHandler,
     NotificationType,
-    IOHandler,
     ProgressHandler,
 )
 

@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import re
 import shlex
+from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Set, List, TypeVar
+from typing import Any, TypeVar
 
 # ParamSpec was added in Python 3.10
 try:
@@ -87,7 +88,7 @@ def safe_path(path_str: str, base_dir: Path | None = None, allow_absolute: bool 
     return resolved
 
 
-def validate_command(command: str, allowed_commands: Set[str] | None = None) -> List[str]:
+def validate_command(command: str, allowed_commands: set[str] | None = None) -> list[str]:
     """Validate a shell command to prevent command injection.
 
     Parses the command using shlex to extract tokens and validates against
@@ -206,7 +207,7 @@ def validate_pattern(pattern: str, max_length: int = 1000) -> str:
             raise SecurityError(f"Pattern contains dangerous construct (ReDoS risk): {pattern}")
 
     if "\x00" in pattern:
-        raise SecurityError(f"Null byte detected in pattern")
+        raise SecurityError("Null byte detected in pattern")
 
     return pattern
 
@@ -327,7 +328,7 @@ def validate_path_param(param_name: str, base_dir: Path | None = None) -> Callab
 
 
 def validate_command_param(
-    param_name: str, allowed_commands: Set[str] | None = None
+    param_name: str, allowed_commands: set[str] | None = None
 ) -> Callable[..., Any]:
     """Decorator to validate a function parameter as a safe command.
 

@@ -14,15 +14,13 @@ The application showcases:
 """
 import asyncio
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
 
-from dawn_kestrel.sdk import OpenCodeAsyncClient, SDKConfig
 from dawn_kestrel.agents import Agent
-from dawn_kestrel.tools.framework import Tool, ToolRegistry, ToolContext, ToolResult
-from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.sdk import OpenCodeAsyncClient, SDKConfig
 from dawn_kestrel.skills.loader import SkillLoader
-from dawn_kestrel.core.models import Session, Message
-
+from dawn_kestrel.storage.store import SessionStorage
+from dawn_kestrel.tools.framework import Tool, ToolContext, ToolRegistry, ToolResult
 
 # ============================================================================
 # 1. Custom Tool Definition
@@ -36,7 +34,7 @@ class CustomCalculatorTool(Tool):
 
     async def execute(
         self,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         ctx: ToolContext,
     ) -> ToolResult:
         """Execute calculator tool"""
@@ -75,7 +73,7 @@ class CustomCalculatorTool(Tool):
                 metadata={"error": str(e)}
             )
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Return JSON schema for tool parameters"""
         return {
             "type": "object",
@@ -100,7 +98,7 @@ class CustomWeatherTool(Tool):
 
     async def execute(
         self,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         ctx: ToolContext,
     ) -> ToolResult:
         """Execute weather tool"""
@@ -127,7 +125,7 @@ class CustomWeatherTool(Tool):
             metadata={"location": location, **result}
         )
 
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """Return JSON schema for tool parameters"""
         return {
             "type": "object",
@@ -211,7 +209,7 @@ class AppMemoryManager:
         self,
         session_id: str,
         state_key: str,
-        state_data: Dict[str, Any]
+        state_data: dict[str, Any]
     ) -> None:
         """Save conversation state to memory
 
@@ -231,7 +229,7 @@ class AppMemoryManager:
         self,
         session_id: str,
         state_key: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Retrieve conversation state from memory
 
         NOTE: This is a placeholder. Real implementation needs:
@@ -248,7 +246,7 @@ class AppMemoryManager:
 # 5. Skill Loading
 # ============================================================================
 
-async def load_app_skills(base_dir: Path) -> List[str]:
+async def load_app_skills(base_dir: Path) -> list[str]:
     """Load application-specific skills
 
     Skills should be in .opencode/skill/ or .claude/skills/ directories.
@@ -426,7 +424,7 @@ async def main():
     print(f"  Custom Tools: {len(custom_tools)}")
     print(f"  Custom Agents: {len(custom_agents)}")
     print(f"  Skills Loaded: {len(skills)}")
-    print(f"  Memory Manager: Active")
+    print("  Memory Manager: Active")
     print()
     print("=" * 80)
     print("Example completed successfully!")

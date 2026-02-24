@@ -9,9 +9,10 @@ Tests cover:
 - Graceful failure handling
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from importlib.metadata import EntryPoint
+from unittest.mock import Mock, patch
+
+import pytest
 
 
 class TestLoadTools:

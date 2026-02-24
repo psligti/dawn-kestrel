@@ -11,19 +11,19 @@ Provides a diff viewing screen with:
 - Search/filter functionality
 """
 
-from textual.screen import Screen
-from textual.containers import Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Static, Button, Tabs, Tab, TabbedContent, TabPane
-from textual.app import ComposeResult, App
-from textual.reactive import reactive
-from typing import Optional, List, Dict, Any
-import logging
 import asyncio
+import logging
 import subprocess
 from pathlib import Path
+from typing import Any
+
+from textual.app import App, ComposeResult
+from textual.containers import Horizontal, ScrollableContainer, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import Button, Static, Tab, TabbedContent, TabPane, Tabs
 
 from dawn_kestrel.core.models import PatchPart, Session
-
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +134,8 @@ class DiffViewer(Screen[None]):
         ("v", "toggle_view", "Toggle View"),
     ]
 
-    patch_part: Optional[PatchPart] = None
-    session: Optional[Session] = None
+    patch_part: PatchPart | None = None
+    session: Session | None = None
     current_file_index: reactive[int] = reactive(0)
     view_mode: reactive[str] = reactive("inline")
     search_query: reactive[str] = reactive("")
@@ -144,8 +144,8 @@ class DiffViewer(Screen[None]):
         super().__init__(**kwargs)
         self.patch_part = patch_part
         self.session = session
-        self.diff_data: Dict[str, List[Dict[str, Any]]] = {}
-        self.current_file_diff: List[Dict[str, Any]] = []
+        self.diff_data: dict[str, list[dict[str, Any]]] = {}
+        self.current_file_diff: list[dict[str, Any]] = []
 
     @property
     def _app(self) -> "App[None]":
@@ -227,14 +227,14 @@ class DiffViewer(Screen[None]):
             logger.error(f"Error loading diffs: {e}")
             self.notify(f"[red]Error loading diffs: {e}[/red]")
 
-    def _parse_diff_output(self, diff_output: str, file_path: str) -> List[Dict[str, Any]]:
+    def _parse_diff_output(self, diff_output: str, file_path: str) -> list[dict[str, Any]]:
         """Parse git diff output into structured data"""
-        lines: List[Dict[str, Any]] = []
+        lines: list[dict[str, Any]] = []
         original_line = 0
         modified_line = 0
 
         for raw_line in diff_output.splitlines():
-            line_info: Dict[str, Any] = {"raw": raw_line, "original": None, "modified": None, "type": "context"}
+            line_info: dict[str, Any] = {"raw": raw_line, "original": None, "modified": None, "type": "context"}
 
             if raw_line.startswith("@@"):
                 line_info["type"] = "header"
@@ -278,7 +278,7 @@ class DiffViewer(Screen[None]):
 
         return lines
 
-    def _create_error_diff(self, file_path: str, error_msg: str) -> List[Dict[str, Any]]:
+    def _create_error_diff(self, file_path: str, error_msg: str) -> list[dict[str, Any]]:
         """Create error message as diff"""
         return [
             {

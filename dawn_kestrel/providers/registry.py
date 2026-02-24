@@ -6,14 +6,13 @@ with support for default provider selection and lifecycle event emission.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 import json
 import logging
+from pathlib import Path
+from typing import Any
 
 from dawn_kestrel.core.provider_config import ProviderConfig
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,9 @@ class ProviderRegistry:
         self.storage_dir = storage_dir / "storage" / "providers"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-        self.providers: Dict[str, ProviderConfig] = {}
-        self.default_provider: Optional[str] = None
-        self._lifecycle: Optional[SessionLifecycle] = None
+        self.providers: dict[str, ProviderConfig] = {}
+        self.default_provider: str | None = None
+        self._lifecycle: SessionLifecycle | None = None
 
     def register_lifecycle(self, lifecycle: SessionLifecycle) -> None:
         """
@@ -59,7 +58,7 @@ class ProviderRegistry:
     async def emit_lifecycle_event(
         self,
         event_type: str,
-        event_data: Dict[str, Any],
+        event_data: dict[str, Any],
     ) -> None:
         """
         Emit lifecycle event to registered SessionLifecycle.
@@ -113,7 +112,7 @@ class ProviderRegistry:
         logger.info(f"Registered provider: {name} (default: {is_default})")
         return config
 
-    async def get_provider(self, name: str) -> Optional[ProviderConfig]:
+    async def get_provider(self, name: str) -> ProviderConfig | None:
         """
         Get a provider configuration by name.
 
@@ -125,7 +124,7 @@ class ProviderRegistry:
         """
         return self.providers.get(name)
 
-    async def list_providers(self) -> List[Dict[str, Any]]:
+    async def list_providers(self) -> list[dict[str, Any]]:
         """
         List all provider configurations.
 
@@ -200,7 +199,7 @@ class ProviderRegistry:
         logger.info(f"Updated provider: {name}")
         return config
 
-    async def get_default_provider(self) -> Optional[ProviderConfig]:
+    async def get_default_provider(self) -> ProviderConfig | None:
         """
         Get the default provider configuration.
 
@@ -236,7 +235,7 @@ class ProviderRegistry:
         """
         for provider_file in self.storage_dir.glob("*.json"):
             try:
-                with open(provider_file, "r") as f:
+                with open(provider_file) as f:
                     data = json.load(f)
 
                 config = ProviderConfig.from_dict(data)

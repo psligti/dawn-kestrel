@@ -1,9 +1,9 @@
 """Command Palette Dialog for TUI - Quick command execution"""
 
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from textual.app import ComposeResult
-from textual.containers import Vertical, ScrollableContainer
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, Static
 
@@ -26,7 +26,7 @@ class CommandPaletteDialog(ModalScreen[T]):
     def __init__(
         self,
         title: str = "Command Palette",
-        on_command: Optional[Callable[[str], None]] = None,
+        on_command: Callable[[str], None] | None = None,
     ):
         """Initialize command palette dialog.
 
@@ -37,12 +37,12 @@ class CommandPaletteDialog(ModalScreen[T]):
         super().__init__()
         self.title = title
         self.on_command = on_command
-        self._result: Optional[str] = None
+        self._result: str | None = None
         self._closed = False
         self._selected_index: int = 0
 
         # Define essential commands
-        self.commands: List[Dict[str, Any]] = [
+        self.commands: list[dict[str, Any]] = [
             {
                 "value": "session-list",
                 "title": "Open Session List",
@@ -65,7 +65,7 @@ class CommandPaletteDialog(ModalScreen[T]):
             },
         ]
 
-        self.filtered_commands: List[Dict[str, Any]] = list(self.commands)
+        self.filtered_commands: list[dict[str, Any]] = list(self.commands)
 
     def compose(self) -> ComposeResult:
         """Compose command palette dialog widgets."""
@@ -105,7 +105,7 @@ class CommandPaletteDialog(ModalScreen[T]):
         self._selected_index = 0
         self._render_content()
 
-    def select_command(self, value: str) -> Optional[str]:
+    def select_command(self, value: str) -> str | None:
         """Select a command by value.
 
         Args:
@@ -120,7 +120,7 @@ class CommandPaletteDialog(ModalScreen[T]):
                 return value
         return None
 
-    def close_dialog(self, value: Optional[str] = None) -> None:
+    def close_dialog(self, value: str | None = None) -> None:
         """Close dialog and return selected value.
 
         Args:
@@ -136,7 +136,7 @@ class CommandPaletteDialog(ModalScreen[T]):
         self._closed = True
         self.dismiss()
 
-    def get_result(self) -> Optional[str]:
+    def get_result(self) -> str | None:
         """Get dialog result.
 
         Returns:

@@ -4,32 +4,32 @@ Tool registry with plugin-based loading.
 Includes all 20 tools (6 builtin + 14 additional) loaded via entry points.
 """
 
-from typing import Dict
 import logging
+from typing import Dict
 
-from .framework import ToolRegistry, Tool
-from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
 from .additional import (
+    CodeSearchTool,
+    CompactionTool,
     EditTool,
+    ExternalDirectoryTool,
     ListTool,
-    TaskTool,
+    LspTool,
+    MultiEditTool,
     QuestionTool,
+    SkillTool,
+    TaskTool,
     TodoTool,
     TodowriteTool,
     WebFetchTool,
     WebSearchTool,
-    MultiEditTool,
-    CodeSearchTool,
-    LspTool,
-    SkillTool,
-    ExternalDirectoryTool,
-    CompactionTool,
 )
+from .builtin import ASTGrepTool, BashTool, GlobTool, GrepTool, ReadTool, WriteTool
+from .framework import Tool, ToolRegistry
 
 logger = logging.getLogger(__name__)
 
 
-async def get_all_tools() -> Dict[str, "Tool"]:
+async def get_all_tools() -> dict[str, "Tool"]:
     """Get all available tools via plugin discovery
 
     Returns:
@@ -52,13 +52,13 @@ async def get_all_tools() -> Dict[str, "Tool"]:
     return tools
 
 
-async def get_builtin_tools() -> Dict[str, "Tool"]:
+async def get_builtin_tools() -> dict[str, "Tool"]:
     """Get only built-in tools (bash, read, write, grep, glob, ast_grep_search)
 
     Returns:
         Dictionary of built-in tool instances keyed by tool ID
     """
-    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
+    from .builtin import ASTGrepTool, BashTool, GlobTool, GrepTool, ReadTool, WriteTool
 
     builtin_tools = {
         "bash": BashTool(),
@@ -78,7 +78,7 @@ def create_builtin_registry() -> ToolRegistry:
     Returns:
         ToolRegistry populated with built-in tools (bash, read, write, grep, glob, ast_grep_search)
     """
-    from .builtin import BashTool, ReadTool, WriteTool, GrepTool, GlobTool, ASTGrepTool
+    from .builtin import ASTGrepTool, BashTool, GlobTool, GrepTool, ReadTool, WriteTool
 
     registry = ToolRegistry()
     builtin_tools = [

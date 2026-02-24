@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Protocol, runtime_checkable
-
+from typing import Any, Protocol, runtime_checkable
 
 # ============ Protocol ============
 

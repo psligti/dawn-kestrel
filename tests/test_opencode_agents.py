@@ -5,20 +5,19 @@ Test coverage for all opencode agents ensuring they can be imported,
 instantiated, and have correct structure.
 """
 
-import pytest
 
 from dawn_kestrel.agents.bolt_merlin import (
-    create_orchestrator_agent,
+    create_autonomous_worker_agent,
     create_consultant_agent,
-    create_librarian_agent,
     create_explore_agent,
     create_frontend_ui_ux_skill,
+    create_librarian_agent,
+    create_master_orchestrator_agent,
     create_multimodal_looker_agent,
-    create_autonomous_worker_agent,
-    create_pre_planning_agent,
+    create_orchestrator_agent,
     create_plan_validator_agent,
     create_planner_agent,
-    create_master_orchestrator_agent,
+    create_pre_planning_agent,
 )
 
 

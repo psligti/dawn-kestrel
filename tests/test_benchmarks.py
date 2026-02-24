@@ -10,7 +10,6 @@ Tests:
 
 import json
 import time
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -204,7 +203,7 @@ class TestBenchmarkRunner:
         assert filepath.exists()
 
         # Verify content
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         assert data["report_name"] == "test_report"
@@ -336,9 +335,7 @@ def test_benchmark_module_import():
     """Test that benchmark module can be imported."""
     from dawn_kestrel.benchmarks import (
         BenchmarkRunner,
-        BenchmarkResult,
         benchmark,
-        calculate_percentiles,
         record_result,
     )
 
@@ -349,7 +346,6 @@ def test_benchmark_module_import():
 
 def test_benchmark_scripts_exist():
     """Test that benchmark scripts exist."""
-    from pathlib import Path
 
     opencode_root = Path(__file__).parent.parent
     benchmarks_dir = opencode_root / "dawn_kestrel" / "benchmarks"

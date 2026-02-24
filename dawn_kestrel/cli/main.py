@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-import click  # type: ignore[import-not-found]
-import pendulum  # type: ignore[import-not-found]
-from rich.console import Console  # type: ignore[import-not-found]
-from rich.table import Table  # type: ignore[import-not-found]
+import click
+import pendulum
+from rich.console import Console
+from rich.table import Table
 
 console = Console(force_terminal=True, stderr=False)
 
@@ -99,7 +99,7 @@ def list_sessions(directory: str | None) -> None:
         message_storage = MessageStorage(storage_dir)
         part_storage = PartStorage(storage_dir)
 
-        session_repo = SessionRepositoryImpl(session_storage)
+        session_repo = SessionRepositoryImpl(session_storage, "default")
         message_repo = MessageRepositoryImpl(message_storage)
         part_repo = PartRepositoryImpl(part_storage)
 
@@ -155,9 +155,9 @@ def run(message: tuple[str, ...], agent: str, model: str | None) -> None:
     if settings.debug:
         console.print("[dim]Running in debug mode[/dim]")
 
-    console.print("[cyan]Agent:[/cyan] {}".format(agent))
-    console.print("[cyan]Model:[/cyan] {}".format(model))
-    console.print("[cyan]Message:[/cyan] {}".format(message))
+    console.print(f"[cyan]Agent:[/cyan] {agent}")
+    console.print(f"[cyan]Model:[/cyan] {model}")
+    console.print(f"[cyan]Message:[/cyan] {message}")
 
     console.print("[dim]\n--- Session started ---[/dim]")
     console.print("[dim]Use 'opencode tui' to launch TUI mode.[/dim]")
@@ -203,7 +203,7 @@ def export_session(session_id: str, output: str | None, format: str) -> None:
         message_storage = MessageStorage(storage_dir)
         part_storage = PartStorage(storage_dir)
 
-        session_repo = SessionRepositoryImpl(session_storage)
+        session_repo = SessionRepositoryImpl(session_storage, "default")
         message_repo = MessageRepositoryImpl(message_storage)
         part_repo = PartRepositoryImpl(part_storage)
 
@@ -289,7 +289,7 @@ def import_session(import_path: str, project_id: str | None) -> None:
         message_storage = MessageStorage(storage_dir)
         part_storage = PartStorage(storage_dir)
 
-        session_repo = SessionRepositoryImpl(session_storage)
+        session_repo = SessionRepositoryImpl(session_storage, "default")
         message_repo = MessageRepositoryImpl(message_storage)
         part_repo = PartRepositoryImpl(part_storage)
 

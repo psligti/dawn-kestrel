@@ -1,9 +1,8 @@
 """OpenCode Python - Memory storage with JSON persistence"""
 from __future__ import annotations
-from typing import Optional, List
 
-from dawn_kestrel.storage.store import Storage
 from dawn_kestrel.core.models import Memory
+from dawn_kestrel.storage.store import Storage
 
 
 class MemoryStorage(Storage):
@@ -17,14 +16,14 @@ class MemoryStorage(Storage):
         )
         return memory
 
-    async def get_memory(self, session_id: str, memory_id: str) -> Optional[Memory]:
+    async def get_memory(self, session_id: str, memory_id: str) -> Memory | None:
         """Get a memory by ID"""
         data = await self.read(["memory", session_id, f"{memory_id}.json"])
         if data:
             return Memory(**data)
         return None
 
-    async def list_memories(self, session_id: str) -> List[Memory]:
+    async def list_memories(self, session_id: str) -> list[Memory]:
         """List all memories for a session"""
         keys = await self.list(["memory", session_id])
         memories = []

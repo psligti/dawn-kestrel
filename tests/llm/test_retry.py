@@ -6,22 +6,16 @@ TDD tests for retry executor with backoff strategies.
 from __future__ import annotations
 
 import asyncio
-import random
 from datetime import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
-import pytest
-
-from dawn_kestrel.core.result import Ok, Err, Result
+from dawn_kestrel.core.result import Ok
 from dawn_kestrel.llm.retry import (
-    BackoffStrategy,
     ExponentialBackoff,
-    LinearBackoff,
     FixedBackoff,
-    RetryExecutor,
+    LinearBackoff,
     RetryExecutorImpl,
 )
-
 
 # =============================================================================
 # BackoffStrategy Tests

@@ -7,15 +7,13 @@ Tests TD-018:
 - Threshold is configurable
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch
-from io import StringIO
 import logging
+from unittest.mock import Mock
 
+import pytest
 from dawn_kestrel.agents.review.fsm_security import (
-    SecurityReviewerAgent,
     SecurityFinding,
-    ReviewState,
+    SecurityReviewerAgent,
 )
 
 

@@ -1,14 +1,15 @@
 """OpenCode Python - Memory Manager"""
+
 from __future__ import annotations
-from typing import Optional, List, Dict, Any
-from pathlib import Path
-from datetime import datetime
-import uuid
+
 import logging
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from dawn_kestrel.storage.memory_storage import MemoryStorage
 from dawn_kestrel.core.models import Memory
-
+from dawn_kestrel.storage.memory_storage import MemoryStorage
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class MemoryManager:
     """Manager for memory operations with storage integration"""
 
-    def __init__(self, base_dir: Path):
+    def __init__(self, base_dir: Path) -> None:
         """Initialize memory manager with base directory"""
         self.storage = MemoryStorage(base_dir)
 
@@ -24,8 +25,8 @@ class MemoryManager:
         self,
         session_id: str,
         content: str,
-        embedding: Optional[List[float]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        embedding: list[float] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Memory:
         """Store a new memory entry"""
         memory_id = str(uuid.uuid4())
@@ -45,17 +46,17 @@ class MemoryManager:
         self,
         session_id: str,
         memory_id: str,
-    ) -> Optional[Memory]:
+    ) -> Memory | None:
         """Retrieve a specific memory by ID"""
         return await self.storage.get_memory(session_id, memory_id)
 
     async def search(
         self,
         session_id: str,
-        query: Optional[str] = None,
-        limit: Optional[int] = None,
+        query: str | None = None,
+        limit: int | None = None,
         offset: int = 0,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """Search memories in a session
 
         For now, returns all memories with optional filtering by content.
@@ -94,8 +95,8 @@ class MemoryManager:
     async def summarize(
         self,
         session_id: str,
-        since: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        since: float | None = None,
+    ) -> dict[str, Any]:
         """Summarize memories in a session
 
         Returns statistics and aggregated information about memories.

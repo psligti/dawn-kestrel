@@ -6,7 +6,7 @@ of iterative delegation workflows.
 """
 
 import hashlib
-from typing import Any, List
+from typing import Any
 
 
 class ConvergenceTracker:
@@ -22,17 +22,17 @@ class ConvergenceTracker:
         stagnation_count: Number of consecutive identical results.
     """
 
-    def __init__(self, evidence_keys: List[str]):
+    def __init__(self, evidence_keys: list[str]):
         """Initialize the convergence tracker.
 
         Args:
             evidence_keys: List of keys to extract from results for signature computation.
         """
         self.evidence_keys = evidence_keys
-        self.signatures: List[str] = []
+        self.signatures: list[str] = []
         self.stagnation_count = 0
 
-    def compute_signature(self, results: List[Any]) -> str:
+    def compute_signature(self, results: list[Any]) -> str:
         """Compute a hash signature from results for novelty detection.
 
         Extracts evidence from results based on evidence_keys and computes
@@ -100,7 +100,7 @@ class ConvergenceTracker:
         else:
             return str(value)
 
-    def check_novelty(self, results: List[Any]) -> bool:
+    def check_novelty(self, results: list[Any]) -> bool:
         """Check if results contain new information.
 
         Compares the signature of the new results against the last recorded

@@ -7,7 +7,7 @@ and secure API key handling.
 import warnings
 
 import pytest
-from pydantic import ValidationError, SecretStr
+from pydantic import SecretStr, ValidationError
 
 from dawn_kestrel.core.provider_settings import AccountConfig
 from dawn_kestrel.providers.base import ProviderID

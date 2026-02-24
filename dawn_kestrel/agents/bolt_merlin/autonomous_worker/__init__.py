@@ -5,8 +5,8 @@ Autonomous deep worker with goal-oriented execution.
 """
 
 from __future__ import annotations
-from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
+from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
 
 HEPH_AESTUS_PROMPT = """You are Hephaestus, an autonomous deep worker for software engineering.
 

@@ -8,11 +8,8 @@ Tests verify that ConvergenceTracker provides:
 - Graceful handling of empty results list
 """
 
-import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
-import pytest
+from typing import Any
 
 
 # Mock AgentResult for testing - mirrors the real AgentResult structure
@@ -22,10 +19,10 @@ class MockAgentResult:
 
     agent_name: str
     response: str
-    parts: List[Any] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    tools_used: List[str] = field(default_factory=list)
-    error: Optional[str] = None
+    parts: list[Any] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tools_used: list[str] = field(default_factory=list)
+    error: str | None = None
 
 
 class TestConvergenceTrackerInit:

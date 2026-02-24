@@ -16,10 +16,9 @@ from __future__ import annotations
 import asyncio
 import time
 from pathlib import Path
-from typing import List
-from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from dawn_kestrel.agents.review.agents.architecture import ArchitectureReviewer
 from dawn_kestrel.agents.review.agents.changelog import ReleaseChangelogReviewer
 from dawn_kestrel.agents.review.agents.dependencies import DependencyLicenseReviewer
@@ -31,19 +30,20 @@ from dawn_kestrel.agents.review.agents.requirements import RequirementsReviewer
 from dawn_kestrel.agents.review.agents.security import SecurityReviewer
 from dawn_kestrel.agents.review.agents.telemetry import TelemetryMetricsReviewer
 from dawn_kestrel.agents.review.agents.unit_tests import UnitTestsReviewer
-from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
-from dawn_kestrel.agents.review.contracts import (
-    ReviewInputs,
-    ReviewOutput,
-    Finding,
-    MergeGate,
-    Scope,
-)
 from dawn_kestrel.agents.review.discovery import EntryPoint, EntryPointDiscovery
 from dawn_kestrel.agents.review.doc_gen import DocGenAgent
 from dawn_kestrel.agents.review.orchestrator import PRReviewOrchestrator
 from dawn_kestrel.agents.review.pattern_learning import PatternLearning
 from dawn_kestrel.agents.review.utils.executor import ExecutionResult
+
+from dawn_kestrel.agents.review.base import BaseReviewerAgent, ReviewContext
+from dawn_kestrel.agents.review.contracts import (
+    Finding,
+    MergeGate,
+    ReviewInputs,
+    ReviewOutput,
+    Scope,
+)
 
 
 class MockCommandExecutor:
@@ -340,13 +340,13 @@ class TestBaselineComparison:
             def get_system_prompt(self) -> str:
                 return "Mock system prompt"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
         changed_files = ["src/auth/login.py", "src/api/user.py"]
@@ -549,13 +549,13 @@ class TestFallbackBehavior:
             def get_system_prompt(self) -> str:
                 return "Mock reviewer"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
         discovery = EntryPointDiscovery()
@@ -609,13 +609,13 @@ class TestFallbackBehavior:
             def get_system_prompt(self) -> str:
                 return "Mock reviewer"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             def get_agent_name(self) -> str:
                 return "MockReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
         discovery = EntryPointDiscovery(timeout_seconds=1)
@@ -1052,13 +1052,13 @@ patterns: broken
             def get_system_prompt(self) -> str:
                 return "Slow reviewer"
 
-            def get_relevant_file_patterns(self) -> List[str]:
+            def get_relevant_file_patterns(self) -> list[str]:
                 return ["*.py"]
 
             def get_agent_name(self) -> str:
                 return "SlowReviewer"
 
-            def get_allowed_tools(self) -> List[str]:
+            def get_allowed_tools(self) -> list[str]:
                 return []
 
         agent = SlowReviewer()

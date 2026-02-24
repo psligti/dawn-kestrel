@@ -38,6 +38,7 @@ classifiers = [
     "python-frontmatter>=1.0",
     "rich>=13.0",
     "ripgrep>=14.0",
+    "tenacity>=8.0",
     "textual>=7.5.0",
     "tiktoken>=0.8.0",
     "tomli>=2.0",
@@ -125,6 +126,17 @@ module-root = ""
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = ["F401", "F841", "E501", "E402", "W291", "W293", "UP035", "UP007", "UP006", "UP045", "E712", "E721", "F811"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F821"]
+"scripts/**" = ["F821"]
+"test_api_examples.py" = ["F821", "E712"]
+"custom_agent_app_example.py" = ["F821"]
+"**/agents/bolt_merlin/**" = ["W605"]
 
 [tool.mypy]
 python_version = "3.11"
