@@ -7,10 +7,7 @@ This module tests the explicit tool allowlist and denylist features:
 - Support glob patterns for tool names (e.g., "read*", "*_file")
 """
 
-import pytest
-
 from dawn_kestrel.agents.builtin import Agent
-from dawn_kestrel.tools.framework import ToolRegistry
 from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
 
 
@@ -54,6 +51,14 @@ class TestToolAllowlist:
             {"permission": "bash", "pattern": "*", "action": "allow"},
         ]
         filter_instance = ToolPermissionFilter(permissions=permissions)
+
+        tool_ids = {"read", "bash", "write"}
+        result = filter_instance.get_filtered_tool_ids(tool_ids)
+
+        assert result == {"read", "bash"}
+
+    def test_allowlist_alias_permits_matching_tools(self) -> None:
+        filter_instance = ToolPermissionFilter(allowlist=["read", "bash"])
 
         tool_ids = {"read", "bash", "write"}
         result = filter_instance.get_filtered_tool_ids(tool_ids)
@@ -107,6 +112,19 @@ class TestToolDenylist:
         result = filter_instance.get_filtered_tool_ids(tool_ids)
 
         assert result == {"read", "bash", "glob"}
+
+    def test_denylist_alias_removes_matching_tools(self) -> None:
+        filter_instance = ToolPermissionFilter(
+            permissions=[
+                {"permission": "*", "pattern": "*", "action": "allow"},
+            ],
+            denylist=["write"],
+        )
+
+        tool_ids = {"read", "bash", "write"}
+        result = filter_instance.get_filtered_tool_ids(tool_ids)
+
+        assert result == {"read", "bash"}
 
 
 class TestDenyPrecedence:

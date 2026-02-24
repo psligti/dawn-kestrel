@@ -33,6 +33,8 @@ class ToolPermissionFilter:
         tool_registry: ToolRegistry | None = None,
         allowed_tools: list[str] | None = None,
         denied_tools: list[str] | None = None,
+        allowlist: list[str] | None = None,
+        denylist: list[str] | None = None,
     ) -> None:
         """Initialize the filter.
 
@@ -42,6 +44,11 @@ class ToolPermissionFilter:
             allowed_tools: List of glob patterns for explicitly allowed tools
             denied_tools: List of glob patterns for explicitly denied tools
         """
+        if allowed_tools is None and allowlist is not None:
+            allowed_tools = allowlist
+        if denied_tools is None and denylist is not None:
+            denied_tools = denylist
+
         self._rules: list[PermissionRule] = []
         self._tool_registry: ToolRegistry | None = tool_registry
         self._allowed_tools: list[str] | None = allowed_tools
@@ -57,9 +64,6 @@ class ToolPermissionFilter:
             permissions: List of permission rule dictionaries
         """
         for rule_dict in permissions:
-            if not isinstance(rule_dict, dict):
-                continue
-
             permission = rule_dict.get("permission", "")
             pattern = rule_dict.get("pattern", "")
             action = rule_dict.get("action", "")
