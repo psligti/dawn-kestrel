@@ -488,7 +488,9 @@ class WorkerPool:
         self._poll_interval = poll_interval
         self._workers: list[AsyncWorker] = []
         self._running = False
-
+        # Track in-progress tasks to fix race condition in wait_for_completion
+        self._in_progress_count = 0
+        self._in_progress_lock = asyncio.Lock()
     @property
     def is_running(self) -> bool:
         """Check if the pool is running."""
@@ -499,6 +501,25 @@ class WorkerPool:
         """Get the number of running workers."""
         return sum(1 for w in self._workers if w.is_running)
 
+    def _make_tracked_processor(self) -> Callable[[Task], Awaitable[Result[Any]]]:
+        """Create a processor that tracks in-progress tasks.
+
+        This wrapper ensures that wait_for_completion correctly waits
+        for tasks that have been dequeued but are still being processed.
+
+        Returns:
+            Wrapped processor function.
+        """
+        async def tracked_processor(task: Task) -> Result[Any]:
+            async with self._in_progress_lock:
+                self._in_progress_count += 1
+            try:
+                return await self._processor(task)
+            finally:
+                async with self._in_progress_lock:
+                    self._in_progress_count -= 1
+
+        return tracked_processor
     async def start(self) -> Result[None]:
         """Start all workers in the pool.
 
@@ -509,10 +530,21 @@ class WorkerPool:
             return Ok(None)
 
         self._workers = []
+
+        # Create a wrapper processor that tracks in-progress tasks
+        async def tracked_processor(task: Task) -> Result[Any]:
+            async with self._in_progress_lock:
+                self._in_progress_count += 1
+            try:
+                return await self._processor(task)
+            finally:
+                async with self._in_progress_lock:
+                    self._in_progress_count -= 1
+
         for i in range(self._num_workers):
             worker = AsyncWorker(
                 queue=self._queue,
-                processor=self._processor,
+                processor=tracked_processor,
                 worker_id=f"pool-worker-{i}",
                 poll_interval=self._poll_interval,
             )
@@ -522,7 +554,6 @@ class WorkerPool:
         self._running = True
         logger.info(f"Worker pool started with {self._num_workers} workers")
         return Ok(None)
-
     async def stop(self) -> Result[None]:
         """Stop all workers in the pool.
 
@@ -598,6 +629,10 @@ class WorkerPool:
     async def wait_for_completion(self, timeout: float | None = None) -> Result[None]:
         """Wait for all tasks in queue to be processed.
 
+        This method waits until:
+        1. The queue is empty (no pending tasks)
+        2. No workers are actively processing tasks (in_progress_count == 0)
+
         Args:
             timeout: Maximum time to wait (None = no limit).
 
@@ -607,13 +642,25 @@ class WorkerPool:
         start_time = asyncio.get_event_loop().time()
 
         while True:
+            # Check queue size
             size_result = await self._queue.size()
-            if size_result.is_ok() and size_result.unwrap() == 0:
+            queue_empty = size_result.is_ok() and size_result.unwrap() == 0
+
+            # Check in-progress tasks
+            async with self._in_progress_lock:
+                in_progress = self._in_progress_count
+
+            # Only complete when queue is empty AND no tasks in progress
+            if queue_empty and in_progress == 0:
                 return Ok(None)
 
             if timeout is not None:
                 elapsed = asyncio.get_event_loop().time() - start_time
                 if elapsed >= timeout:
+                    logger.warning(
+                        f"wait_for_completion timeout: queue_empty={queue_empty}, "
+                        f"in_progress={in_progress}"
+                    )
                     return Err("Timeout waiting for completion", code="TIMEOUT")
 
             await asyncio.sleep(0.1)
