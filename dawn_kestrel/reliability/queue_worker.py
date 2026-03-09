@@ -590,7 +590,7 @@ class WorkerPool:
             for i in range(current_count, num_workers):
                 worker = AsyncWorker(
                     queue=self._queue,
-                    processor=self._processor,
+                    processor=self._make_tracked_processor(),
                     worker_id=f"pool-worker-{i}",
                     poll_interval=self._poll_interval,
                 )
