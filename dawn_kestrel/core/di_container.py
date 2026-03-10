@@ -43,6 +43,7 @@ from dawn_kestrel.core.session_lifecycle import SessionLifecycle
 from dawn_kestrel.core.settings import settings
 from dawn_kestrel.providers.registry import create_provider_registry
 from dawn_kestrel.storage.store import MessageStorage, PartStorage, SessionStorage
+from dawn_kestrel.tools.cache import ToolResultCache
 
 
 class Container(containers.DeclarativeContainer):
@@ -74,10 +75,14 @@ class Container(containers.DeclarativeContainer):
     skill_max_char_budget = providers.Factory(
         lambda: container.config.skill_max_char_budget(),
     )
-
-    io_handler = providers.Factory(
-        lambda: container.config.io_handler(),
+    tool_cache_max_size = providers.Factory(
+        lambda: container.config.tool_cache_max_size() or 500,
     )
+    tool_cache = providers.Singleton(
+        ToolResultCache,
+        max_size=tool_cache_max_size,
+    )
+
 
     progress_handler = providers.Factory(
         lambda: container.config.progress_handler(),
@@ -156,6 +161,7 @@ class Container(containers.DeclarativeContainer):
         skill_max_char_budget=providers.Factory(lambda: container.config.skill_max_char_budget()),
         session_lifecycle=session_lifecycle,
         provider_registry=provider_registry,
+        tool_cache=tool_cache,
     )
 
     # FSMStateRepository - depends on storage for state persistence
@@ -203,6 +209,7 @@ def configure_container(
     notification_handler: Any | None = None,
     agent_registry_persistence_enabled: bool = False,
     skill_max_char_budget: int | None = None,
+    tool_cache_max_size: int | None = None,
 ) -> Container:
     """
     Configure the global DI container with runtime values.
@@ -218,6 +225,7 @@ def configure_container(
         notification_handler: Optional notification handler for feedback
         agent_registry_persistence_enabled: Enable agent registry persistence
         skill_max_char_budget: Optional max character budget for skills
+        tool_cache_max_size: Optional max size for tool result cache (default: 500)
 
     Returns:
         Configured Container instance
@@ -229,6 +237,7 @@ def configure_container(
         ...     project_dir=Path("/my/project"),
         ... )
     """
+    # Configure the container with runtime values
     container.config.set("storage_path", storage_path)
     container.config.set("project_dir", project_dir)
     container.config.set("io_handler", io_handler)
@@ -236,6 +245,7 @@ def configure_container(
     container.config.set("notification_handler", notification_handler)
     container.config.set("agent_registry_persistence_enabled", agent_registry_persistence_enabled)
     container.config.set("skill_max_char_budget", skill_max_char_budget)
+    container.config.set("tool_cache_max_size", tool_cache_max_size)
 
     # Register lifecycle hooks
     Container.register_lifecycle(container)
@@ -254,10 +264,6 @@ def reset_container() -> None:
         Do not call this in production code as it will invalidate all
         existing service instances.
     """
-    container.config.set("storage_path", None)
-    container.config.set("project_dir", None)
-    container.config.set("io_handler", None)
-    container.config.set("progress_handler", None)
-    container.config.set("notification_handler", None)
     container.config.set("agent_registry_persistence_enabled", False)
     container.config.set("skill_max_char_budget", None)
+    container.config.set("tool_cache_max_size", None)
