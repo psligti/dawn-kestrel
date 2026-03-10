@@ -140,3 +140,20 @@ class Events:
     TASK_FAILED = "task.failed"
     TASK_CANCELLED = "task.cancelled"
     SUBTASK_ADDED = "subtask.added"
+    # FSM Workflow events
+    FSM_STATE_ENTERED = "fsm.state.entered"
+    FSM_STATE_EXITED = "fsm.state.exited"
+    FSM_THINKING = "fsm.thinking"
+    FSM_DECISION = "fsm.decision"
+    POLICY_STEP_STARTED = "policy.step.started"
+    POLICY_STEP_COMPLETED = "policy.step.completed"
+    POLICY_REASONING = "policy.reasoning"
+    POLICY_REJECTION = "policy.rejection"
+    # Provider bus events
+    PROVIDER_REQUEST_QUEUED = "provider.request.queued"
+    PROVIDER_REQUEST_STARTED = "provider.request.started"
+    PROVIDER_REQUEST_COMPLETED = "provider.request.completed"
+    PROVIDER_RATE_LIMITED = "provider.request.rate_limited"
+    # Tool cache events
+    TOOL_CACHE_HIT = "tool.cache.hit"
+    TOOL_CACHE_MISS = "tool.cache.miss"

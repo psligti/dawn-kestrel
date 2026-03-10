@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional, Set as TypingSet
 
 # Note: event_bus imports are done lazily to avoid circular imports
 
@@ -43,7 +44,7 @@ class ToolResultCache:
     """
 
     # Default tools that should be cached (read-only operations)
-    DEFAULT_CACHEABLE_TOOLS: set[str] = {
+    DEFAULT_CACHEABLE_TOOLS: TypingSet[str] = {
         "read",
         "glob",
         "grep",
@@ -57,7 +58,7 @@ class ToolResultCache:
     }
 
     # Tools that should NEVER be cached (mutations, non-deterministic)
-    DEFAULT_NON_CACHEABLE_TOOLS: set[str] = {
+    DEFAULT_NON_CACHEABLE_TOOLS: TypingSet[str] = {
         "write",
         "edit",
         "bash",
@@ -73,8 +74,8 @@ class ToolResultCache:
         self,
         max_size: int = 500,
         default_ttl_seconds: float = 300.0,
-        cacheable_tools: Optional[set[str]] = None,
-        non_cacheable_tools: Optional[set[str]] = None,
+        cacheable_tools: Optional[TypingSet[str]] = None,
+        non_cacheable_tools: Optional[TypingSet[str]] = None,
     ) -> None:
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
         self._max_size = max_size
@@ -82,11 +83,15 @@ class ToolResultCache:
         self._cacheable_tools = cacheable_tools or self.DEFAULT_CACHEABLE_TOOLS
         self._non_cacheable_tools = non_cacheable_tools or self.DEFAULT_NON_CACHEABLE_TOOLS
 
+        # Async locking for thread-safe concurrent access
+        self._lock = asyncio.Lock()
+        # Track in-flight executions to prevent duplicate work
+        self._pending: dict[str, asyncio.Future[CacheEntry | None]] = {}
+
         # Stats
         self._hits = 0
         self._misses = 0
         self._evictions = 0
-
     def _make_key(self, tool_name: str, tool_args: dict[str, Any]) -> str:
         """Generate a cache key from tool name and arguments.
 
@@ -133,7 +138,10 @@ class ToolResultCache:
         return tool_name in self._cacheable_tools
 
     def get(self, tool_name: str, tool_args: dict[str, Any]) -> Optional[CacheEntry]:
-        """Get a cached result if available and not expired.
+        """Get a cached result if available and not expired (sync version).
+
+        WARNING: This method is not thread-safe for async concurrent access.
+        Use aget_or_execute() for safe concurrent caching.
 
         Args:
             tool_name: Name of the tool
@@ -165,11 +173,141 @@ class ToolResultCache:
         entry.access_count += 1
         self._hits += 1
 
-        # Emit cache hit event
-        asyncio.create_task(self._emit_cache_event("hit", tool_name, key))
-
         return entry
 
+    async def aget_or_execute(
+        self,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        execute_fn: Callable[[], Awaitable[tuple[str, str, dict[str, Any], list[dict[str, Any]] | None]]],
+        ttl_seconds: float | None = None,
+    ) -> tuple[CacheEntry | None, bool]:
+        """Get cached result or execute, with concurrent access safety.
+
+        This method prevents the thundering herd problem where multiple
+        concurrent agents would all miss the cache and execute the same
+        tool simultaneously.
+
+        Args:
+            tool_name: Name of the tool
+            tool_args: Arguments passed to the tool
+            execute_fn: Async function to execute if cache miss.
+                       Returns (output, title, metadata, attachments).
+            ttl_seconds: Optional TTL override
+
+        Returns:
+            Tuple of (CacheEntry | None, was_cached: bool)
+            - (entry, True) if result came from cache
+            - (entry, False) if result was just executed
+        """
+        if not self.is_cacheable(tool_name):
+            # Not cacheable - execute directly
+            output, title, metadata, attachments = await execute_fn()
+            return CacheEntry(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                result_output=output,
+                result_title=title,
+                result_metadata=metadata or {},
+                result_attachments=attachments,
+                cached_at=time.time(),
+                ttl_seconds=ttl_seconds or self._default_ttl,
+            ), False
+
+        key = self._make_key(tool_name, tool_args)
+        pending_future: asyncio.Future[CacheEntry | None] | None = None
+
+        async with self._lock:
+            # Check cache
+            if key in self._cache:
+                entry = self._cache[key]
+                age = time.time() - entry.cached_at
+                if age <= entry.ttl_seconds:
+                    # Cache hit - update LRU and return
+                    self._cache.move_to_end(key)
+                    entry.access_count += 1
+                    self._hits += 1
+                    return entry, True
+                else:
+                    # Expired - remove from cache
+                    self._evict(key)
+
+            # Check if execution is already in progress
+            if key in self._pending:
+                pending_future = self._pending[key]
+
+        # Wait outside the lock if another coroutine is executing
+        if pending_future is not None:
+            entry = await pending_future
+            if entry is not None:
+                self._hits += 1
+            return entry, True  # Result came from another agent's execution
+
+        # We need to execute - create pending future
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[CacheEntry | None] = loop.create_future()
+
+        async with self._lock:
+            # Double-check after acquiring lock
+            if key in self._cache:
+                entry = self._cache[key]
+                age = time.time() - entry.cached_at
+                if age <= entry.ttl_seconds:
+                    self._cache.move_to_end(key)
+                    entry.access_count += 1
+                    self._hits += 1
+                    return entry, True
+
+            if key in self._pending:
+                # Another coroutine started executing while we waited
+                pending_future = self._pending[key]
+            else:
+                # We're the executor
+                self._pending[key] = future
+
+        if pending_future is not None:
+            # Wait for the other execution
+            entry = await pending_future
+            if entry is not None:
+                self._hits += 1
+            return entry, True
+
+        # We're the executor
+        self._misses += 1
+        try:
+            output, title, metadata, attachments = await execute_fn()
+
+            # Store in cache
+            async with self._lock:
+                # Evict oldest if at capacity
+                while len(self._cache) >= self._max_size:
+                    self._evict_oldest()
+
+                entry = CacheEntry(
+                    tool_name=tool_name,
+                    tool_args=tool_args,
+                    result_output=output,
+                    result_title=title,
+                    result_metadata=metadata or {},
+                    result_attachments=attachments,
+                    cached_at=time.time(),
+                    access_count=0,
+                    ttl_seconds=ttl_seconds or self._default_ttl,
+                )
+                self._cache[key] = entry
+
+            # Complete the pending future
+            future.set_result(entry)
+            return entry, False
+
+        except Exception:
+            # On error, complete the future with None
+            future.set_result(None)
+            raise
+        finally:
+            # Clean up pending state
+            async with self._lock:
+                self._pending.pop(key, None)
     def set(
         self,
         tool_name: str,
@@ -180,7 +318,10 @@ class ToolResultCache:
         result_attachments: list[dict[str, Any]] | None = None,
         ttl_seconds: float | None = None,
     ) -> None:
-        """Cache a tool result.
+        """Cache a tool result (sync version, not thread-safe).
+
+        WARNING: Use aset() for async concurrent access, or better yet,
+        use aget_or_execute() which handles both get and set atomically.
 
         Args:
             tool_name: Name of the tool
@@ -214,9 +355,50 @@ class ToolResultCache:
 
         self._cache[key] = entry
 
-        # Emit cache miss event
-        asyncio.create_task(self._emit_cache_event("miss", tool_name, key))
+    async def aset(
+        self,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        result_output: str,
+        result_title: str,
+        result_metadata: dict[str, Any] | None = None,
+        result_attachments: list[dict[str, Any]] | None = None,
+        ttl_seconds: float | None = None,
+    ) -> None:
+        """Cache a tool result (async version with locking).
 
+        Args:
+            tool_name: Name of the tool
+            tool_args: Arguments passed to the tool
+            result_output: The output string from the tool
+            result_title: The title of the result
+            result_metadata: Optional metadata dict
+            result_attachments: Optional attachments list
+            ttl_seconds: Optional TTL override (uses default if not provided)
+        """
+        if not self.is_cacheable(tool_name):
+            return
+
+        key = self._make_key(tool_name, tool_args)
+
+        async with self._lock:
+            # Evict oldest if at capacity
+            while len(self._cache) >= self._max_size:
+                self._evict_oldest()
+
+            entry = CacheEntry(
+                tool_name=tool_name,
+                tool_args=tool_args,
+                result_output=result_output,
+                result_title=result_title,
+                result_metadata=result_metadata or {},
+                result_attachments=result_attachments,
+                cached_at=time.time(),
+                access_count=0,
+                ttl_seconds=ttl_seconds or self._default_ttl,
+            )
+
+            self._cache[key] = entry
     def _evict(self, key: str) -> None:
         """Remove a specific entry from the cache."""
         if key in self._cache:
@@ -301,7 +483,3 @@ class ToolResultCache:
             self._evict_oldest()
             evicted += 1
         return evicted
-
-
-# Import asyncio for the async event emission
-import asyncio
