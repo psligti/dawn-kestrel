@@ -7,6 +7,8 @@ Tests verify that DelegateTool provides:
 - Factory function for dependency injection
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock

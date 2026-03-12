@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import inspect
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast, runtime_checkable
 
 from dawn_kestrel.core.commands import TransitionCommand
 from dawn_kestrel.core.mediator import Event, EventType
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 StateName = str
 TransitionMap = dict[str, set[str]]
 HookResult = Result[None]
-
+HookCallable = Callable[["FSMContext"], Union[HookResult, Awaitable[HookResult]]]
 
 logger = logging.getLogger(__name__)
 
@@ -319,8 +319,9 @@ class FSMImpl:
                 exit_context.user_data = context.user_data.copy()
             exit_result = await self._execute_with_reliability(exit_hook, exit_context, from_state)
             if exit_result.is_err():
+                exit_err = cast(Any, exit_result)
                 logger.error(
-                    f"Exit hook failed for state {from_state} in FSM {self._fsm_id}: {exit_result.error}"
+                    f"Exit hook failed for state {from_state} in FSM {self._fsm_id}: {exit_err.error}"
                 )
 
         self._state = new_state
@@ -341,13 +342,18 @@ class FSMImpl:
                 entry_hook, entry_context, new_state
             )
             if entry_result.is_err():
+                entry_err = cast(Any, entry_result)
                 logger.error(
-                    f"Entry hook failed for state {new_state} in FSM {self._fsm_id}: {entry_result.error}"
+                    f"Entry hook failed for state {new_state} in FSM {self._fsm_id}: {entry_err.error}"
                 )
 
         if self._repository:
             persist_result = await self._repository.set_state(self._fsm_id, new_state)
             if persist_result.is_err():
+                persist_err = cast(Any, persist_result)
+                error_msg = persist_err.error
+                persist_err = cast(Any, persist_result)
+                error_msg = persist_err.error
                 error_msg = persist_result.error
                 logger.error(f"Failed to persist FSM state for {self._fsm_id}: {error_msg}")
                 return Err(
@@ -420,7 +426,7 @@ class FSMImpl:
 
     async def _execute_with_reliability(
         self,
-        hook: Callable[[FSMContext], Result[None]],
+        hook: HookCallable,
         context: FSMContext,
         resource: str = "default",
     ) -> Result[None]:
@@ -441,10 +447,15 @@ class FSMImpl:
         """
         if not self._reliability_config or not self._reliability_config.enabled:
             try:
-                return hook(context)
+                result = hook(context)
+                if inspect.iscoroutine(result):
+                    result = await result
+                return result  # type: ignore[return-value]
             except Exception as e:
                 logger.error(f"Hook execution error: {e}", exc_info=True)
                 return Err(f"Hook execution error: {e}", code="HOOK_ERROR")
+
+
 
         reliability = self._reliability_config
 
@@ -457,8 +468,9 @@ class FSMImpl:
         if reliability.rate_limiter:
             acquire_result = await reliability.rate_limiter.try_acquire(resource)
             if acquire_result.is_err():
+                acquire_err = cast(Any, acquire_result)
                 return Err(
-                    f"Rate limit exceeded: {acquire_result.error}",
+                    f"Rate limit exceeded: {acquire_err.error}",
                     code="RATE_LIMIT_EXCEEDED",
                 )
 
@@ -761,7 +773,7 @@ class FSMBuilder:
             exit_hooks=self._exit_hooks,
             reliability_config=self._reliability_config,
         )
-        return Ok(fsm)
+        return Ok(cast(FSM, fsm))
 
 
 # Workflow-specific constants

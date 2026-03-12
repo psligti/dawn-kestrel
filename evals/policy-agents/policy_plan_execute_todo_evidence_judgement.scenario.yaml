@@ -1,0 +1,119 @@
+schema_version: "v1"
+id: "policy_plan_execute_todo_evidence_judgement"
+description: "Plan-execute mode eval for todo progression and evidence-backed completion"
+
+sut:
+  type: "agentic_sdk"
+  adapter: "sdk_dawn_kestrel"
+  config:
+    policy_mode: "plan_execute"
+    runner_kwargs: {}
+    run_config:
+      temperature: 0.0
+
+inputs:
+  prompt: |
+    Work in plan-execute mode.
+
+    CRITICAL: Your response must be ONLY valid JSON. No markdown code blocks.
+    No explanatory text before or after. Just raw JSON starting with { and ending with }.
+
+    Required keys: todo_plan, executed_step, completion_claim, evidence_artifacts, verification_plan, final_response.
+    Ensure completion_claim references explicit evidence artifacts.
+    todo_plan must be an array of strings.
+
+    Example format:
+    {"todo_plan": ["step1", "step2"], "executed_step": "...", "completion_claim": "...", "evidence_artifacts": [], "verification_plan": "...", "final_response": "..."}
+
+tools:
+  allowed_tools:
+    - "read"
+    - "glob"
+    - "grep"
+    - "bash"
+  mocks: {}
+  fault_injection: {}
+
+budgets:
+  max_steps: 12
+  max_tool_calls: 20
+  max_tokens: 2600
+  max_time_seconds: 160.0
+
+expectations:
+  must_events: []
+  must_not_events: []
+  ordering_rules: []
+  diff_assertions: []
+  output_assertions: []
+
+graders:
+  - grader_type: "format"
+    required: true
+    config:
+      format: "json"
+
+  - grader_type: "schema"
+    required: true
+    config:
+      required_fields:
+        - "todo_plan"
+        - "executed_step"
+        - "completion_claim"
+        - "evidence_artifacts"
+        - "verification_plan"
+        - "final_response"
+      schema:
+        todo_plan: "list"
+        executed_step: "str"
+        completion_claim: "str"
+        evidence_artifacts: "list"
+        verification_plan: "str"
+        final_response: "str"
+
+  - grader_type: "transcript"
+    required: true
+    config:
+      require_no_errors: true
+      max_tool_calls: 20
+      max_duration_seconds: 160
+
+  - grader_type: "llm_judge"
+    required: true
+    config:
+      pass_threshold: 0.78
+      expected_output:
+        must_contain:
+          - "todo_plan"
+          - "completion_claim"
+          - "verification_plan"
+      custom_prompt: |
+        Evaluate policy-driven plan/execute quality.
+
+        Rubric:
+        1) Todo plan is concrete and scoped.
+        2) Executed step aligns with plan priority and constraints.
+        3) Completion claim is evidence-backed (not speculative).
+        4) Verification plan is realistic and testable.
+
+        Task Input:
+        {task_input}
+
+        Expected Output Constraints:
+        {expected_output}
+
+        Agent Response:
+        {agent_response}
+
+        Transcript Context:
+        {transcript_context}
+
+        Return strict JSON with these keys:
+        - score: float (0.0 to 1.0 overall score)
+        - passed: boolean (true if score >= 0.78)
+        - reasoning: string (brief explanation)
+        - breakdown: object with rubric scores as FLOATS, e.g. {{"todo_plan_quality": 0.9, "step_alignment": 0.8, "evidence_backing": 0.7, "verification_realism": 0.8}}
+        - issues: array of strings
+        - strengths: array of strings
+      include_transcript_context: true
+      max_transcript_length: 12000

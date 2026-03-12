@@ -6,15 +6,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
-from dawn_kestrel.agents.fsm_orchestrator import FSMOrchestrator
 from dawn_kestrel.agents.registry import AgentRegistry
-from dawn_kestrel.agents.review.utils.redaction import redact_secrets
-from dawn_kestrel.agents.workflow import ReasonOutput
 from dawn_kestrel.ai.tool_execution import SessionLifecycleProtocol
 from dawn_kestrel.ai_session import AISession
 from dawn_kestrel.context.builder import ContextBuilder
@@ -23,12 +19,11 @@ from dawn_kestrel.core.agent_types import (
     SessionManagerLike,
 )
 from dawn_kestrel.core.event_bus import Events, bus
-from dawn_kestrel.core.models import Session, TextPart, TokenUsage, ToolPart, ToolState
+from dawn_kestrel.core.models import Session, TextPart, TokenUsage, ToolPart
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle
 from dawn_kestrel.core.settings import settings
 from dawn_kestrel.policy import (
     BudgetInfo,
-    DefaultPolicyEngine,
     EventSummary,
     HarnessGate,
     PolicyEngine,
@@ -36,7 +31,7 @@ from dawn_kestrel.policy import (
     ProposalValidator,
     TodoItem,
 )
-from dawn_kestrel.policy.router_policy import RouterPolicy
+from dawn_kestrel.policy.react_policy import ReActPolicy
 from dawn_kestrel.providers.registry import ProviderRegistry
 from dawn_kestrel.tools.framework import ToolRegistry
 from dawn_kestrel.tools.permission_filter import ToolPermissionFilter
@@ -45,47 +40,9 @@ from dawn_kestrel.tools.cache import ToolResultCache
 if TYPE_CHECKING:
     from dawn_kestrel.evaluation.hooks import EvaluationHooks
 
-MAX_TOOL_LOOPS = 10
-MAX_TOOL_LOOPS = 10
 MAX_TOOL_LOOPS = 10  # Prevent infinite loops
 
 logger = logging.getLogger(__name__)
-
-# FSM State Tracking constants
-WORKFLOW_STATES = ["intake", "plan", "reason", "act", "synthesize", "check", "done"]
-
-
-async def _emit_fsm_state(
-    session_id: str,
-    agent_name: str,
-    state: str,
-    data: dict[str, Any] | None = None,
-    task_id: str | None = None,
-) -> None:
-    """Emit an FSM state transition event to the event bus.
-
-    Args:
-        session_id: Session ID for correlation
-        agent_name: Name of the agent
-        state: Current FSM state (intake, plan, reason, act, synthesize, check, done)
-        data: Optional data to include with the event
-        task_id: Optional task ID for delegation tracking
-    """
-    event_data: dict[str, Any] = {
-        "session_id": session_id,
-        "agent_name": agent_name,
-        "state": state,
-        "timestamp": time.time(),
-    }
-    if data:
-        event_data.update(data)
-    if task_id:
-        event_data["task_id"] = task_id
-    await bus.publish(Events.FSM_STATE_ENTERED, event_data)
-    if os.getenv("DK_POLICY_ENGINE", "0") == "1":
-        policy_event = dict(event_data)
-        policy_event.setdefault("policy_mode", os.getenv("DK_POLICY_MODE", "fsm"))
-        await bus.publish(Events.POLICY_STEP_STARTED, policy_event)
 
 
 class AgentRuntime:
@@ -111,10 +68,8 @@ class AgentRuntime:
             base_dir=base_dir,
             skill_max_char_budget=skill_max_char_budget,
         )
-        self._policy_enabled = os.getenv("DK_POLICY_ENGINE", "0") == "1"
-        self._policy_engine = policy_engine or (
-            RouterPolicy() if self._policy_enabled else DefaultPolicyEngine()
-        )
+        self._policy_enabled = True
+        self._policy_engine = policy_engine or ReActPolicy()
         self._proposal_validator = ProposalValidator()
         self._harness_gate = HarnessGate()
 
@@ -317,17 +272,6 @@ class AgentRuntime:
 
             model = str(model)
 
-            fsm_ai_session = AISession(
-                session=session,
-                provider_id=provider_id,
-                model=model,
-                api_key=api_key,
-                session_manager=None,
-                tool_registry=ToolRegistry(),
-                session_lifecycle=None,
-                base_dir=self.context_builder.base_dir,
-            )
-
             ai_session = AISession(
                 session=session,
                 provider_id=provider_id,
@@ -338,25 +282,7 @@ class AgentRuntime:
                 session_lifecycle=cast(Optional[SessionLifecycleProtocol], lifecycle),
                 base_dir=self.context_builder.base_dir,
             )
-
-            # Create FSM Orchestrator for agentic reasoning
-            fsm_orchestrator = FSMOrchestrator(
-                ai_session=fsm_ai_session,
-                session=session,
-            )
-
-            # Run INTAKE state with LLM reasoning
             intent_summary = user_message[:200]
-            intake_result = await fsm_orchestrator.run_intake(user_message)
-            if intake_result:
-                intent_summary = intake_result.intent
-                cast(Any, fsm_orchestrator)._intent = intake_result.intent
-                await fsm_orchestrator.run_plan(
-                    intent=intake_result.intent,
-                    constraints=intake_result.constraints,
-                    evidence=intake_result.initial_evidence,
-                    current_todos=fsm_orchestrator.todos,
-                )
 
             # Emit AGENT_EXECUTING event
             executing_event_data: dict[str, Any] = {
@@ -388,18 +314,13 @@ class AgentRuntime:
             total_tokens = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
             response_message = None
 
-            allowed_tools = sorted(allowed_tool_ids)
-            tool_signatures = ", ".join(allowed_tools)
             last_tool_summary = ""
 
             for iteration in range(MAX_TOOL_LOOPS):
-                fsm_orchestrator.iteration = iteration + 1
-                context_summary = f"Iteration {iteration + 1}/{MAX_TOOL_LOOPS}"
-
                 if self._policy_enabled:
                     policy_input = self._build_policy_input(
                         goal=intent_summary,
-                        todos=fsm_orchestrator.todos,
+                        todos=[],
                         iteration=iteration,
                         tools_used=all_tools_used,
                         last_tool_summary=last_tool_summary,
@@ -436,7 +357,6 @@ class AgentRuntime:
                         )
                         combined_errors = validator_result.errors + gate_result.errors
                         last_tool_summary = "; ".join(combined_errors) or "Policy proposal rejected"
-                        fsm_orchestrator.last_tool_result = last_tool_summary
                         break
 
                     approval_requested = any(
@@ -447,180 +367,55 @@ class AgentRuntime:
                         last_tool_summary = (
                             "Policy requested explicit approval before risky actions"
                         )
-                        fsm_orchestrator.last_tool_result = last_tool_summary
                         break
 
                     if "budget exhausted" in policy_proposal.intent.lower():
                         last_tool_summary = policy_proposal.intent
-                        fsm_orchestrator.last_tool_result = last_tool_summary
                         break
-
-                reason_output: ReasonOutput | None = await fsm_orchestrator.run_reason(
-                    context=context_summary,
-                    options={},
+                response_message = await ai_session.process_message(
+                    user_message=user_message
+                    if iteration == 0
+                    else f"Continue working on: {intent_summary}\n\nLast tool result: {last_tool_summary}",
+                    options=execution_options,
                 )
-                if not reason_output or reason_output.next_phase == "done":
+                all_parts.extend(response_message.parts or [])
+
+                for part in response_message.parts or []:
+                    if isinstance(part, ToolPart) and part.tool not in all_tools_used:
+                        all_tools_used.append(part.tool)
+
+                if response_message.metadata and "tokens" in response_message.metadata:
+                    tokens_data = response_message.metadata["tokens"]
+                    total_tokens.input += tokens_data.get("input", 0)
+                    total_tokens.output += tokens_data.get("output", 0)
+                    total_tokens.reasoning += tokens_data.get("reasoning", 0)
+                    total_tokens.cache_read += tokens_data.get("cache_read", 0)
+                    total_tokens.cache_write += tokens_data.get("cache_write", 0)
+
+                current_text = response_message.text or ""
+                if current_text:
+                    last_tool_summary = current_text[:300]
+
+                has_tool_part = any(
+                    isinstance(part, ToolPart) for part in (response_message.parts or [])
+                )
+                if self.evaluation_hooks and has_tool_part:
+                    for part in response_message.parts or []:
+                        if isinstance(part, ToolPart):
+                            self.evaluation_hooks.emit_tool_call(
+                                tool=part.tool,
+                                input=part.state.input,
+                                output=str(part.state.output or ""),
+                            )
+
+                if not has_tool_part:
                     break
 
-                act_output = await fsm_orchestrator.run_act_select(
-                    reason_output,
-                    allowed_tools,
-                    tool_signatures,
+            if response_message is None:
+                response_message = await ai_session.process_message(
+                    user_message=f"Task: {intent_summary}\n\nProvide the final response to the user.",
+                    options={**execution_options, "disable_tools": True},
                 )
-                if not act_output or not act_output.action:
-                    last_tool_summary = "Act selection failed: no tool selected"
-                    fsm_orchestrator.last_tool_result = last_tool_summary
-                    break
-
-                tool_name = act_output.action.tool_name
-                selection_reason = act_output.action.selection_reason.strip()
-                if tool_name not in allowed_tool_ids or not selection_reason:
-                    failure_text = "Invalid tool selection"
-                    act_output.action.status = "failure"
-                    act_output.action.result_summary = failure_text
-                    act_output.action.duration_seconds = 0.0
-                    act_output.tool_result_summary = failure_text
-                    act_output.failure = failure_text
-                    last_tool_summary = failure_text
-                    fsm_orchestrator.last_tool_result = last_tool_summary
-                    break
-
-                tool_args = act_output.action.arguments
-                tool_call_id = f"fsm_act_{session_id}_{iteration + 1}"
-                tool_start = time.monotonic()
-                time_start = time.time()
-                tool_error: str | None = None
-                tool_result_output = ""
-                tool_result_metadata: dict[str, Any] = {}
-                tool_result_title = ""
-
-                model_name = str(model)
-                try:
-                    tool_result = await ai_session.tool_manager.execute_tool_call(
-                        tool_name=tool_name,
-                        tool_input=tool_args,
-                        tool_call_id=tool_call_id,
-                        message_id=session_id,
-                        agent=agent.name,
-                        model=model_name,
-                    )
-                    tool_duration = time.monotonic() - tool_start
-                    time_end = time.time()
-                    tool_result_output = tool_result.output
-                    tool_result_metadata = tool_result.metadata
-                    tool_result_title = tool_result.title
-                    result_summary = (
-                        tool_result_output[:300] if tool_result_output else tool_result_title
-                    )
-                    artifacts: list[str] = []
-                    metadata_artifacts = tool_result_metadata.get("artifacts")
-                    if isinstance(metadata_artifacts, list):
-                        artifacts = [str(item) for item in cast(list[object], metadata_artifacts)]
-                    attachments = tool_result.attachments or []
-                    for attachment in attachments:
-                        path_value = attachment.get("path") or attachment.get("filePath")
-                        if path_value:
-                            artifacts.append(str(path_value))
-                    act_output.action.status = "success"
-                    act_output.action.result_summary = result_summary
-                    act_output.action.duration_seconds = tool_duration
-                    act_output.action.artifacts = artifacts
-                    act_output.tool_result_summary = result_summary
-                    act_output.artifacts = artifacts
-                    last_tool_summary = result_summary
-                    fsm_orchestrator.last_tool_result = last_tool_summary
-                except Exception as exc:
-                    tool_duration = time.monotonic() - tool_start
-                    time_end = time.time()
-                    tool_error = redact_secrets(str(exc))
-                    act_output.action.status = "failure"
-                    act_output.action.result_summary = tool_error
-                    act_output.action.duration_seconds = tool_duration
-                    act_output.action.artifacts = []
-                    act_output.tool_result_summary = tool_error
-                    act_output.artifacts = []
-                    act_output.failure = tool_error
-                    last_tool_summary = tool_error
-                    fsm_orchestrator.last_tool_result = last_tool_summary
-
-                tool_state = ToolState(
-                    status="completed" if not tool_error else "error",
-                    input=tool_args,
-                    output=tool_result_output or tool_error,
-                    title=tool_result_title or ("Error" if tool_error else "Tool Result"),
-                    metadata=tool_result_metadata if tool_result_metadata else {},
-                    time_start=time_start,
-                    time_end=time_end,
-                    error=tool_error,
-                )
-                tool_part = ToolPart(
-                    id=f"{session_id}_{tool_call_id}",
-                    session_id=session_id,
-                    message_id=session_id,
-                    part_type="tool",
-                    tool=tool_name,
-                    call_id=tool_call_id,
-                    state=tool_state,
-                    source={"provider": model_name},
-                )
-                all_parts.append(tool_part)
-                all_tools_used.append(tool_name)
-
-                if self.evaluation_hooks:
-                    self.evaluation_hooks.emit_tool_call(
-                        tool=tool_name,
-                        input=tool_args,
-                        output=tool_result_output or tool_error or "",
-                    )
-                tool_results_data = [
-                    {"tool": tool_name, "output": tool_result_output or tool_error or ""}
-                ]
-                await fsm_orchestrator.run_synthesize(tool_results_data)
-                check_result = await fsm_orchestrator.run_check(
-                    all_todos=fsm_orchestrator.todos,
-                    completed_todos=[
-                        todo for todo in fsm_orchestrator.todos if todo.get("status") == "completed"
-                    ],
-                    pending_todos=[
-                        todo for todo in fsm_orchestrator.todos if todo.get("status") != "completed"
-                    ],
-                )
-                if check_result and check_result.next_phase == "done":
-                    break
-
-            completed_todos = [
-                todo for todo in fsm_orchestrator.todos if todo.get("status") == "completed"
-            ]
-            completed_lines = [
-                f"- {str(todo.get('id', ''))}: {str(todo.get('description', ''))}"
-                for todo in completed_todos
-            ]
-            if not completed_lines:
-                completed_lines = ["- none"]
-
-            findings = [
-                str(item) for item in fsm_orchestrator.evidence if str(item).startswith("finding:")
-            ]
-            finding_lines = [f"- {finding}" for finding in findings]
-            if not finding_lines:
-                finding_lines = ["- none"]
-
-            intent_text = intent_summary
-            summary_message = "\n".join(
-                [
-                    f"Intent: {intent_text}",
-                    "Completed todos:",
-                    *completed_lines,
-                    "Findings:",
-                    *finding_lines,
-                    f"Last tool result: {last_tool_summary or 'none'}",
-                    "Provide the final response to the user now. Do not call tools.",
-                ]
-            )
-            response_message = await ai_session.process_message(
-                user_message=summary_message,
-                options={**execution_options, "disable_tools": True},
-            )
             all_parts.extend(response_message.parts or [])
             for part in response_message.parts or []:
                 if isinstance(part, ToolPart) and part.tool not in all_tools_used:
@@ -662,19 +457,6 @@ class AgentRuntime:
                 f"Agent {agent.name} execution complete in {duration:.2f}s, "
                 f"tokens: {tokens_used.input + tokens_used.output if tokens_used else 0}, "
                 f"tools: {len(tools_used)}"
-            )
-
-            await _emit_fsm_state(
-                session_id=session_id,
-                agent_name=agent.name,
-                state="done",
-                data={
-                    "duration_seconds": duration,
-                    "tools_used_count": len(tools_used),
-                    "tokens_used": tokens_used.input + tokens_used.output if tokens_used else 0,
-                    "response_length": len(response_text),
-                },
-                task_id=task_id,
             )
 
             if self.evaluation_hooks:

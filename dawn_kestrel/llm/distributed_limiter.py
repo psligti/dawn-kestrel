@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 
 REDIS_AVAILABLE = False
 try:
-    import redis.asyncio as redis
-    from redis.backoff import ExponentialWithJitterBackoff
-    from redis.retry import Retry
+    import redis.asyncio as redis  # type: ignore[import-not-found]
+    from redis.backoff import ExponentialWithJitterBackoff  # type: ignore[import-not-found]
+    from redis.retry import Retry  # type: ignore[import-not-found]
 
     REDIS_AVAILABLE = True
 except ImportError:

@@ -4,6 +4,8 @@ This module defines SDKConfig for configuring SDK client behavior
 with optional overrides for storage, directories, and handler behavior.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any

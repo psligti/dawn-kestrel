@@ -10,6 +10,8 @@ All benchmarks use pure Python standard library measurements (time.time(), memor
 to keep dependencies minimal.
 """
 
+from __future__ import annotations
+
 import json
 import statistics
 import time

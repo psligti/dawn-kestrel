@@ -5,6 +5,8 @@ Provides snapshot creation, file revert, and diff management
 for OpenCode sessions.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import datetime

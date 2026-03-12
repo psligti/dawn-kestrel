@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_SPEC_PATH = REPO_ROOT / "docs/planning-agent-orchestration.md"
 INTEGRATION_MAP_PATH = REPO_ROOT / ".sisyphus/integration-map.md"
 PLAN_ENTER_PATH = REPO_ROOT / "dawn_kestrel/tools/prompts/plan_enter.txt"

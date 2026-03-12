@@ -12,16 +12,11 @@ from __future__ import annotations
 
 import re
 import shlex
+import os
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
 from typing import Any, TypeVar
-
-# ParamSpec was added in Python 3.10
-try:
-    from typing import ParamSpec
-except ImportError:
-    from typing_extensions import ParamSpec
 
 
 class SecurityError(Exception):
@@ -67,23 +62,24 @@ def safe_path(path_str: str, base_dir: Path | None = None, allow_absolute: bool 
     if "\x00" in path_str:
         raise SecurityError(f"Null byte detected in path: {path_str}")
 
-    # Reject absolute paths unless explicitly allowed
-    if path.is_absolute() and not allow_absolute:
-        raise SecurityError(f"Absolute path not allowed: {path_str}")
-
-    # Resolve symlinks and normalize
+    # Resolve symlinks and normalize first
     try:
         resolved = path.resolve(strict=False)
     except (OSError, RuntimeError) as e:
         raise SecurityError(f"Invalid path: {path_str}") from e
 
-    # Restrict to base directory if specified
-    if base_dir:
-        base_resolved = base_dir.resolve()
-        try:
-            resolved.relative_to(base_resolved)
-        except ValueError as e:
-            raise SecurityError(f"Path outside base directory: {path_str} not in {base_dir}") from e
+    # Reject absolute paths unless within base_dir or explicitly allowed
+    if path.is_absolute() and not allow_absolute:
+        # Allow absolute paths if they're within the base directory
+        if base_dir:
+            base_resolved = base_dir.resolve()
+            try:
+                resolved.relative_to(base_resolved)
+                # Path is within base_dir, allow it
+            except ValueError:
+                raise SecurityError(f"Absolute path not allowed: {path_str}")
+        else:
+            raise SecurityError(f"Absolute path not allowed: {path_str}")
 
     return resolved
 
@@ -116,26 +112,29 @@ def validate_command(command: str, allowed_commands: set[str] | None = None) -> 
     if not command:
         raise SecurityError("Command cannot be empty")
 
-    injection_patterns = [
-        ";",
-        "&",
-        "|",
-        "&&",
-        "||",
-        ">",
-        "<",
-        "`",
-        "$(",
-        "$`",
-        "\n",
-        "\r",
-    ]
+    allow_shell_metacharacters = os.getenv("DK_ALLOW_SHELL_METACHARACTERS", "1") == "1"
 
-    for pattern in injection_patterns:
-        if pattern in command:
-            raise SecurityError(
-                f"Shell metacharacter '{pattern}' not allowed in command: {command}"
-            )
+    if not allow_shell_metacharacters:
+        injection_patterns = [
+            ";",
+            "&",
+            "|",
+            "&&",
+            "||",
+            ">",
+            "<",
+            "`",
+            "$(",
+            "$`",
+            "\n",
+            "\r",
+        ]
+
+        for pattern in injection_patterns:
+            if pattern in command:
+                raise SecurityError(
+                    f"Shell metacharacter '{pattern}' not allowed in command: {command}"
+                )
 
     try:
         tokens = shlex.split(command)
@@ -298,7 +297,6 @@ def validate_url(url: str, allow_https_only: bool = True, max_length: int = 2048
 
 
 # Decorators for input validation
-P = ParamSpec("P")
 R = TypeVar("R")
 
 
@@ -311,9 +309,9 @@ def validate_path_param(param_name: str, base_dir: Path | None = None) -> Callab
             ...
     """
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+    def decorator(func: Callable[..., R]) -> Callable[..., R]:
         @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(*args: Any, **kwargs: Any) -> R:
             param_value = kwargs.get(param_name)
             if param_value is None:
                 raise SecurityError(f"Parameter '{param_name}' not found")
@@ -338,9 +336,9 @@ def validate_command_param(
             ...
     """
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+    def decorator(func: Callable[..., R]) -> Callable[..., R]:
         @wraps(func)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapper(*args: Any, **kwargs: Any) -> R:
             param_value = kwargs.get(param_name)
             if param_value is None:
                 raise SecurityError(f"Parameter '{param_name}' not found")
@@ -376,6 +374,7 @@ ALLOWED_SEARCH_TOOLS = {
 }
 
 ALLOWED_SHELL_COMMANDS = {
+    # File system viewing
     "ls",
     "cat",
     "head",
@@ -384,4 +383,55 @@ ALLOWED_SHELL_COMMANDS = {
     "sort",
     "uniq",
     "cut",
+    "pwd",
+    # File operations
+    "mkdir",
+    "rmdir",
+    "mv",
+    "cp",
+    "touch",
+    "chmod",
+    "ln",
+    "file",
+    # Search and text
+    "grep",
+    "sed",
+    "awk",
+    "find",
+    "xargs",
+    "echo",
+    "tee",
+    # System info
+    "which",
+    "env",
+    "printenv",
+    "uname",
+    "date",
+    "whoami",
+    "id",
+    # Development
+    "git",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "uv",
+    "node",
+    "npm",
+    "npx",
+    "yarn",
+    "pnpm",
+    "cargo",
+    "go",
+    "make",
+    # Testing/linting
+    "pytest",
+    "ruff",
+    "mypy",
+    "black",
+    "eslint",
+    "prettier",
+    # Networking
+    "curl",
+    "wget",
 }

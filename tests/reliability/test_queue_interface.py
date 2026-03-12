@@ -4,6 +4,8 @@ These tests verify the protocol definitions and Task model
 without requiring concrete implementations.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Any
 

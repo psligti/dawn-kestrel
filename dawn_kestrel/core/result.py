@@ -10,6 +10,8 @@ three possible outcomes:
 Result types support composition through bind, map, and fold operations.
 """
 
+from __future__ import annotations
+
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -86,7 +88,7 @@ class Result(ABC, Generic[T]):
         """
         if self.is_ok():
             return func(self.unwrap())
-        return cast(Any, self)  # type: ignore[return-value]
+        return cast(Any, self)
 
     @staticmethod
     def from_json(json_str: str) -> "Result[Any]":
@@ -320,7 +322,7 @@ def map_result(result: Result[T], func: Callable[[T], U]) -> Result[U]:
     """
     if result.is_ok():
         return Ok(func(result.unwrap()))
-    return cast(Any, result)  # type: ignore[return-value]
+    return cast(Any, result)
 
 
 def fold(

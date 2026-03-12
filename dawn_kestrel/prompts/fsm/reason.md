@@ -2,7 +2,7 @@
 
 ## GOAL
 
-Analyze the current context and decide what action to take next using the ReAct (Reasoning + Acting) pattern. Output a reasoning trace (Thought) and a decision on what to do next (Action).
+Evaluate the current context and decide the next atomic action. This is a context-first reasoning phase that produces a tool-agnostic atomic step description. The ACT phase will select the appropriate tool to execute based on this atomic step.
 
 ## INPUT
 
@@ -27,63 +27,61 @@ The LLM must return valid JSON matching the `ReasonOutput` schema:
 
 ```json
 {
-  "thought": "string (required) - Natural language reasoning trace analyzing the current state",
-  "action": "string (required) - What to do next (tool call, state transition, or done)",
-  "next_state": "string (required) - One of: act, synthesize, check, done",
+  "todo_id": "string (required) - ID of the todo being evaluated",
+  "atomic_step": "string (required) - Tool-agnostic next step (NO tool names)",
+  "why_now": "string (required) - Justification for why this action is needed now",
+  "next_phase": "string (required) - One of: act, done",
   "confidence": "number (optional) - Confidence level 0.0-1.0 in the reasoning",
-  "reasoning_type": "string (optional) - Type: decompose, analyze, plan, evaluate, decide"
+  "evidence_used": ["string (optional) - Evidence references that informed this decision"],
+  "risks": ["string (optional) - Potential risks or concerns with this action"]
 }
 ```
 
-## ReAct Pattern
+## Context-First Reasoning Pattern
 
-The REASON state implements the ReAct (Reasoning + Acting) pattern:
+The REASON state produces a tool-agnostic atomic next step:
 
-1. **Thought**: A natural language reasoning trace that:
-   - Decomposes complex problems into smaller steps
-   - Analyzes available evidence and context
-   - Plans the next action based on current state
-   - Evaluates progress toward the goal
-   - Makes explicit decisions with justification
-
-2. **Action**: A description of what to do next:
-   - Tool call with specific arguments
-   - State transition (act, synthesize, check, done)
-   - Request for more information
-
-3. **Next State**: Where the workflow should go:
+1. **todo_id**: The current todo being evaluated
+2. **atomic_step**: A tool-agnostic description of WHAT to do next:
+   - Describes the intent/action without tool names
+   - ACT phase will select appropriate tool based on this
+   - Example: "Read the authentication module" (not "Use read tool")
+3. **why_now**: Justification grounded in constraints/evidence:
+   - Why this action is needed at this moment
+   - What constraints or evidence drive this decision
+4. **next_phase**: Where the workflow should go:
    - `act` - Execute a tool call
-   - `synthesize` - Combine findings into a conclusion
-   - `check` - Verify completion criteria
    - `done` - Workflow is complete
 
 ## VALIDATION
 
-- **Required Fields**: `thought`, `action`, `next_state`
-- **Valid Next States**: `act`, `synthesize`, `check`, `done`
+- **Required Fields**: `todo_id`, `atomic_step`, `why_now`
+- **Valid next_phase**: `act`, `done`
 - **Confidence Range**: 0.0 to 1.0 (if provided)
-- **Schema**: `ReasonOutput` Pydantic model with `extra="ignore"`
+- **Schema**: `ReasonOutput` Pydantic model with `extra="forbid"`
 
 ## CONSTRAINTS
 
 - Output must be valid JSON only - no markdown code blocks
 - Never include fields outside the schema
-- The thought should be detailed enough to understand the reasoning
-- The action should be specific and actionable
-- The next_state should be consistent with the action
+- atomic_step must NOT mention specific tool names
+- why_now should reference constraints, evidence, or todos
+- next_phase should be consistent with the atomic_step
 
 ---
 
 ## Prompt Template
 
 ```
-You are in the REASON phase of a workflow loop using the ReAct pattern.
+You are in the REASON phase of a workflow loop.
 
-Your task:
-1. Analyze the current context and evidence
-2. Produce a Thought: natural language reasoning about what to do
-3. Produce an Action: specific next step to take
-4. Choose the next state: act, synthesize, check, or done
+Your task is to evaluate the current context and decide the next atomic action.
+This is a context-first reasoning phase that produces a tool-agnostic atomic step.
+
+CRITICAL: Your atomic_step must NOT mention specific tool names.
+- DO say: "Read the authentication module to understand the current implementation"
+- DON'T say: "Use the read tool to fetch src/auth.py"
+- The ACT phase will select the appropriate tool based on your atomic step.
 
 Current workflow context:
 {context_summary}
@@ -91,8 +89,8 @@ Current workflow context:
 {schema}
 
 Respond with ONLY valid JSON matching the schema above.
-Your thought should explain your reasoning process.
-Your action should be specific and actionable.
+Your atomic_step should describe WHAT to do, not HOW (tool selection).
+Your why_now should justify timing based on constraints/evidence/todos.
 ```
 
 ## Example Usage
@@ -110,10 +108,12 @@ prompt = load_prompt("fsm/reason").format(
 
 ```json
 {
-  "thought": "Looking at the current state, I have 3 pending todos. The first todo 'implement auth' is high priority and has no dependencies. I have already gathered evidence about the existing auth module. The next logical step is to implement the JWT validation logic.",
-  "action": "Call write tool to create jwt_validator.py with JWT validation implementation",
-  "next_state": "act",
+  "todo_id": "todo-1",
+  "atomic_step": "Read the authentication module to understand current implementation",
+  "why_now": "Cannot implement JWT without understanding existing auth flow; evidence shows auth module exists at src/auth/",
+  "next_phase": "act",
   "confidence": 0.85,
-  "reasoning_type": "plan"
+  "evidence_used": ["auth module exists at src/auth/", "README mentions session-based auth"],
+  "risks": ["May find deprecated patterns requiring refactoring"]
 }
 ```

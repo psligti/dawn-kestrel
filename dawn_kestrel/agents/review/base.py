@@ -94,7 +94,7 @@ class BaseReviewerAgent(ABC):
 
         for file_path in changed_files:
             for pattern in patterns:
-                if fnmatch.fnmatch(file_path, pattern.replace("**", "*")):
+                if fnmatch(file_path, pattern.replace("**", "*")):
                     return True
         return False
 

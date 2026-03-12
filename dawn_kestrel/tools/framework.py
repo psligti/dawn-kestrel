@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from dawn_kestrel.core.event_bus import Events, bus
@@ -91,6 +94,8 @@ class ToolContext:
     messages: list[dict[str, Any]]
     call_id: str | None = None
     time_created: float | None = None
+    time_finished: float | None = None
+    base_dir: Path | None = None  # Project base directory for file operations
     time_finished: float | None = None
 
     async def update_metadata(self, title: str, metadata: dict[str, Any] | None = None) -> None:

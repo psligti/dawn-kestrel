@@ -4,6 +4,8 @@ This module provides AgentState enum and AgentStateMachine for managing
 agent lifecycle transitions with explicit validation.
 """
 
+from __future__ import annotations
+
 from enum import Enum
 
 from dawn_kestrel.core.result import Err, Ok, Result

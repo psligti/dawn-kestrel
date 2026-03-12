@@ -7,6 +7,8 @@ Measures:
 - Memory entries created during search
 """
 
+from __future__ import annotations
+
 import time
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from dawn_kestrel.benchmarks import BenchmarkRunner
 class MockMemoryEntry:
     """Mock memory entry for benchmarking."""
 
-    def __init__(self, entry_id: str, content: str, metadata: dict = None):
+    def __init__(self, entry_id: str, content: str, metadata: dict | None = None):
         self.entry_id = entry_id
         self.content = content
         self.metadata = metadata or {}

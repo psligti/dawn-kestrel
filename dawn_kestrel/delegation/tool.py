@@ -116,6 +116,8 @@ class DelegateTool(Tool):
 
         # Create config and engine
         config = DelegationConfig(mode=mode, budget=budget)
+        assert self._runtime is not None, "AgentRuntime not initialized"
+        assert self._registry is not None, "AgentRegistry not initialized"
         engine = DelegationEngine(config, self._runtime, self._registry)
 
         # Execute delegation

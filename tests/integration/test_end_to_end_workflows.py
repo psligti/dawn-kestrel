@@ -235,9 +235,10 @@ class TestEndToEndAgentExecution:
         - Duration > 0
         - Response not empty
         """
-        from dawn_kestrel.agents.bolt_merlin import create_autonomous_worker_agent
+        from dawn_kestrel.agents.builtin import BUILD_AGENT
         from dawn_kestrel.sdk.client import OpenCodeAsyncClient
         from dawn_kestrel.tools import get_all_tools
+        from dawn_kestrel.tools.framework import ToolRegistry
 
         # Create client
         client = OpenCodeAsyncClient(config=None, session_service=None)
@@ -253,12 +254,16 @@ class TestEndToEndAgentExecution:
 
         # Execute agent
         tools = await get_all_tools()
-        agent = create_autonomous_worker_agent()
+        tool_registry = ToolRegistry()
+        tool_registry.tools.update(tools)
+        agent = BUILD_AGENT
         agent_result = await client._runtime.execute_agent(
-            agent=agent,
+            agent_name=agent.name,
             user_message="Test message",
             session_id=session_id,
-            tools=tools,
+            session_manager=client._service,
+            tools=tool_registry,
+            skills=[],
         )
 
         # Verify result

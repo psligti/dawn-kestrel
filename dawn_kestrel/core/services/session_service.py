@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 from dawn_kestrel.core.models import Message, Part, Session
 from dawn_kestrel.core.repositories import (
@@ -432,9 +432,10 @@ class DefaultSessionService:
             # Use repository
             result = await self._session_repo.get_by_id(session_id)
             if result.is_err():
-                if result.code == "NOT_FOUND":
+                err_result = cast(Any, result)
+                if err_result.code == "NOT_FOUND":
                     return Ok(None)
-                return result
+                return Err(err_result.error, code=err_result.code)
             return Ok(result.unwrap())
 
     async def get_export_data(self, session_id: str) -> Result[dict[str, Any]]:

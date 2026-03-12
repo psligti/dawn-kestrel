@@ -18,7 +18,7 @@ import logging
 import re
 
 from dawn_kestrel.agents.review.base import ReviewContext
-from dawn_kestrel.agents.review.contracts import MergeDecision, ReviewOutput, Scope, Severity
+from dawn_kestrel.agents.review.contracts import MergeDecision, MergeGate, ReviewOutput, Scope, Severity
 from dawn_kestrel.core.agent_types import AgentResult
 
 logger = logging.getLogger(__name__)
@@ -137,14 +137,14 @@ def agent_result_to_review_output(
         checks=[],
         skips=[],
         findings=[],
-        merge_gate={
-            "decision": MergeDecision.APPROVE,
-            "must_fix": [],
-            "should_fix": [],
-            "notes_for_coding_agent": [
+        merge_gate=MergeGate(
+            decision=MergeDecision.APPROVE,
+            must_fix=[],
+            should_fix=[],
+            notes_for_coding_agent=[
                 f"Review completed by {agent_result.agent_name} "
                 "but no structured findings were returned. "
                 "Manual review recommended."
             ],
-        },
+        ),
     )

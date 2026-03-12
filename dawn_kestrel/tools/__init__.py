@@ -37,7 +37,7 @@ async def get_all_tools() -> dict[str, "Tool"]:
     """
     from dawn_kestrel.core.plugin_discovery import load_tools
 
-    tool_classes = load_tools()
+    tool_classes = await load_tools()
 
     tools = {}
     for tool_id, tool_class in tool_classes.items():

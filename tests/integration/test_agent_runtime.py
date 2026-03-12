@@ -40,7 +40,6 @@ Evidence:
 
 from __future__ import annotations
 
-import asyncio
 import tempfile
 from pathlib import Path
 
@@ -99,23 +98,30 @@ class TestAgentRuntimeLifecycle:
         - AgentResult not returned
         - Duration not recorded
         """
-        from dawn_kestrel.agents.bolt_merlin import create_autonomous_worker_agent
+        from dawn_kestrel.agents.builtin import BUILD_AGENT
+        from dawn_kestrel.tools import create_builtin_registry
 
         runtime = configured_container.agent_runtime()
+        session_manager = configured_container.service()
+        create_result = await session_manager.create_session("agent runtime state transitions")
+        assert create_result.is_ok()
+        session_id = create_result.unwrap().id
 
         # Build a simple agent
-        agent = create_autonomous_worker_agent()
+        agent = BUILD_AGENT
 
         # Execute agent
         result = await runtime.execute_agent(
-            agent=agent,
+            agent_name=agent.name,
             user_message="test message",
-            session_id="test_session",
-            tools={},
+            session_id=session_id,
+            session_manager=session_manager,
+            tools=create_builtin_registry(),
+            skills=[],
         )
 
-        assert isinstance(result, AgentResult), "Result should be AgentResult"
-        assert result.agent_name == "autonomous_worker", "Agent name mismatch"
+        assert result is not None, "Result should not be None"
+        assert result.agent_name == "build", "Agent name mismatch"
         assert result.duration > 0, "Duration should be > 0"
         assert result.response is not None, "Response should not be None"
 
@@ -146,23 +152,32 @@ class TestAgentRuntimeLifecycle:
         - Tool usage in AgentResult.tools_used
         - Tool invocations logged
         """
-        from dawn_kestrel.agents.bolt_merlin import build_autonomous_worker_agent
+        from dawn_kestrel.agents.builtin import BUILD_AGENT
         from dawn_kestrel.tools import get_all_tools
+        from dawn_kestrel.tools.framework import ToolRegistry
 
         runtime = configured_container.agent_runtime()
+        session_manager = configured_container.service()
+        create_result = await session_manager.create_session("agent runtime tools")
+        assert create_result.is_ok()
+        session_id = create_result.unwrap().id
 
         # Get tools
-        tools_dict = asyncio.run(get_all_tools())
+        tools_dict = await get_all_tools()
+        tool_registry = ToolRegistry()
+        tool_registry.tools.update(tools_dict)
 
         # Build agent
-        agent = build_autonomous_worker_agent()
+        agent = BUILD_AGENT
 
         # Execute with tools
         result = await runtime.execute_agent(
-            agent=agent,
+            agent_name=agent.name,
             user_message="test message",
-            session_id="test_session",
-            tools=tools_dict,
+            session_id=session_id,
+            session_manager=session_manager,
+            tools=tool_registry,
+            skills=[],
         )
 
         assert result.response is not None, "Response should not be None"
@@ -224,7 +239,7 @@ class TestAgentRuntimeIntegration:
         runtime = configured_container.agent_runtime()
 
         assert runtime.agent_registry is not None, "agent_registry should not be None"
-        assert runtime._session_lifecycle is not None, "session_lifecycle should not be None"
+        assert runtime.session_lifecycle is not None, "session_lifecycle should not be None"
 
     @pytest.mark.asyncio
     async def test_runtime_creates_agent_result_with_metadata(self, configured_container):
@@ -254,16 +269,23 @@ class TestAgentRuntimeIntegration:
         - metadata not empty
         - duration > 0
         """
-        from dawn_kestrel.agents.bolt_merlin import build_autonomous_worker_agent
+        from dawn_kestrel.agents.builtin import BUILD_AGENT
+        from dawn_kestrel.tools import create_builtin_registry
 
         runtime = configured_container.agent_runtime()
-        agent = build_autonomous_worker_agent()
+        session_manager = configured_container.service()
+        create_result = await session_manager.create_session("agent runtime metadata")
+        assert create_result.is_ok()
+        session_id = create_result.unwrap().id
+        agent = BUILD_AGENT
 
         result = await runtime.execute_agent(
-            agent=agent,
+            agent_name=agent.name,
             user_message="test",
-            session_id="test_session",
-            tools={},
+            session_id=session_id,
+            session_manager=session_manager,
+            tools=create_builtin_registry(),
+            skills=[],
         )
 
         # Verify required fields

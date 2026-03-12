@@ -4,16 +4,52 @@ Session export and import functionality for OpenCode.
 Provides JSON export/import for sessions with all messages and parts.
 """
 
+from __future__ import annotations
+
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from dawn_kestrel.core.models import Part as PartModel
+from dawn_kestrel.core.models import (
+    AgentPart,
+    CompactionPart,
+    FilePart,
+    Part,
+    PatchPart,
+    ReasoningPart,
+    RetryPart,
+    SnapshotPart,
+    SubtaskPart,
+    TextPart,
+    ToolPart,
+)
 from dawn_kestrel.core.session import Session
 
 logger = logging.getLogger(__name__)
+
+
+# Map part_type to the corresponding Part class
+PART_TYPE_MAP: dict[str, type[Part]] = {
+    "text": TextPart,
+    "file": FilePart,
+    "tool": ToolPart,
+    "reasoning": ReasoningPart,
+    "snapshot": SnapshotPart,
+    "patch": PatchPart,
+    "agent": AgentPart,
+    "subtask": SubtaskPart,
+    "retry": RetryPart,
+    "compaction": CompactionPart,
+}
+
+
+def _deserialize_part(part_dict: dict[str, Any]) -> Part:
+    """Deserialize a part dict to the appropriate Part subclass."""
+    part_type = part_dict.get("part_type", "text")
+    part_class = PART_TYPE_MAP.get(part_type, TextPart)
+    return part_class(**part_dict)
 
 
 class SessionImportExport:
@@ -56,7 +92,7 @@ class SessionImportExport:
             "session": session_data,
             "messages": messages_data,
             "parts": parts_data,
-            "exported_at": datetime.now(UTC).isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
             "version": "0.1.0"
         }
 
@@ -99,12 +135,12 @@ class SessionImportExport:
             await self.session.manager.add_message(message_obj)
 
             for part_dict in message_dict.get("parts", []):
-                part_obj = PartModel(**part_dict)
+                part_obj = _deserialize_part(part_dict)
                 part_obj.message_id = message_obj.id
                 await self.session.manager.add_part(part_obj)
 
         for part_dict in parts_data:
-            part_obj = PartModel(**part_dict)
+            part_obj = _deserialize_part(part_dict)
             if "message_id" in part_dict:
                 part_obj.message_id = part_dict["message_id"]
             await self.session.manager.add_part(part_obj)

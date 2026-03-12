@@ -252,7 +252,7 @@ def metrics_decorator(
     config_tags = tags
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        name = metric_name or func.__name__
+        name = metric_name or getattr(func, '__name__', str(func))
 
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -299,7 +299,7 @@ class MethodMetricsProxy:
         """
         self._func = func
         self._collector = collector
-        self._metric_name = metric_name or func.__name__
+        self._metric_name = metric_name or getattr(func, '__name__', str(func))
 
     async def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """Call wrapped function with metrics.
@@ -316,7 +316,7 @@ class MethodMetricsProxy:
         # Record call count
         await self._collector.increment_counter(
             f"{self._metric_name}_calls",
-            tags={"method": self._func.__name__},
+            tags={"method": getattr(self._func, '__name__', str(self._func))},
         )
 
         # Call function

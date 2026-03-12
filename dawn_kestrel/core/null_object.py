@@ -4,6 +4,8 @@ This module provides null implementations for I/O, progress, and notification
 handlers that eliminate null checks in client code.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 from dawn_kestrel.interfaces.io import (

@@ -7,12 +7,15 @@ task status tracking, and hierarchical sub-task management.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any
+from typing import Any, cast
 
+from dawn_kestrel.agents.execution_queue import (
+    AgentExecutionJob,
+    InMemoryAgentExecutionQueue,
+)
 from dawn_kestrel.agents.runtime import AgentRuntime
 from dawn_kestrel.core.agent_task import AgentTask, TaskStatus, create_agent_task
 from dawn_kestrel.core.agent_types import (
@@ -70,6 +73,8 @@ class AgentOrchestrator:
     def __init__(
         self,
         agent_runtime: AgentRuntime,
+        max_parallel_workers: int = 4,
+        parallel_queue_timeout_seconds: float = 300.0,
     ) -> None:
         """
         Initialize AgentOrchestrator.
@@ -78,6 +83,10 @@ class AgentOrchestrator:
             agent_runtime: AgentRuntime instance for task execution
         """
         self.agent_runtime = agent_runtime
+        self._parallel_executor = InMemoryAgentExecutionQueue(
+            max_workers=max_parallel_workers,
+            timeout_seconds=parallel_queue_timeout_seconds,
+        )
 
         self._tasks: dict[str, AgentTask] = {}
         self._results: dict[str, TaskResult] = {}
@@ -311,26 +320,25 @@ class AgentOrchestrator:
             )
 
         task_ids = []
+        jobs = [AgentExecutionJob(index=i, task_id=tasks[i].task_id) for i in range(len(tasks))]
 
-        coroutines = [
-            self.delegate_task(
-                task=tasks[i],
+        async def _execute(job: AgentExecutionJob) -> str:
+            idx = job.index
+            resolved_tools = tools_list[idx] if isinstance(tools_list, list) else tools_list
+            return await self.delegate_task(
+                task=tasks[idx],
                 session_id=session_id,
-                user_message=user_messages[i],
+                user_message=user_messages[idx],
                 session_manager=session_manager,
-                tools=tools_list[i] if isinstance(tools_list, list) else tools_list,
+                tools=cast(ToolRegistry, resolved_tools),
                 session=session,
             )
-            for i in range(len(tasks))
-        ]
 
-        results = await asyncio.gather(*coroutines, return_exceptions=True)
+        batch_result = await self._parallel_executor.run_jobs(jobs=jobs, execute=_execute)
+        task_ids.extend(batch_result.completed_task_ids)
 
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                logger.error(f"Parallel task {tasks[i].task_id} failed: {result}")
-            else:
-                task_ids.append(result)
+        for index, error in batch_result.errors_by_index.items():
+            logger.error(f"Parallel task {tasks[index].task_id} failed: {error}")
 
         return task_ids
 
@@ -482,7 +490,11 @@ class AgentOrchestrator:
         return cleared_count
 
 
-def create_agent_orchestrator(agent_runtime: AgentRuntime) -> AgentOrchestrator:
+def create_agent_orchestrator(
+    agent_runtime: AgentRuntime,
+    max_parallel_workers: int = 4,
+    parallel_queue_timeout_seconds: float = 300.0,
+) -> AgentOrchestrator:
     """
     Factory function to create AgentOrchestrator.
 
@@ -492,4 +504,8 @@ def create_agent_orchestrator(agent_runtime: AgentRuntime) -> AgentOrchestrator:
     Returns:
         New AgentOrchestrator instance
     """
-    return AgentOrchestrator(agent_runtime=agent_runtime)
+    return AgentOrchestrator(
+        agent_runtime=agent_runtime,
+        max_parallel_workers=max_parallel_workers,
+        parallel_queue_timeout_seconds=parallel_queue_timeout_seconds,
+    )

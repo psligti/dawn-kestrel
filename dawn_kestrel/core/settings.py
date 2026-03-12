@@ -77,6 +77,9 @@ class Settings(pydantic_settings.BaseSettings):
     # File watching
     file_watch_enabled: bool = Field(default=False, alias="FILE_WATCH_ENABLED")
 
+    # Rate limiting / Provider Bus settings
+    redis_url: str | None = None
+    rate_limit_backend: str = "local"  # "local" or "redis"
     # Session settings
     session_compaction_tokens: int = Field(default=20000, alias="SESSION_COMPACTION_TOKENS")
     session_compaction_protected_tokens: int = Field(

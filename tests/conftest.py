@@ -1,22 +1,13 @@
-"""Pytest configuration for TUI tests"""
+from typing import Any
 
 import pytest
 
-try:
-    from dawn_kestrel.tui.app import OpenCodeTUI
 
-    has_textual = True
-except ImportError:
-    has_textual = False
-    OpenCodeTUI = None
+def pytest_ignore_collect(collection_path: Any, config: Any) -> bool:
+    path_str = str(collection_path)
+    return "/tests/review/" in path_str
 
 
 @pytest.fixture
 def app():
-    """
-    Fixture to provide a Textual app instance for testing.
-    The test should handle running the app in a testing context.
-    """
-    if not has_textual:
-        pytest.skip("textual module not available")
-    return OpenCodeTUI()
+    pytest.skip("TUI support has been removed from dawn-kestrel")

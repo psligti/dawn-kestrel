@@ -99,7 +99,7 @@ async def _transition_to_async(self, next_state: str) -> Result[str]:
 ```
 
 **Integration Points:**
-- **StructuredContext** (`dawn_kestrel/workflow/models.py`) - Central data container
+- **FSMContext** (`dawn_kestrel/core/fsm.py`) - Transition/runtime context container
 - **STATE_HANDLERS** - Module-level dict mapping states to handler functions
 - **Result** (`dawn_kestrel/core/result.py`) - Error handling pattern
 
@@ -351,7 +351,7 @@ result = await runner.run(
 
 ### 6. Data Models
 
-**Location:** `dawn_kestrel/workflow/models.py`
+**Location:** `dawn_kestrel/core/fsm.py` and `dawn_kestrel/workflow/loggers.py`
 
 **Core Models:**
 

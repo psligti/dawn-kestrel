@@ -59,7 +59,7 @@ The LLM must return valid JSON matching the `PlanOutput` schema:
 - **Valid Operations**: `create`, `modify`, `prioritize`, `skip`
 - **Valid Priorities**: `high`, `medium`, `low`
 - **Valid Statuses**: `pending`, `in_progress`, `completed`, `skipped`, `blocked`
-- **Schema**: `PlanOutput` Pydantic model with `extra="ignore"`
+- **Schema**: `PlanOutput` Pydantic model with `extra="forbid"`
 
 ## CONSTRAINTS
 

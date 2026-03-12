@@ -5,6 +5,8 @@ BFS (breadth-first), DFS (depth-first), or adaptive traversal strategies.
 Includes boundary enforcement, convergence detection, and callback support.
 """
 
+from __future__ import annotations
+
 import asyncio
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -28,6 +30,7 @@ from .types import (
 if TYPE_CHECKING:
     from dawn_kestrel.agents.registry import AgentRegistry
     from dawn_kestrel.agents.runtime import AgentRuntime
+    from dawn_kestrel.policy.delegation import DelegationPolicy
 
 
 class DelegationEngine:
@@ -50,6 +53,7 @@ class DelegationEngine:
         config: DelegationConfig,
         agent_runtime: "AgentRuntime",
         agent_registry: "AgentRegistry",
+        policy: "DelegationPolicy | None" = None,
     ):
         """Initialize the delegation engine.
 
@@ -61,10 +65,15 @@ class DelegationEngine:
         self.config = config
         self.runtime = agent_runtime
         self.registry = agent_registry
+        self.policy = policy
         self._context: DelegationContext | None = None
         self._convergence = ConvergenceTracker(config.evidence_keys)
         self._lock = asyncio.Lock()
 
+    def _get_context(self) -> DelegationContext:
+        """Get the current delegation context, asserting it is initialized."""
+        assert self._context is not None, "Context not initialized - call delegate() first"
+        return self._context
     async def delegate(
         self,
         agent_name: str,
@@ -137,9 +146,9 @@ class DelegationEngine:
         )
 
         if isinstance(root_result, Exception):
-            self._context.errors.append(root_result)
+            self._get_context().errors.append(root_result)
         else:
-            self._context.results.append(root_result)
+            self._get_context().results.append(root_result)
             if self.config.check_convergence:
                 self._convergence.check_novelty([root_result])
 
@@ -153,12 +162,12 @@ class DelegationEngine:
         if len(children) > self.config.budget.max_breadth:
             children = children[: self.config.budget.max_breadth]
 
-        if self._context.current_depth + 1 >= self.config.budget.max_depth:
+        if self._get_context().current_depth + 1 >= self.config.budget.max_depth:
             return
 
-        self._context.current_depth += 1
+        self._get_context().current_depth += 1
 
-        agents_remaining = self.config.budget.max_total_agents - self._context.total_agents_spawned
+        agents_remaining = self.config.budget.max_total_agents - self._get_context().total_agents_spawned
         if agents_remaining <= 0:
             return
         children = children[:agents_remaining]
@@ -233,9 +242,9 @@ class DelegationEngine:
         # Collect results
         for task_id, result in results_map.items():
             if isinstance(result, Exception):
-                self._context.errors.append(result)
+                self._get_context().errors.append(result)
             else:
-                self._context.results.append(result)
+                self._get_context().results.append(result)
                 if self.config.check_convergence:
                     self._convergence.check_novelty([result])
 
@@ -268,9 +277,9 @@ class DelegationEngine:
         )
 
         if isinstance(root_result, Exception):
-            self._context.errors.append(root_result)
+            self._get_context().errors.append(root_result)
         else:
-            self._context.results.append(root_result)
+            self._get_context().results.append(root_result)
             # Check novelty for this result
             if self.config.check_convergence:
                 self._convergence.check_novelty([root_result])
@@ -284,17 +293,17 @@ class DelegationEngine:
             return
 
         # Check depth limit BEFORE incrementing - can we go deeper?
-        if self._context.current_depth + 1 >= self.config.budget.max_depth:
+        if self._get_context().current_depth + 1 >= self.config.budget.max_depth:
             return
 
         # Increment depth for children
-        self._context.current_depth += 1
+        self._get_context().current_depth += 1
 
         try:
             # Execute children sequentially
             for child in children:
                 # Check if we've hit the agent limit
-                if self._context.total_agents_spawned >= self.config.budget.max_total_agents:
+                if self._get_context().total_agents_spawned >= self.config.budget.max_total_agents:
                     break
 
                 # Check boundaries before each child
@@ -312,9 +321,9 @@ class DelegationEngine:
                     )
 
                     if isinstance(result, Exception):
-                        self._context.errors.append(result)
+                        self._get_context().errors.append(result)
                     else:
-                        self._context.results.append(result)
+                        self._get_context().results.append(result)
                         # Check novelty for this result
                         if self.config.check_convergence:
                             self._convergence.check_novelty([result])
@@ -336,10 +345,10 @@ class DelegationEngine:
                             return  # Early termination on convergence
 
                 except Exception as e:
-                    self._context.errors.append(e)
+                    self._get_context().errors.append(e)
         finally:
             # Decrement depth when returning
-            self._context.current_depth -= 1
+            self._get_context().current_depth -= 1
 
     async def _execute_adaptive(
         self,
@@ -364,7 +373,7 @@ class DelegationEngine:
             tools: Tool registry.
             children: List of child delegations.
         """
-        if self._context.current_depth < 2:
+        if self._get_context().current_depth < 2:
             await self._execute_bfs(
                 agent_name, prompt, session_id, session_manager, tools, children
             )
@@ -393,13 +402,13 @@ class DelegationEngine:
         Returns:
             The agent execution result or exception.
         """
-        self._context.total_agents_spawned += 1
-        self._context.active_agents += 1
+        self._get_context().total_agents_spawned += 1
+        self._get_context().active_agents += 1
 
-        agent_id = f"{agent_name}_{self._context.total_agents_spawned}_{uuid.uuid4().hex[:8]}"
+        agent_id = f"{agent_name}_{self._get_context().total_agents_spawned}_{uuid.uuid4().hex[:8]}"
 
         if self.config.on_agent_spawn:
-            await self.config.on_agent_spawn(agent_id, self._context.current_depth)
+            await self.config.on_agent_spawn(agent_id, self._get_context().current_depth)
 
         try:
             result = await self.runtime.execute_agent(
@@ -420,8 +429,8 @@ class DelegationEngine:
             # Record exception and return it
             return e
         finally:
-            self._context.active_agents -= 1
-            self._context.completed_agents += 1
+            self._get_context().active_agents -= 1
+            self._get_context().completed_agents += 1
 
     def _check_boundaries(self) -> DelegationStopReason | None:
         """Check if any boundary has been exceeded.
@@ -431,16 +440,16 @@ class DelegationEngine:
         """
         budget = self.config.budget
 
-        if self._context.iteration_count >= budget.max_iterations:
+        if self._get_context().iteration_count >= budget.max_iterations:
             return DelegationStopReason.BUDGET_EXHAUSTED
 
-        if self._context.elapsed_seconds() >= budget.max_wall_time_seconds:
+        if self._get_context().elapsed_seconds() >= budget.max_wall_time_seconds:
             return DelegationStopReason.TIMEOUT
 
-        if self._context.current_depth >= budget.max_depth:
+        if self._get_context().current_depth >= budget.max_depth:
             return DelegationStopReason.DEPTH_LIMIT
 
-        if self._context.total_agents_spawned >= budget.max_total_agents:
+        if self._get_context().total_agents_spawned >= budget.max_total_agents:
             return DelegationStopReason.BREADTH_LIMIT
 
         if self._convergence.is_converged(budget.stagnation_threshold):
@@ -458,17 +467,116 @@ class DelegationEngine:
             DelegationResult with execution summary.
         """
         return DelegationResult(
-            success=len(self._context.errors) == 0,
+            success=len(self._get_context().errors) == 0,
             stop_reason=stop_reason,
-            results=self._context.results,
-            errors=self._context.errors,
-            total_agents=self._context.total_agents_spawned,
-            max_depth_reached=self._context.current_depth,
-            elapsed_seconds=self._context.elapsed_seconds(),
-            iterations=self._context.iteration_count,
+            results=self._get_context().results,
+            errors=self._get_context().errors,
+            total_agents=self._get_context().total_agents_spawned,
+            max_depth_reached=self._get_context().current_depth,
+            elapsed_seconds=self._get_context().elapsed_seconds(),
+            iterations=self._get_context().iteration_count,
             converged=self._convergence.is_converged(self.config.budget.stagnation_threshold),
             stagnation_detected=self._convergence.stagnation_count > 0,
             final_novelty_signature=self._convergence.signatures[-1]
             if self._convergence.signatures
             else None,
         )
+
+    async def delegate_with_policy(
+        self,
+        agent_name: str,
+        prompt: str,
+        session_id: str,
+        session_manager: Any,
+        tools: Any | None = None,
+        policy: "DelegationPolicy | None" = None,
+    ) -> Result[DelegationResult]:
+        """Execute delegation using policy-driven decisions.
+
+        This method uses a DelegationPolicy to decide:
+        - When to create subtasks
+        - Which agents to delegate to
+        - When to stop delegating
+
+        Args:
+            agent_name: Name of the root agent.
+            prompt: Initial prompt for the agent.
+            session_id: Session ID for execution.
+            session_manager: Session manager for message handling.
+            tools: Tool registry for the agent.
+            policy: Optional policy override (uses self.policy if None).
+
+        Returns:
+            Result containing DelegationResult or error.
+        """
+        from dawn_kestrel.policy.delegation import (
+            DelegationContext as PolicyContext,
+            DelegationDecision,
+            DelegationOutput,
+        )
+
+        active_policy = policy or self.policy
+        if active_policy is None:
+            return Err(
+                error="No policy configured - pass policy to constructor or delegate_with_policy()",
+                code="POLICY_REQUIRED",
+            )
+
+        async with self._lock:
+            self._context = DelegationContext(root_task_id=str(uuid.uuid4()))
+
+        policy_ctx = PolicyContext(
+            current_agent=agent_name,
+            current_depth=0,
+            max_depth=self.config.budget.max_depth,
+            max_iterations=self.config.budget.max_iterations,
+            max_cost_usd=1.0,
+            max_seconds=self.config.budget.max_wall_time_seconds,
+            stagnation_threshold=self.config.budget.stagnation_threshold,
+        )
+
+        try:
+            iteration = 0
+            while True:
+                output: DelegationOutput = active_policy.evaluate(policy_ctx)
+
+                if output.decision == DelegationDecision.DONE:
+                    break
+
+                elif output.decision == DelegationDecision.CONTINUE:
+                    result = await self._execute_agent(
+                        agent_name, prompt, session_id, session_manager, tools
+                    )
+                    if isinstance(result, Exception):
+                        self._get_context().errors.append(result)
+                    else:
+                        self._get_context().results.append(result)
+
+                elif output.decision == DelegationDecision.DELEGATE:
+                    for subtask in output.subtasks:
+                        if policy_ctx.current_depth >= policy_ctx.max_depth:
+                            break
+                        child_result = await self._execute_agent(
+                            subtask.agent, subtask.prompt, session_id, session_manager, tools
+                        )
+                        if isinstance(child_result, Exception):
+                            self._get_context().errors.append(child_result)
+                        else:
+                            self._get_context().results.append(child_result)
+                            policy_ctx.accumulated_results.append(child_result)
+
+                    policy_ctx.current_depth += 1
+
+                elif output.decision == DelegationDecision.SYNTHESIZE:
+                    pass
+
+                policy_ctx.iteration_count = iteration
+                iteration += 1
+
+                if iteration >= self.config.budget.max_iterations:
+                    break
+
+        except Exception as e:
+            return Err(error=str(e), code="DELEGATION_ERROR")
+
+        return Ok(self._build_result(DelegationStopReason.COMPLETED))

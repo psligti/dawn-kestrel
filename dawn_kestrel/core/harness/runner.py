@@ -21,6 +21,10 @@ from dawn_kestrel.context.builder import ContextBuilder
 from dawn_kestrel.core.agent_types import AgentContext
 from dawn_kestrel.core.settings import settings
 from dawn_kestrel.llm.client import LLMClient, LLMRequestOptions
+from dawn_kestrel.llm.evidence_sharing import (
+    EvidenceSharingStrategy,
+    HashMapEvidenceSharingStrategy,
+)
 from dawn_kestrel.tools.framework import ToolRegistry
 
 T = TypeVar("T")
@@ -385,6 +389,7 @@ class SimpleReviewAgentRunner:
         top_p: float = 0.9,
         max_retries: int = 2,
         timeout_seconds: float = 120.0,
+        evidence_sharing_strategy: EvidenceSharingStrategy | None = None,
     ):
         """Initialize simple review agent runner.
 
@@ -403,6 +408,7 @@ class SimpleReviewAgentRunner:
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
         self._llm_client: LLMClient | None = None
+        self._evidence_sharing_strategy = evidence_sharing_strategy
 
     def _build_system_prompt(self, system_prompt: str) -> str:
         """Inject per-agent tool policy into the system prompt."""
@@ -436,6 +442,7 @@ class SimpleReviewAgentRunner:
                 api_key=api_key,
                 max_retries=self.max_retries,
                 timeout_seconds=self.timeout_seconds,
+                evidence_sharing_strategy=self._evidence_sharing_strategy,
             )
             logger.info(
                 f"[{self.agent_name}] LLM client initialized: provider={provider_id}, model={model}"
@@ -533,3 +540,7 @@ class SimpleReviewAgentRunner:
                     raise Exception(f"LLM API error: {str(e)}") from e
 
         raise cast(Exception, last_error)
+
+    def enable_hashmap_evidence_sharing(self, max_entries: int = 1000) -> None:
+        self._evidence_sharing_strategy = HashMapEvidenceSharingStrategy(max_entries=max_entries)
+        self._llm_client = None

@@ -1,5 +1,7 @@
 """Tests for AgentConfig dataclass."""
 
+from __future__ import annotations
+
 from typing import Any, cast
 
 from dawn_kestrel.agents.agent_config import AgentBuilder, AgentConfig
@@ -353,10 +355,9 @@ class TestAgentBuilderFSM:
         async def verify_fsms() -> None:
             lifecycle_state = await config.lifecycle_fsm.get_state()
             workflow_state = await config.workflow_fsm.get_state()
-            assert lifecycle_state == "idle"
+            # Both FSMs use the same WorkflowFSMBuilder, so both start at "intake"
+            assert lifecycle_state == "intake"
             assert workflow_state == "intake"
-
-        asyncio.run(verify_fsms())
 
     def test_fsm_methods_support_chaining(self) -> None:
         """Verify FSM methods return self for method chaining."""

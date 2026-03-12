@@ -38,6 +38,7 @@ class ContextBuilder:
             base_dir: Base directory for skill discovery
             skill_max_char_budget: Optional maximum characters for injected skills
         """
+        self.base_dir = base_dir
         self.skill_injector = SkillInjector(
             base_dir=base_dir,
             max_char_budget=skill_max_char_budget,

@@ -5,6 +5,8 @@ Provides robust HTTP communication with exponential backoff
 and comprehensive error handling for AI provider requests.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any
@@ -12,20 +14,37 @@ from typing import Any
 import httpx
 
 logger = logging.getLogger(__name__)
+from dawn_kestrel.core.exceptions import ProviderRateLimitError
 
 
-class HTTPClientError(Exception):
-    """Custom HTTP client error with retry info"""
+
+class HTTPClientError(ProviderRateLimitError):
+    """Custom HTTP client error with retry info.
+    
+    Inherits from ProviderRateLimitError to provide consistent
+    rate limit error handling with retry_after support.
+    """
     def __init__(
         self,
         message: str,
         status_code: int | None = None,
-        retry_count: int = 0
+        retry_count: int = 0,
+        retry_after: float | None = None,
+        provider: str | None = None,
     ):
-        self.message = message
+        # Determine error_code based on status_code
+        error_code = str(status_code) if status_code is not None else None
+        
+        # Call parent with rate limit specific fields
+        super().__init__(
+            message,
+            provider=provider or "http_client",
+            retry_after=retry_after,
+            error_code=error_code,
+        )
         self.status_code = status_code
         self.retry_count = retry_count
-        super().__init__(message)
+
 
 
 class HTTPClientWrapper:
@@ -253,11 +272,17 @@ class HTTPClientWrapper:
                 status_code=status_code
             )
         elif status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 60))
+            retry_after_str = response.headers.get("Retry-After", "60")
+            try:
+                retry_after = float(retry_after_str)
+            except ValueError:
+                retry_after = 60.0
             raise HTTPClientError(
                 f"Rate limit exceeded. Retry after {retry_after}s",
-                status_code=status_code
+                status_code=status_code,
+                retry_after=retry_after,
             )
+
         elif status_code >= 500:
             raise HTTPClientError(
                 f"Server error: {status_code}",

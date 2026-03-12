@@ -330,21 +330,8 @@ def import_session(import_path: str, project_id: str | None) -> None:
 
 @click.command()
 def tui() -> None:
-    """Launch Textual TUI interface"""
-    import warnings
-
-    warnings.warn(
-        "CLI → TUI launch is deprecated. "
-        "Use 'python -m dawn_kestrel.tui.app' directly instead. "
-        "This feature will be removed in version 0.2.0.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    from dawn_kestrel.tui.app import OpenCodeTUI
-
-    app = OpenCodeTUI()
-    app.run()
+    """TUI command is unavailable."""
+    raise click.ClickException("TUI support has been removed from this build.")
 
 
 cast(Any, cli).add_command(list_sessions)

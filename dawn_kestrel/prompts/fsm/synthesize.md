@@ -68,7 +68,7 @@ The LLM must return valid JSON matching the `SynthesizeOutput` schema:
 - **Valid Categories**: `security`, `performance`, `correctness`, `style`, `architecture`, `documentation`, `other`
 - **Valid Severities**: `critical`, `high`, `medium`, `low`, `info`
 - **Confidence Range**: 0.0 to 1.0
-- **Schema**: `SynthesizeOutput` Pydantic model with `extra="ignore"`
+- **Schema**: `SynthesizeOutput` Pydantic model with `extra="forbid"`
 
 ## CONSTRAINTS
 

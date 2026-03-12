@@ -5,8 +5,11 @@ Handles tool calls from AI providers, coordinates execution,
 manages permissions, and updates tool state.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any, Protocol
 
 from dawn_kestrel.agents.tool_execution_tracker import ToolExecutionTracker
@@ -34,12 +37,14 @@ class ToolExecutionManager:
         tool_registry: ToolRegistry | None = None,
         session_lifecycle: SessionLifecycleProtocol | None = None,
         tracker: ToolExecutionTracker | None = None,
+        base_dir: Path | None = None,
     ) -> None:
         self.session_id = session_id
         self.active_calls: dict[str, ToolContext] = {}
         self.tool_registry = tool_registry if tool_registry is not None else ToolRegistry()
         self._lifecycle = session_lifecycle
         self.tracker = tracker
+        self.base_dir = base_dir
 
     async def execute_tool_call(
         self,
@@ -71,6 +76,7 @@ class ToolExecutionManager:
             call_id=tool_call_id,
             abort=asyncio.Event(),
             messages=[],
+            base_dir=self.base_dir,
         )
 
         state = ToolState(status="pending", input=tool_input, time_start=None)

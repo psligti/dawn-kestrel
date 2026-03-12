@@ -8,6 +8,8 @@ Tests the Observer pattern including:
 - Integration with EventMediator
 """
 
+from __future__ import annotations
+
 import pytest
 
 from dawn_kestrel.core.mediator import Event, EventType

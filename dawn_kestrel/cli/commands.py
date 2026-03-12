@@ -89,7 +89,7 @@ async def connect_command() -> None:
             "github-copilot": ProviderID.GITHUB_COPILOT,
         }
 
-        provider_id = provider_map.get(provider_choice)
+        provider_id = provider_map[provider_choice]
         console.print(f"  [cyan]Provider: {provider_choice}[/cyan]")
         console.print()
 
@@ -183,16 +183,25 @@ async def connect_command() -> None:
             console.print(f"  [cyan]Model: {model}[/cyan]")
             console.print()
 
-    config_data = load_config(config_path) if config_path.exists() else {}
+    if provider_id is None:
+        console.print("[red]Error: No provider selected[/red]")
+        sys.exit(1)
+
+    if api_key is None:
+        console.print("[red]Error: No API key provided[/red]")
+        sys.exit(1)
+
+    from pydantic import SecretStr
 
     account_config = AccountConfig(
         account_name=account_name,
         provider_id=provider_id,
-        api_key=api_key,
-        model=model,
+        api_key=SecretStr(api_key),
+        model=model or "",
         is_default=True,
     )
 
+    config_data = load_config(config_path) if config_path.exists() else {}
     config_data = update_config_with_account(config_data, account_config, account_name)
 
     saved_path = save_config(config_data, config_path)

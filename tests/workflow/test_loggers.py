@@ -1,62 +1,104 @@
 """Unit tests for workflow loggers."""
 
 import json
+from datetime import datetime
+import pytest
 
 from dawn_kestrel.workflow.loggers import ConsoleLogger, JsonLogger
-from dawn_kestrel.workflow.models import (
-    ActionType,
-    ReactStep,
-    RunLog,
-    ThinkingFrame,
-    ThinkingStep,
-)
+
+
+def make_step(kind: str = "reason", why: str = "Test reason") -> dict[str, object]:
+    return {
+        "kind": kind,
+        "why": why,
+        "evidence": [],
+        "next": "",
+        "confidence": "medium",
+        "action_result": None,
+    }
+
+
+def make_cycle() -> dict[str, object]:
+    return {
+        "reasoning": "Test",
+        "action": "Test",
+        "observation": "Test",
+        "tools_used": [],
+        "evidence": [],
+    }
+
+
+def make_frame(state: str = "test_state") -> dict[str, object]:
+    return {
+        "state": state,
+        "ts": datetime.now(),
+        "goals": [],
+        "checks": [],
+        "risks": [],
+        "steps": [],
+        "decision": "",
+        "decision_type": "transition",
+        "react_cycles": [],
+    }
+
+
+def make_log() -> dict[str, object]:
+    return {
+        "frames": [],
+        "start_time": datetime.now(),
+        "end_time": datetime.now(),
+    }
 
 
 class TestConsoleLogger:
     """Tests for ConsoleLogger."""
 
-    def test_log_frame_with_state(self, capsys):
+    def test_log_frame_with_state(self, capsys: pytest.CaptureFixture[str]):
         """Test logging a frame shows state name."""
-        frame = ThinkingFrame(state="test_state")
+        frame = make_frame("test_state")
         ConsoleLogger.log_frame(frame)
 
-        captured = capsys.readouterr().out
+        captured: str = capsys.readouterr().out
         assert "TEST_STATE" in captured
 
-    def test_log_frame_with_goals(self, capsys):
+    def test_log_frame_with_goals(self, capsys: pytest.CaptureFixture[str]):
         """Test logging a frame shows goals."""
-        frame = ThinkingFrame(state="test_state", goals=["Goal 1", "Goal 2"])
+        frame = make_frame("test_state")
+        frame["goals"] = ["Goal 1", "Goal 2"]
         ConsoleLogger.log_frame(frame)
 
-        captured = capsys.readouterr().out
+        captured: str = capsys.readouterr().out
         assert "Goal 1" in captured
         assert "Goal 2" in captured
 
-    def test_log_frame_with_steps(self, capsys):
+    def test_log_frame_with_steps(self, capsys: pytest.CaptureFixture[str]):
         """Test logging a frame shows steps."""
-        step = ThinkingStep(kind=ActionType.REASON, why="Test reason")
-        frame = ThinkingFrame(state="test_state", steps=[step])
+        step = make_step()
+        frame = make_frame("test_state")
+        frame["steps"] = [step]
         ConsoleLogger.log_frame(frame)
 
-        captured = capsys.readouterr().out
+        captured: str = capsys.readouterr().out
         assert "Test reason" in captured
 
-    def test_log_frame_with_react_cycles(self, capsys):
+    def test_log_frame_with_react_cycles(self, capsys: pytest.CaptureFixture[str]):
         """Test logging a frame shows REACT cycles."""
-        cycle = ReactStep(reasoning="Test", action="Test", observation="Test")
-        frame = ThinkingFrame(state="test_state", react_cycles=[cycle])
+        cycle = make_cycle()
+        frame = make_frame("test_state")
+        frame["react_cycles"] = [cycle]
         ConsoleLogger.log_frame(frame)
 
-        captured = capsys.readouterr().out
+        captured: str = capsys.readouterr().out
         # Just check for basic elements in the output
         assert "Test" in captured
 
-    def test_log_frame_with_decision(self, capsys):
+    def test_log_frame_with_decision(self, capsys: pytest.CaptureFixture[str]):
         """Test logging a frame shows decision."""
-        frame = ThinkingFrame(state="test_state", decision="Test decision")
+        frame = make_frame("test_state")
+        frame["decision"] = "Test decision"
         ConsoleLogger.log_frame(frame)
 
-        captured = capsys.readouterr().out
+        captured: str = capsys.readouterr().out
         assert "Test decision" in captured
 
 
@@ -65,18 +107,16 @@ class TestJsonLogger:
 
     def test_log_returns_json_string(self):
         """Test that log returns JSON string."""
-        log = RunLog()
-        frame = ThinkingFrame(state="test")
-        log.add(frame)
+        log = make_log()
+        log["frames"] = [make_frame("test")]
 
         json_str = JsonLogger.log(log)
         assert isinstance(json_str, str)
 
     def test_log_returns_valid_json(self):
         """Test that log returns valid JSON."""
-        log = RunLog()
-        frame = ThinkingFrame(state="test")
-        log.add(frame)
+        log = make_log()
+        log["frames"] = [make_frame("test")]
 
         json_str = JsonLogger.log(log)
         parsed = json.loads(json_str)
@@ -87,9 +127,8 @@ class TestJsonLogger:
 
     def test_log_with_indent(self):
         """Test that log respects indent parameter."""
-        log = RunLog()
-        frame = ThinkingFrame(state="test")
-        log.add(frame)
+        log = make_log()
+        log["frames"] = [make_frame("test")]
 
         json_str_no_indent = JsonLogger.log(log, indent=0)
         json_str_indent = JsonLogger.log(log, indent=2)
@@ -99,14 +138,14 @@ class TestJsonLogger:
 
     def test_log_frame_returns_json_string(self):
         """Test that log_frame returns JSON string."""
-        frame = ThinkingFrame(state="test_state")
+        frame = make_frame("test_state")
 
         json_str = JsonLogger.log_frame(frame)
         assert isinstance(json_str, str)
 
     def test_log_frame_returns_valid_json(self):
         """Test that log_frame returns valid JSON."""
-        frame = ThinkingFrame(state="test_state")
+        frame = make_frame("test_state")
 
         json_str = JsonLogger.log_frame(frame)
         parsed = json.loads(json_str)
@@ -116,14 +155,14 @@ class TestJsonLogger:
 
     def test_log_react_cycle_returns_json_string(self):
         """Test that log_react_cycle returns JSON string."""
-        cycle = ReactStep(reasoning="Test", action="Test", observation="Test")
+        cycle = make_cycle()
 
         json_str = JsonLogger.log_react_cycle(cycle)
         assert isinstance(json_str, str)
 
     def test_log_react_cycle_returns_valid_json(self):
         """Test that log_react_cycle returns valid JSON."""
-        cycle = ReactStep(reasoning="Test", action="Test", observation="Test")
+        cycle = make_cycle()
 
         json_str = JsonLogger.log_react_cycle(cycle)
         parsed = json.loads(json_str)

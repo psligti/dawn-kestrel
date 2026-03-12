@@ -5,6 +5,8 @@ delegation tree structure, ensuring the engine never violates its
 constraints regardless of input complexity.
 """
 
+from __future__ import annotations
+
 import asyncio
 from dataclasses import dataclass, field
 from typing import Any

@@ -254,6 +254,12 @@ def create_rate_limit_tracker(
         RateLimitTracker instance.
     """
     if backend == "redis":
+        if not redis_url:
+            logger.warning(
+                "Redis backend requested but redis_url not provided. "
+                "Falling back to local tracker."
+            )
+            return LocalRateLimitTracker(**kwargs)
         try:
             from dawn_kestrel.llm.distributed_limiter import RedisRateLimitTracker
 

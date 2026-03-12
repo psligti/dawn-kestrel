@@ -22,12 +22,22 @@ from .client import (
     with_retry,
     with_timeout,
 )
+from .evidence_sharing import (
+    EvidenceSharingStrategy,
+    HashMapEvidenceSharingStrategy,
+    LLMRequestFingerprint,
+    NoOpEvidenceSharingStrategy,
+)
 from .provider_limits import (
     LocalRateLimitTracker,
     ProviderRateLimit,
     RateLimitTracker,
     create_rate_limit_tracker,
     get_provider_limit,
+)
+from .provider_bus import (
+    ProviderBus,
+    provider_bus,
 )
 from .rate_limiter import (
     RateLimiter,
@@ -68,9 +78,15 @@ __all__ = [
     "LLMReliabilityImpl",
     "Bulkhead",
     "BulkheadImpl",
+    "EvidenceSharingStrategy",
+    "NoOpEvidenceSharingStrategy",
+    "HashMapEvidenceSharingStrategy",
+    "LLMRequestFingerprint",
     "ProviderRateLimit",
     "get_provider_limit",
     "RateLimitTracker",
     "LocalRateLimitTracker",
     "create_rate_limit_tracker",
+    "ProviderBus",
+    "provider_bus",
 ]

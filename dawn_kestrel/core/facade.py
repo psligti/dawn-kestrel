@@ -288,6 +288,9 @@ class FacadeImpl:
                 err_result = cast(Any, result)
                 return Err(f"Failed to add message: {err_result.error}", code="SessionError")
 
+            # Handle both Result[str] and str return types
+            if isinstance(result, str):
+                return Ok(result)
             return result
 
         except Exception as e:

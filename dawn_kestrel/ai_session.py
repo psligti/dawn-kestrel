@@ -5,10 +5,16 @@ Coordinates streaming requests to AI providers, processes responses,
 creates messages/parts, executes tools, manages tokens and costs.
 """
 
+from __future__ import annotations
+
+import asyncio
 import logging
+import time
+import time
 from collections.abc import AsyncIterator
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from .ai.tool_execution import ToolExecutionManager
 from .core.event_bus import Events, bus
@@ -26,12 +32,15 @@ from .core.provider_config import ProviderConfig
 from .core.settings import settings
 from .providers import ProviderID, get_provider
 from .providers.base import ModelInfo, StreamEvent
+from .providers.base import TokenUsage as ProviderTokenUsage
 from .tools import create_builtin_registry
 from .tools.framework import ToolRegistry
 
 if TYPE_CHECKING:
-    from .core.session import SessionManager
-    from .core.session_lifecycle import SessionLifecycle
+    pass
+
+from .ai.tool_execution import SessionLifecycleProtocol
+from .core.agent_types import SessionManagerLike
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +52,11 @@ class AISession:
         provider_id: str,
         model: str,
         api_key: str | None = None,
-        session_manager: Optional["SessionManager"] = None,
+        session_manager: SessionManagerLike | None = None,
         tool_registry: ToolRegistry | None = None,
         provider_config: ProviderConfig | None = None,
-        session_lifecycle: "SessionLifecycle | None" = None,
+        session_lifecycle: SessionLifecycleProtocol | None = None,
+        base_dir: Path | None = None,
     ) -> None:
         self.session = session
         self.provider_id = provider_id
@@ -54,6 +64,7 @@ class AISession:
         self.session_manager = session_manager
         self.provider_config = provider_config
         self.session_lifecycle = session_lifecycle
+        self.base_dir = base_dir
 
         api_key_value = api_key or settings.get_api_key_for_provider(provider_id)
 
@@ -73,7 +84,10 @@ class AISession:
         self.provider = get_provider(provider_enum, api_key_str)
         self.model_info: ModelInfo | None = None
         final_registry = tool_registry if tool_registry is not None else create_builtin_registry()
-        self.tool_manager = ToolExecutionManager(session.id, final_registry, session_lifecycle)
+        self.tool_manager = ToolExecutionManager(
+            session.id, final_registry, session_lifecycle, base_dir=base_dir
+        )
+        self._recent_tool_signatures: dict[str, float] = {}
 
     async def _get_model_info(self, model: str) -> ModelInfo:
         if self.provider is None:
@@ -94,11 +108,18 @@ class AISession:
     async def process_stream(
         self, events: AsyncIterator[StreamEvent]
     ) -> tuple[list[Part], TokenUsage]:
-        """Process stream events and create message parts"""
+        """Process stream events and create message parts.
+        
+        Tool calls are collected during streaming and executed in parallel
+        after all events are received for better performance.
+        """
         parts: list[Part] = []
         tool_input: dict[str, Any] | None = None
         total_cost = Decimal("0")
         usage = TokenUsage(input=0, output=0, reasoning=0, cache_read=0, cache_write=0)
+        
+        # Collect tool calls for parallel execution
+        pending_tool_calls: list[tuple[str, dict[str, Any], str]] = []  # (tool_name, tool_input, call_id)
 
         async for event in events:
             if event.event_type == "finish":
@@ -113,13 +134,19 @@ class AISession:
                     )
 
             if event.event_type == "text-delta":
+                delta_text = event.data.get("delta", "")
+                # Publish TEXT_DELTA event for streaming subscribers
+                await bus.publish(
+                    Events.TEXT_DELTA,
+                    {"delta": delta_text, "session_id": self.session.id},
+                )
                 if parts and isinstance(parts[-1], TextPart):
                     existing = parts[-1].model_dump()
                     existing.pop("text", None)
                     existing.pop("time", None)
                     parts[-1] = TextPart(
                         **existing,
-                        text=parts[-1].text + event.data.get("delta", ""),
+                        text=parts[-1].text + delta_text,
                         time={"updated": event.timestamp},
                     )
                 else:
@@ -129,7 +156,7 @@ class AISession:
                             session_id=self.session.id,
                             message_id=self.session.id,
                             part_type="text",
-                            text=event.data.get("delta", ""),
+                            text=delta_text,
                             time={"created": event.timestamp},
                         )
                     )
@@ -137,34 +164,26 @@ class AISession:
             elif event.event_type == "tool-call":
                 tool_name = event.data.get("tool", "")
                 tool_input = event.data.get("input", {})
+                tool_signature = f"{tool_name}:{repr(tool_input)}"
+                now = time.monotonic()
+                last_seen = self._recent_tool_signatures.get(tool_signature)
+                if last_seen is not None and now - last_seen < 8.0:
+                    logger.info(f"Skipping duplicate tool call in short window: {tool_signature}")
+                    continue
+                self._recent_tool_signatures[tool_signature] = now
+                if len(self._recent_tool_signatures) > 128:
+                    stale_before = now - 60.0
+                    self._recent_tool_signatures = {
+                        sig: ts
+                        for sig, ts in self._recent_tool_signatures.items()
+                        if ts >= stale_before
+                    }
                 tool_call_id = event.data.get(
-                    "call_id", f"{self.session.id}_{tool_name}_{len(parts)}"
+                    "call_id", f"{self.session.id}_{tool_name}_{len(pending_tool_calls)}"
                 )
-
-                result = await self.tool_manager.execute_tool_call(
-                    tool_name=tool_name,
-                    tool_input=tool_input or {},
-                    tool_call_id=tool_call_id,
-                    message_id=self.session.id,
-                    agent=str(self.provider_id),
-                    model=self.model,
-                )
-
-                # Create ToolPart from result
-                tool_part = ToolPart(
-                    id=f"{self.session.id}_{tool_call_id}",
-                    session_id=self.session.id,
-                    message_id=self.session.id,
-                    part_type="tool",
-                    tool=tool_name,
-                    call_id=tool_call_id,
-                    state=ToolState(
-                        status="completed", input=tool_input or {}, output=result.output
-                    ),
-                    source={"provider": self.model},
-                )
-                parts.append(tool_part)
-                total_cost += result.metadata.get("cost", Decimal("0"))
+                
+                # Collect for parallel execution instead of executing immediately
+                pending_tool_calls.append((tool_name, tool_input or {}, tool_call_id))
 
             elif event.event_type == "finish":
                 finish_reason = event.data.get("finish_reason", "")
@@ -181,6 +200,52 @@ class AISession:
                         source={"provider": self.model},
                     )
                     parts.append(agent_part)
+        
+        # Execute all collected tool calls in PARALLEL
+        if pending_tool_calls:
+            logger.info(f"Executing {len(pending_tool_calls)} tool calls in parallel")
+            
+            async def execute_single_tool(tool_name: str, tool_input: dict, tool_call_id: str) -> tuple[str, ToolPart, Decimal]:
+                """Execute a single tool and return (call_id, ToolPart, cost)."""
+                result = await self.tool_manager.execute_tool_call(
+                    tool_name=tool_name,
+                    tool_input=tool_input,
+                    tool_call_id=tool_call_id,
+                    message_id=self.session.id,
+                    agent=str(self.provider_id),
+                    model=self.model,
+                )
+                
+                tool_part = ToolPart(
+                    id=f"{self.session.id}_{tool_call_id}",
+                    session_id=self.session.id,
+                    message_id=self.session.id,
+                    part_type="tool",
+                    tool=tool_name,
+                    call_id=tool_call_id,
+                    state=ToolState(
+                        status="completed", input=tool_input, output=result.output
+                    ),
+                    source={"provider": self.model},
+                )
+                return tool_call_id, tool_part, result.metadata.get("cost", Decimal("0"))
+            
+            # Execute all tools in parallel
+            tasks = [
+                execute_single_tool(name, inp, call_id)
+                for name, inp, call_id in pending_tool_calls
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Collect results
+            for result in results:
+                if isinstance(result, BaseException):
+                    logger.error(f"Tool execution failed: {result}")
+                    continue
+                # Type narrowing - result is now known to be tuple
+                call_id, tool_part, cost = result  # type: ignore[misc]
+                parts.append(tool_part)
+                total_cost += cost
 
         return parts, usage
 
@@ -288,13 +353,14 @@ class AISession:
         # Build LLM messages (convert to provider format)
         llm_messages = self._build_llm_messages(messages)
 
-        # Get tools available
-        tools = self._get_tool_definitions()
+        provider_options = dict(options or {})
+        disable_tools = bool(provider_options.pop("disable_tools", False))
+        tools = [] if disable_tools else self._get_tool_definitions()
 
         # Call provider stream
         if self.provider:
             model_info = await self._ensure_model_info()
-            stream = self.provider.stream(model_info, llm_messages, tools, options or {})
+            stream = self.provider.stream(model_info, llm_messages, tools, provider_options)
 
             # Process stream and create parts
             parts, tokens = await self.process_stream(stream)
@@ -304,7 +370,14 @@ class AISession:
         # Calculate cost
         if self.provider:
             model_info = await self._ensure_model_info()
-            cost = self.provider.calculate_cost(tokens, model_info)
+            provider_tokens = ProviderTokenUsage(
+                input=tokens.input,
+                output=tokens.output,
+                reasoning=tokens.reasoning,
+                cache_read=tokens.cache_read,
+                cache_write=tokens.cache_write,
+            )
+            cost = self.provider.calculate_cost(provider_tokens, model_info)
         else:
             cost = Decimal("0")
 
@@ -335,12 +408,11 @@ class AISession:
                 content = msg.text or ""
                 llm_messages.append({"role": "user", "content": content})
             elif msg.role == "assistant":
-                # Extract text from parts
-                content: str = ""
+                assistant_content = ""
                 for part in msg.parts:
                     if isinstance(part, TextPart) and hasattr(part, "text"):
-                        content += part.text
-                llm_messages.append({"role": "assistant", "content": content})
+                        assistant_content += part.text
+                llm_messages.append({"role": "assistant", "content": assistant_content})
 
         return llm_messages
 

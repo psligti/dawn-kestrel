@@ -5,6 +5,8 @@ Automatically detects when token limit is exceeded, creates summary
 messages with compaction agent, and prunes old tool outputs.
 """
 
+from __future__ import annotations
+
 import logging
 import uuid
 from typing import Any, cast

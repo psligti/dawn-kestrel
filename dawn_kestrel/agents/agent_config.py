@@ -8,6 +8,8 @@ The design follows the wrapper pattern (not modification) to maintain
 compatibility with existing Agent definitions.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 

@@ -14,7 +14,7 @@ Each plugin is registered via entry_points in pyproject.toml and loaded dynamica
 
 import logging
 from importlib.metadata import EntryPoint, entry_points
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -234,20 +234,10 @@ def _load_agents_fallback() -> dict[str, Any]:
         ]
     }
 
-    # Try to load bolt_merlin agents for enhanced functionality
-    try:
-        from dawn_kestrel.agents.bolt_merlin.registry import get_bolt_merlin_agents
-
-        bolt_merlin_agents = get_bolt_merlin_agents()
-        logger.info(f"Loaded {len(bolt_merlin_agents)} Bolt Merlin agents")
-        return {**builtin_agents, **bolt_merlin_agents}
-
-    except ImportError as e:
-        logger.warning(f"Bolt Merlin package not available, skipping bolt_merlin agents: {e}")
-        return builtin_agents
+    return builtin_agents
 
 
-def get_plugin_version(entry_point: EntryPoint) -> str | None:
+def get_plugin_version(entry_point: EntryPoint) -> Optional[str]:
     """
     Get version information from a plugin entry point.
 

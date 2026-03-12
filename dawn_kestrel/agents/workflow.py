@@ -114,6 +114,45 @@ class PlanOutput(pd.BaseModel):
     model_config = pd.ConfigDict(extra="forbid")
 
 
+class ReasonOutput(pd.BaseModel):
+    """Output from the reason phase of the workflow.
+
+    The reason phase evaluates the current todo and decides the next atomic action.
+    This provides context-first justification before any tool execution.
+
+    Attributes:
+        todo_id: ID of the todo being evaluated
+        atomic_step: The single atomic action to take next
+        why_now: Justification for why this action is needed now
+        next_phase: Where to route next (act, done)
+        confidence: Confidence in this reasoning (0.0-1.0)
+        evidence_used: Evidence references that informed this decision
+        risks: Potential risks or concerns with this action
+    """
+
+    todo_id: str
+    """ID of the todo being evaluated"""
+
+    atomic_step: str
+    """The single atomic action to take next"""
+
+    why_now: str
+    """Justification for why this action is needed now"""
+
+    next_phase: Literal["act", "done"] = "act"
+    """Where to route next (act, done)"""
+
+    confidence: float | None = None
+    """Confidence in this reasoning (0.0-1.0)"""
+
+    evidence_used: list[str] | None = None
+    """Evidence references that informed this decision"""
+
+    risks: list[str] | None = None
+    """Potential risks or concerns with this action"""
+
+    model_config = pd.ConfigDict(extra="forbid")
+
 class ToolExecution(pd.BaseModel):
     """Record of a single tool execution.
 
@@ -121,6 +160,7 @@ class ToolExecution(pd.BaseModel):
 
     Attributes:
         tool_name: Name of the tool that was executed
+        selection_reason: Justification for selecting this tool (required)
         arguments: Arguments passed to the tool (sanitized)
         status: Status of the execution (success, failure, timeout)
         result_summary: Brief summary of the result
@@ -130,6 +170,10 @@ class ToolExecution(pd.BaseModel):
 
     tool_name: str
     """Name of the tool that was executed"""
+
+    selection_reason: str
+    """Justification for selecting this tool (required)"""
+
 
     arguments: dict[str, Any] = pd.Field(default_factory=dict)
     """Arguments passed to the tool (sanitized)"""
@@ -375,6 +419,9 @@ class CheckOutput(pd.BaseModel):
     reasoning: str = ""
     """Explanation for the routing decision"""
 
+    completed_todo_ids: list[str] = pd.Field(default_factory=list)
+    """List of todo IDs that the LLM has determined are complete based on evidence"""
+
     model_config = pd.ConfigDict(extra="forbid")
 
 
@@ -467,6 +514,40 @@ EXAMPLE VALID OUTPUT:
 """
 
 
+def get_reason_output_schema() -> str:
+    """Return JSON schema for ReasonOutput as a string for inclusion in prompts.
+
+    This schema must match exactly the ReasonOutput Pydantic model above.
+    Any changes to the model must be reflected here.
+
+    Returns:
+        JSON schema string with explicit type information and strict validation rules
+    """
+    return f"""You MUST output valid JSON matching this exact schema. The output is parsed directly by ReasonOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
+
+{ReasonOutput.model_json_schema()}
+
+CRITICAL RULES:
+- Include ALL required fields: todo_id, atomic_step, why_now
+- next_phase must be one of: act, done
+- Optional fields (confidence, evidence_used, risks) can be omitted or null
+- NEVER include extra fields not in this schema (will cause validation errors)
+- Return ONLY the JSON object, no other text, no markdown code blocks
+- Output must be valid JSON that passes ReasonOutput Pydantic validation as-is
+
+EXAMPLE VALID OUTPUT:
+{{
+  "todo_id": "todo-1",
+  "atomic_step": "Read the authentication module to understand current implementation",
+  "why_now": "Cannot implement JWT without understanding existing auth flow",
+  "next_phase": "act",
+  "confidence": 0.85,
+  "evidence_used": ["auth module exists at src/auth/", "README mentions session-based auth"],
+  "risks": ["May need to refactor significant portion of auth code"]
+}}
+"""
+
+
 def get_act_output_schema() -> str:
     return f"""You MUST output valid JSON matching this exact schema. The output is parsed directly by ActOutput Pydantic model with no post-processing. Do NOT add any fields outside this schema:
 
@@ -476,6 +557,8 @@ CRITICAL RULES:
 - SINGLE ACTION CONSTRAINT: You must perform exactly ONE tool call per iteration
 - acted_todo_id must match the current todo you are working on
 - action contains a single ToolExecution object (or null if no action taken)
+- action.selection_reason is REQUIRED - justify why this tool was chosen
+- DO NOT put justification inside action.arguments - use action.selection_reason for tool-choice justification
 - tool_result_summary describes what happened
 - failure contains any error message (empty string if no failure)
 - Return ONLY the JSON object, no other text, no markdown code blocks
@@ -485,6 +568,7 @@ EXAMPLE VALID OUTPUT:
 {{
   "action": {{
     "tool_name": "read",
+    "selection_reason": "Need to examine auth module structure before implementing JWT",
     "arguments": {{"file_path": "src/auth.py"}},
     "status": "success",
     "result_summary": "Read 150 lines from auth module",
@@ -561,77 +645,39 @@ def get_check_output_schema() -> str:
 {CheckOutput.model_json_schema()}
 
 CRITICAL RULES:
-- current_todo_id must match the todo being evaluated
-- todo_complete: true if the todo is done, false if more work needed
+- current_todo_id: ID of the todo being evaluated (optional)
+- todo_complete: true if the CURRENT todo is done (legacy, prefer completed_todo_ids)
+- completed_todo_ids: List of todo IDs that are COMPLETE based on evidence - USE THIS!
 - next_phase determines where to route next:
-  - "act": Continue working on current todo (todo_complete=false)
-  - "reason": Pick next todo (todo_complete=true, more todos pending)
-  - "plan": DEPRECATED - redirects to "reason" with warning
-  - "done": All todos complete
+  - "act": Continue working (some todos incomplete)
+  - "reason": Move to next todo (current todo complete)
+  - "done": ALL todos complete - end the workflow
 - confidence must be between 0.0 and 1.0
 - Return ONLY the JSON object, no other text, no markdown code blocks
 
-ROUTING LOGIC:
-- If todo is incomplete → next_phase="act"
-- If todo is complete AND more todos pending → next_phase="reason"
-- If todo is complete AND no more todos → next_phase="done"
-- If blocking question prevents progress → set blocking_question and next_phase="done"
-- Note: "plan" is deprecated, use "reason" instead
+HOW TO MARK TODOS COMPLETE:
+1. Review the pending todos list
+2. Check which todos have sufficient evidence
+3. Add their IDs to completed_todo_ids array
+4. If ALL todos are complete, set next_phase to "done"
 
-EXAMPLE VALID OUTPUT (TODO INCOMPLETE - CONTINUE ACT):
+EXAMPLE VALID OUTPUT (MARK MULTIPLE TODOS COMPLETE):
 {{
-  "current_todo_id": "todo-1",
-  "todo_complete": false,
-  "next_phase": "act",
-  "confidence": 0.6,
-  "budget_consumed": {{
-    "iterations": 2,
-    "subagent_calls": 0,
-    "wall_time_seconds": 45.0,
-    "tool_calls": 5,
-    "tokens_consumed": 2500
-  }},
-  "blocking_question": "",
-  "novelty_detected": true,
-  "stagnation_detected": false,
-  "reasoning": "Read file but need to analyze the authentication logic further"
-}}
-
-EXAMPLE VALID OUTPUT (TODO COMPLETE - NEXT TODO):
-{{
-  "current_todo_id": "todo-1",
+  "current_todo_id": "1",
   "todo_complete": true,
-  "next_phase": "reason",
-  "confidence": 0.85,
-  "budget_consumed": {{
-    "iterations": 4,
-    "subagent_calls": 0,
-    "wall_time_seconds": 120.0,
-    "tool_calls": 12,
-    "tokens_consumed": 5000
-  }},
-  "blocking_question": "",
-  "novelty_detected": false,
-  "stagnation_detected": false,
-  "reasoning": "Authentication logic fully understood, ready for next todo"
-}}
-
-EXAMPLE VALID OUTPUT (ALL COMPLETE - DONE):
-{{
-  "current_todo_id": "todo-3",
-  "todo_complete": true,
+  "completed_todo_ids": ["1", "2", "3"],
   "next_phase": "done",
   "confidence": 0.9,
-  "budget_consumed": {{
-    "iterations": 5,
-    "subagent_calls": 0,
-    "wall_time_seconds": 180.0,
-    "tool_calls": 15,
-    "tokens_consumed": 7000
-  }},
-  "blocking_question": "",
-  "novelty_detected": false,
-  "stagnation_detected": false,
-  "reasoning": "All todos completed successfully"
+  "reasoning": "Directory explored (todo 1), metadata checked (todo 2), source analyzed (todo 3). All evidence gathered."
+}}
+
+EXAMPLE VALID OUTPUT (PARTIAL PROGRESS):
+{{
+  "current_todo_id": "2",
+  "todo_complete": true,
+  "completed_todo_ids": ["1", "2"],
+  "next_phase": "act",
+  "confidence": 0.7,
+  "reasoning": "Explored directory (todo 1) and read metadata (todo 2). Still need to analyze source code (todo 3)."
 }}
 """

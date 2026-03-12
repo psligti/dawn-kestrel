@@ -157,3 +157,6 @@ class Events:
     # Tool cache events
     TOOL_CACHE_HIT = "tool.cache.hit"
     TOOL_CACHE_MISS = "tool.cache.miss"
+    # LLM Streaming events
+    TEXT_DELTA = "llm.text_delta"
+    REASONING_DELTA = "llm.reasoning_delta"

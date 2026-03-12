@@ -31,6 +31,9 @@ class Command(Protocol):
     undo/redo, provenance tracking, and execution events.
     """
 
+    name: str
+    """Command name for logging and events."""
+
     async def execute(self, context: CommandContext) -> Result[Any]:
         """Execute the command with given context.
 

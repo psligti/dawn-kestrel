@@ -30,15 +30,9 @@ from dawn_kestrel.core.services.session_service import DefaultSessionService  # 
 # Import real class for type checking (tests patch DefaultSessionService, need reference to real class)
 from dawn_kestrel.core.session_lifecycle import SessionLifecycle  # noqa: F401
 from dawn_kestrel.core.settings import settings  # noqa: F401
-from dawn_kestrel.interfaces.io import Notification
-from dawn_kestrel.providers.registry import create_provider_registry  # noqa: F401
-from dawn_kestrel.storage.store import (  # noqa: F401
-    MessageStorage,
-    PartStorage,
-    SessionStorage,
-)
+from dawn_kestrel.interfaces.io import IOHandler, Notification, NotificationHandler, ProgressHandler
+from dawn_kestrel.providers.registry import create_provider_registry
 from dawn_kestrel.tools import create_builtin_registry
-
 
 class OpenCodeAsyncClient:
     """Async client for OpenCode SDK with handler injection.
@@ -59,10 +53,10 @@ class OpenCodeAsyncClient:
     def __init__(
         self,
         config: SDKConfig | None = None,
-        io_handler: Any | None = None,
-        progress_handler: Any | None = None,
-        notification_handler: Any | None = None,
-        session_service: Any | None = None,  # For test backward compatibility
+        io_handler: IOHandler | None = None,
+        progress_handler: ProgressHandler | None = None,
+        notification_handler: NotificationHandler | None = None,
+        session_service: SessionManagerLike | None = None,
     ):
         """Initialize async SDK client.
 
@@ -221,6 +215,8 @@ class OpenCodeAsyncClient:
         """
         try:
             result = await self._service.add_message(session_id, role, content)
+            if isinstance(result, str):
+                return Ok(result)
             return result
         except Exception as e:
             if isinstance(e, OpenCodeError):

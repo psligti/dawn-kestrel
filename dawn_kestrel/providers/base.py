@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, Optional
 
 
 class ProviderID(str, Enum):
@@ -26,15 +26,16 @@ class ProviderID(str, Enum):
     GITLAB = "gitlab"
     GITHUB_COPILOT = "github-copilot"
 
+
 @dataclass
 class ModelCapabilities:
     temperature: bool = True
     reasoning: bool = False
     attachment: bool = False
     toolcall: bool = False
-    input: dict[str, bool] | None = None
-    output: dict[str, bool] | None = None
-    interleaved: dict[str, Any] | None = None
+    input: Optional[Dict[str, bool]] = None
+    output: Optional[Dict[str, bool]] = None
+    interleaved: Optional[Dict[str, Any]] = None
 
     def __post_init__(self) -> None:
         if self.input is None:
@@ -47,7 +48,7 @@ class ModelCapabilities:
 class ModelCost:
     input: Decimal
     output: Decimal
-    cache: dict[str, Decimal] | None = None
+    cache: Optional[Dict[str, Decimal]] = None
 
     def __post_init__(self) -> None:
         if self.cache is None:
@@ -57,8 +58,8 @@ class ModelCost:
 @dataclass
 class ModelLimits:
     context: int
-    input: int | None = None
-    output: int | None = None
+    input: Optional[int] = None
+    output: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.input is None:
@@ -77,9 +78,9 @@ class ModelInfo:
     cost: ModelCost
     limit: ModelLimits
     status: str
-    options: dict[str, Any]
-    headers: dict[str, str]
-    variants: dict[str, dict[str, Any]] | None = None
+    options: Dict[str, Any]
+    headers: Dict[str, str]
+    variants: Optional[Dict[str, Dict[str, Any]]] = None
 
 
 @dataclass
@@ -102,5 +103,5 @@ class TokenUsage:
 @dataclass
 class StreamEvent:
     event_type: str
-    data: dict[str, Any]
-    timestamp: float | None = None
+    data: Dict[str, Any]
+    timestamp: Optional[float] = None

@@ -4,12 +4,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shlex
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
-
-
 @dataclass
 class SymbolInfo:
     """Symbol information"""
@@ -58,27 +57,69 @@ class LSPClient:
         self._request_id_counter += 1
         return f"{self.session_id}_{self._request_id_counter}"
 
-    async def connect(self, server_command: str, root_path: str) -> None:
-        """Connect to LSP server"""
-        logger.info(f"Connecting to LSP server: {server_command}")
+    async def connect(self, server_command: str | list[str], root_path: str) -> None:
+        """Connect to LSP server.
 
-        # Start LSP server process
-        process = await asyncio.create_subprocess_exec(
-            *server_command.split(),
+        Args:
+            server_command: Command to start LSP server. Can be a string
+                (will be split using shlex) or a list of arguments.
+            root_path: Working directory for the LSP server.
+        """
+        if isinstance(server_command, str):
+            command_parts = shlex.split(server_command)
+        else:
+            command_parts = server_command
+
+        logger.info(f"Connecting to LSP server: {' '.join(command_parts)}")
+
+        self._process = await asyncio.create_subprocess_exec(
+            *command_parts,
             cwd=root_path,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
-        self._reader = process.stdout
-        self._writer = process.stdin
+        self._reader = self._process.stdout
+        self._writer = self._process.stdin
 
-        # Start reader task
         asyncio.create_task(self._read_loop())
-
-        # Start writer task
         asyncio.create_task(self._write_loop())
 
         logger.info("LSP client connected")
 
+    async def disconnect(self) -> None:
+        """Disconnect from LSP server and cleanup resources."""
+        logger.info("Disconnecting from LSP server")
+
+        if self._writer and not self._writer.is_closing():
+            self._writer.close()
+            await self._writer.wait_closed()
+
+        if self._process:
+            try:
+                self._process.terminate()
+                await asyncio.wait_for(self._process.wait(), timeout=5.0)
+            except asyncio.TimeoutError:
+                self._process.kill()
+                await self._process.wait()
+            except ProcessLookupError:
+                pass
+
+        self._process = None
+        self._reader = None
+        self._writer = None
+        self._pending_requests.clear()
+
+        logger.info("LSP client disconnected")
+
+    async def __aenter__(self) -> "LSPClient":
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context manager and cleanup."""
+        await self.disconnect()
     async def document_symbol(
         self,
         uri: str,

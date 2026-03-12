@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -534,7 +534,10 @@ class SkillTool(Tool):
 
             from dawn_kestrel.skills.loader import SkillLoader
 
-            base_dir = Path(ctx.session_id if ctx.session_id else ".")
+            # Use current working directory for skill discovery, not session_id
+            # session_id is a unique identifier (e.g., "ash-hawk-eval-abc123"), not a path
+            base_dir = Path.cwd()
+            loader = SkillLoader(base_dir)
             loader = SkillLoader(base_dir)
             skill = loader.get_skill_by_name(name)
 
@@ -1489,7 +1492,7 @@ class TodowriteTool(Tool):
                     "description": description,
                     "state": state.value,
                     "due_date": due_date,
-                    "updated_at": datetime.now(UTC).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
                 }
             )
 

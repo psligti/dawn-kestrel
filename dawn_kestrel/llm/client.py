@@ -12,6 +12,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Callable, Coroutine
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import (
@@ -20,11 +21,13 @@ from typing import (
     cast,
 )
 
+import httpx
 from tenacity import (
     AsyncRetrying,
-    stop_after_attempt,
-    wait_exponential,
     before_sleep_log,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
 )
 
 from dawn_kestrel.providers import get_provider
@@ -44,6 +47,11 @@ T = TypeVar("T")
 # Global Rate Limiter
 # =============================================================================
 
+from dawn_kestrel.llm.evidence_sharing import (
+    EvidenceSharingStrategy,
+    NoOpEvidenceSharingStrategy,
+    create_request_fingerprint,
+)
 from dawn_kestrel.llm.rate_limiter import RateLimiterImpl
 
 _global_rate_limiter: RateLimiterImpl | None = None
@@ -273,7 +281,7 @@ class LLMProviderProtocol(ABC):
         self,
         model: ModelInfo,
         messages: list[dict[str, Any]],
-        tools: dict[str, Any],
+        tools: list[dict[str, Any]] | None,
         options: dict[str, Any],
     ) -> AsyncIterator[StreamEvent]:
         """Stream LLM response.
@@ -336,6 +344,7 @@ class LLMClient:
         base_url: str | None = None,
         max_retries: int = 3,
         timeout_seconds: float = 120.0,
+        evidence_sharing_strategy: EvidenceSharingStrategy | None = None,
     ):
         """Initialize LLM client.
 
@@ -347,13 +356,14 @@ class LLMClient:
             max_retries: Maximum number of retry attempts
             timeout_seconds: Request timeout in seconds
         """
-        self.provider_id = ProviderID(provider_id) if isinstance(provider_id, str) else provider_id
+        self.provider_id = ProviderID(provider_id)
         self.model = model
         self.api_key = api_key or ""
         self.base_url = base_url
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
         self.retry_policy = RetryPolicy(max_attempts=max_retries)
+        self._evidence_sharing_strategy = evidence_sharing_strategy or NoOpEvidenceSharingStrategy()
 
         self._provider = get_provider(self.provider_id, self.api_key)
         self._model_info: ModelInfo | None = None
@@ -380,7 +390,8 @@ class LLMClient:
             if self._model_info is None:
                 raise ValueError(f"Model {self.model} not found for provider {self.provider_id}")
 
-        return cast(ModelInfo, self._model_info)
+        assert self._model_info is not None
+        return self._model_info
 
     async def stream(
         self,
@@ -409,11 +420,9 @@ class LLMClient:
         else:
             options_dict = options or {}
 
-        tools_dict = {} if tools is None else {"tools": tools}
-
         timeout_task = asyncio.create_task(self._generate_timeout(self.timeout_seconds))
         stream_task = asyncio.create_task(
-            self._collect_stream_events_with_retry(model_info, messages, tools_dict, options_dict)
+            self._collect_stream_events_with_retry(model_info, messages, tools, options_dict)
         )
 
         done, pending = await asyncio.wait(
@@ -431,6 +440,41 @@ class LLMClient:
         for event in events:
             yield event
 
+    async def stream_realtime(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        options: LLMRequestOptions | dict[str, Any] | None = None,
+    ) -> AsyncIterator[StreamEvent]:
+        """Stream LLM response in real-time WITHOUT buffering.
+
+        Unlike stream() which collects all events before yielding,
+        this method yields each event as it arrives from the provider.
+        This enables real-time streaming output for interactive use.
+
+        Args:
+            messages: List of message dictionaries
+            tools: List of tool definitions (optional)
+            options: Request options (temperature, etc.)
+
+        Yields:
+            StreamEvent objects as they arrive
+        """
+        model_info = await self._ensure_model_info()
+
+        if isinstance(options, LLMRequestOptions):
+            options_dict = options.to_dict()
+        else:
+            options_dict = options or {}
+
+        # Yield events directly from provider without buffering
+        async for event in self.provider.stream(
+            model=model_info,
+            messages=messages,
+            tools=tools,
+            options=options_dict,
+        ):
+            yield event
     async def _generate_timeout(self, timeout_seconds: float):
         await asyncio.sleep(timeout_seconds)
 
@@ -439,11 +483,11 @@ class LLMClient:
         self,
         model_info: ModelInfo,
         messages: list[dict[str, Any]],
-        tools: dict[str, Any],
+        tools: list[dict[str, Any]] | None,
         options: dict[str, Any],
     ) -> list[StreamEvent]:
-        async def collect():
-            events = []
+        async def collect() -> list[StreamEvent]:
+            events: list[StreamEvent] = []
             async for event in self.provider.stream(
                 model=model_info,
                 messages=messages,
@@ -459,10 +503,23 @@ class LLMClient:
         self,
         model_info: ModelInfo,
         messages: list[dict[str, Any]],
-        tools: dict[str, Any],
+        tools: list[dict[str, Any]] | None,
         options: dict[str, Any],
     ) -> list[StreamEvent]:
         """Collect stream events with tenacity retry and concurrency limit."""
+
+        transient_exceptions: tuple[type[BaseException], ...] = (
+            httpx.RemoteProtocolError,
+            httpx.NetworkError,
+            httpx.TimeoutException,
+            TimeoutError,
+        )
+
+        async def refresh_provider() -> None:
+            self._provider = get_provider(self.provider_id, self.api_key)
+            if self._provider is None:
+                raise ValueError(f"Unsupported provider: {self.provider_id}")
+            self._model_info = None
 
         async def acquire_rate_limit():
             if _global_rate_limiter is None:
@@ -499,16 +556,20 @@ class LLMClient:
 
         async for attempt in AsyncRetrying(
             stop=stop_after_attempt(self.retry_policy.max_attempts),
-            wait=wait_exponential(
+            wait=wait_random_exponential(
                 multiplier=self.retry_policy.base_delay,
-                min=self.retry_policy.base_delay,
                 max=self.retry_policy.max_delay,
             ),
+            retry=retry_if_exception_type(transient_exceptions),
             reraise=True,
-            before_sleep=before_sleep_log(logger, logging.WARNING),
+            before_sleep=before_sleep_log(cast(Any, logger), logging.WARNING),
         ):
             with attempt:
-                return await execute_with_limits()
+                try:
+                    return await execute_with_limits()
+                except transient_exceptions:
+                    await refresh_provider()
+                    raise
 
         raise Exception("Should not reach here")
 
@@ -535,6 +596,17 @@ class LLMClient:
             TimeoutError: If request exceeds timeout
             httpx.HTTPError: If API call fails after retries
         """
+        request_fingerprint = create_request_fingerprint(
+            provider_id=str(self.provider_id),
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            options=options,
+        )
+        cached_response = await self._evidence_sharing_strategy.get(request_fingerprint)
+        if cached_response is not None:
+            return deepcopy(cached_response)
+
         model_info = await self._ensure_model_info()
 
         text_parts: list[str] = []
@@ -545,7 +617,7 @@ class LLMClient:
         events = await self._collect_stream_events_with_retry(
             model_info,
             messages,
-            {} if tools is None else {"tools": tools},
+            tools,
             options.to_dict() if isinstance(options, LLMRequestOptions) else (options or {}),
         )
 
@@ -576,7 +648,7 @@ class LLMClient:
 
         cost = self.provider.calculate_cost(usage, model_info)
 
-        return LLMResponse(
+        response = LLMResponse(
             text="".join(text_parts),
             usage=usage,
             model_info=model_info,
@@ -585,6 +657,11 @@ class LLMClient:
             tool_calls=tool_calls if tool_calls else None,
             messages=messages,  # Pass through for eval transcript capture
         )
+        await self._evidence_sharing_strategy.set(request_fingerprint, response)
+        return response
+
+    async def clear_evidence_cache(self) -> None:
+        await self._evidence_sharing_strategy.clear()
 
     async def chat_completion(
         self,

@@ -6,14 +6,23 @@ Shared logic for Z.AI providers, base URL is set by subclasses.
 Streaming support, token counting, and cost calculation.
 """
 
+from __future__ import annotations
+
 import json
 import logging
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from decimal import Decimal
 from typing import Any
 
+from ..core.exceptions import ProviderRateLimitError
 from ..core.http_client import HTTPClientWrapper
+from .base import (
+    ModelInfo,
+    StreamEvent,
+    TokenUsage,
+)
 from .base import (
     ModelInfo,
     StreamEvent,
@@ -42,8 +51,8 @@ class ZAIBaseProvider(ABC):
     async def stream(
         self,
         model: ModelInfo,
-        messages: list,
-        tools: list,
+        messages: list[Any],
+        tools: list[Any],
         options: dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         """Stream chat completion from Z.AI API."""
@@ -73,6 +82,18 @@ class ZAIBaseProvider(ABC):
         if tools:
             payload["tools"] = tools
 
+        # Check rate limit via provider bus before making the request
+        provider_key = str(model.provider_id).lower().replace("-", "_").replace(".", "_")
+        # Lazy import to avoid circular dependency
+        from ..llm.provider_bus import ProviderBus
+        rate_tracker = ProviderBus.get_instance()._rate_tracker
+        check_result = await rate_tracker.check_allowed(provider_key)
+        if check_result.is_ok():
+            allowed, wait_seconds = check_result.unwrap()
+            if not allowed:
+                logger.info(f"Rate limit reached for {provider_key}, waiting {wait_seconds:.2f}s")
+                await asyncio.sleep(wait_seconds)
+
         yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)
 
         stream_iterator = await self.http_client.stream(
@@ -99,9 +120,32 @@ class ZAIBaseProvider(ABC):
                     try:
                         chunk = json.loads(data_str)
                         if "error" in chunk:
-                            error_msg = chunk.get("error", "Unknown error")
-                            logger.error(f"Z.AI error: {error_msg}")
-                            raise Exception(f"Z.AI API error: {error_msg}")
+                            error_data = chunk["error"]
+                            # Parse error structure - Z.AI returns {"error": {"code": N, "message": "..."}}
+                            if isinstance(error_data, dict):
+                                error_code = error_data.get("code")
+                                error_msg = error_data.get("message", str(error_data))
+                                retry_after = error_data.get("retry_after")
+                            else:
+                                # Fallback: error is a string, code might be at top level
+                                error_code = chunk.get("code")
+                                error_msg = str(error_data)
+                                retry_after = chunk.get("retry_after")
+
+                            logger.error(f"Z.AI error: code={error_code}, message={error_msg}")
+
+                            # Z.AI rate limit error code is 1302
+                            if error_code == 1302:
+                                # Record 429 for tracking in provider bus
+                                backoff = float(retry_after) if retry_after else 1.0
+                                await rate_tracker.record_429(provider_key, backoff)
+                                raise ProviderRateLimitError(
+                                    error_msg,
+                                    provider="z.ai",
+                                    retry_after=backoff,
+                                    error_code=error_code,
+                                )
+                            raise Exception(f"Z.AI API error (code={error_code}): {error_msg}")
 
                         choice = chunk.get("choices", [{}])[0]
                         delta = choice.get("delta", {})
@@ -155,8 +199,10 @@ class ZAIBaseProvider(ABC):
                             break
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse chunk: {e}")
+                    except ProviderRateLimitError:
+                        raise  # Re-raise rate limit errors without catching
 
-    def count_tokens(self, response: dict) -> TokenUsage:
+    def count_tokens(self, response: dict[str, Any]) -> TokenUsage:
         """Count tokens from API response."""
         usage = response.get("usage", {})
         return TokenUsage(

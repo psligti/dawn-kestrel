@@ -7,6 +7,13 @@
 | 2026-02-10 | self | Used `subprocess.run([... '-o', "addopts=''", ...])` and got misleading per-file pytest summaries | When passing pytest args as a list, use `-o`, `addopts=` (no embedded shell quotes). |
 | 2026-02-10 | self | Test chunk looked stalled because a long combined command hid which file was hanging | Use per-file execution with explicit timeouts and then drill down to per-test timeout to isolate the exact hanging node quickly. |
 | 2026-02-10 | self | FSM reliability wrapper pattern implementation | For FSM reliability wrappers, apply wrappers to external action callbacks (hooks) only, NOT to FSM internal operations (transitions, state queries). Use inspect.iscoroutinefunction() instead of asyncio.iscoroutinefunction() to avoid deprecation warnings. Create _execute_with_reliability() helper method that checks reliability_config.enabled and applies wrappers conditionally. |
+| 2026-03-05 | self | Used reserved shell variable `status` in zsh and command failed | Use a different variable name (e.g., `exit_code`) when capturing command status in zsh. |
+| 2026-03-05 | self | Used `python` in shell but only `python3` is available | Use `python3` when scripting verification helpers. |
+| 2026-03-05 | self | Added `BudgetInfo | None` union in test helper, failing under Python 3.9 | Use `Optional[BudgetInfo]` for test compatibility with Python 3.9. |
+| 2026-03-06 | self | Used `ProtocolType | None` inside `cast(...)`, causing runtime TypeError on Python 3.9 | Never use `|` unions inside runtime expressions like `cast(...)`; use `Optional[...]` / `Union[...]`. |
+| 2026-03-06 | self | Policy package lint/type checks passed but runtime tests failed from Python 3.9 runtime union evaluation | After type/lint fixes, always run `tests/test_agent_runtime.py` to catch runtime-evaluated type issues. |
+| 2026-03-06 | self | `pytest -k "policy or orchestration"` still failed before filtering due unrelated review import errors at collection time | Guard collection in `tests/conftest.py` for removed subsystems; `-k` does not prevent import-time collection failures. |
+| 2026-03-06 | self | Router policy tests failed under `DK_POLICY_MODE=react` because baseline assertions didn't clear env override | In tests that assert signal-based routing, clear `DK_POLICY_MODE` explicitly with `monkeypatch.delenv`. |
 | 2026-02-12 | self | Some bolt_merlin agents return Result[AgentConfig] instead of AgentConfig | AgentBuilder.build() returns Result[AgentConfig]. Some agents call `.unwrap()` while others don't. When writing tests for factories with inconsistent return types, create a helper function like `_unwrap_agent_config()` that checks `hasattr(config, "unwrap")` and unwraps if needed. This pattern handles both Ok(AgentConfig) and AgentConfig return types. |
 
 ## User Preferences
@@ -26,6 +33,7 @@
 - **FSM Reliability Wrapper pattern (2026-02-10)**: Wrap external action callbacks (hooks) with reliability patterns (CircuitBreaker, RetryExecutor, RateLimiter, Bulkhead) using FSMReliabilityConfig dataclass. FSM internal operations (transitions, state queries) are NOT wrapped. Use with_reliability() fluent API method in FSMBuilder. Implement _execute_with_reliability() helper method that checks reliability_config.enabled and applies wrappers conditionally.
 - **Python 3.9.6 Type Annotation Compatibility (2026-02-11)**: Python 3.9.6 does not support `|` union operator in type annotations (introduced in Python 3.10). Fix by replacing `T | None` syntax with `Optional[T]` from typing module. Example: `str | None` → `Optional[str]`, `Callable[[str | None], U] | None` → `Optional[Callable[[Optional[str]], U]]`. Always add `from typing import Optional` to imports. This pattern is primarily for test environment compatibility; pyproject.toml requires Python >=3.11 for production. Test files (e.g., line 1424 in test_fsm_security.py) may have same issue but are out of scope for production fixes. |
 
+- When LSP cannot resolve a same-package import, define a local Protocol for the type and construct the real class via importlib at runtime.
 ## Patterns That Don't Work
 - Running full pytest suite (1300 tests) - times out after 120s
 - Assuming `python` command exists - use `python3` or activate venv first

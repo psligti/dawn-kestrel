@@ -1,8 +1,14 @@
 {
-  "active_plan": "/Users/parkersligting/develop/pt/dawn-kestrel/.sisyphus/plans/eval-models.md",
-  "started_at": "2026-02-20T17:08:35.264Z",
-  "session_ids": ["ses_3844dc5dcffeFGIGAwO0kXUcT7"],
-  "plan_name": "eval-models",
-  "agent": "atlas",
-  "previous_plan": "enterprise-features"
+  "active_plan": "/Users/parkersligting/develop/pt/ash-hawk/.sisyphus/plans/dawn-kestrel-policy-engine.md",
+  "started_at": "2026-03-05T20:40:04.563Z",
+  "session_ids": [
+    "ses_34059ba51ffejJfClrs42pGYyP",
+    "ses_3404ca6beffe0t7n8olorAVwLr",
+    "ses_3401472c5ffeMxqGmXFMtBQVJp",
+    "ses_33ffb8fe0ffezYRSQfxtFpcoiB",
+    "ses_33f05557cffeCl2PkvnIL4z5F6",
+    "ses_33c8aec20ffewrwMAB6rUW3lGi"
+  ],
+  "plan_name": "dawn-kestrel-policy-engine",
+  "agent": "atlas"
 }

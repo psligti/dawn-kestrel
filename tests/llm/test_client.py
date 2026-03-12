@@ -5,12 +5,14 @@ import logging
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx
 import pytest
 
 from dawn_kestrel.llm import (
     LLMClient,
     LLMProviderProtocol,
     LLMRequestOptions,
+    RetryPolicy,
     with_logging,
     with_retry,
     with_timeout,
@@ -372,6 +374,55 @@ class TestLLMClient:
             assert events[0].event_type == "start"
             assert events[1].event_type == "text-delta"
             assert events[1].data["delta"] == "Hello"
+
+    @pytest.mark.asyncio
+    async def test_remote_protocol_error_refreshes_provider(self, mock_model_info):
+        provider_one = MagicMock(spec=LLMProviderProtocol)
+        provider_one.get_models = AsyncMock(return_value=[mock_model_info])
+        provider_one.calculate_cost = MagicMock(return_value=Decimal("0.01"))
+
+        async def failing_stream(model, messages, tools, options):
+            raise httpx.RemoteProtocolError("server disconnected")
+            if False:
+                yield
+
+        provider_one.stream = failing_stream
+
+        provider_two = MagicMock(spec=LLMProviderProtocol)
+        provider_two.get_models = AsyncMock(return_value=[mock_model_info])
+        provider_two.calculate_cost = MagicMock(return_value=Decimal("0.01"))
+
+        stream_events_list = [
+            StreamEvent(event_type="text-delta", data={"delta": "Recovered"}),
+            StreamEvent(
+                event_type="finish",
+                data={
+                    "finish_reason": "stop",
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+                },
+            ),
+        ]
+
+        async def successful_stream(model, messages, tools, options):
+            for event in stream_events_list:
+                yield event
+
+        provider_two.stream = successful_stream
+
+        with patch(
+            "dawn_kestrel.llm.client.get_provider",
+            side_effect=[provider_one, provider_two],
+        ) as get_provider_mock:
+            client = LLMClient(
+                provider_id=ProviderID.ANTHROPIC,
+                model="claude-sonnet-4-20250514",
+            )
+            client.retry_policy = RetryPolicy(max_attempts=2, base_delay=0.01, max_delay=0.01)
+
+            response = await client.complete([{"role": "user", "content": "hi"}])
+
+            assert response.text == "Recovered"
+            assert get_provider_mock.call_count == 2
 
     @pytest.mark.asyncio
     async def test_chat_completion_convenience_method(self, mock_provider, mock_model_info):

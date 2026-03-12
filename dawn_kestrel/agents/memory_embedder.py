@@ -152,7 +152,7 @@ class MemoryEmbedder:
             OpenAI embedding vector (1536 dimensions)
         """
         try:
-            import openai
+            import openai  # type: ignore[import-not-found]
 
             client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -190,8 +190,8 @@ class MemoryEmbedder:
             Local model embedding vector (normalized to 1536 dimensions)
         """
         try:
-            import numpy as np
-            from sentence_transformers import SentenceTransformer
+            import numpy as np  # type: ignore[import-not-found]
+            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
 
             # Load model (cached after first load)
             if not hasattr(self, "_local_model"):

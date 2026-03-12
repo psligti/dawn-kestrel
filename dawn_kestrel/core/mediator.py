@@ -12,6 +12,8 @@ Key concepts:
 - EventMediatorImpl: In-memory implementation
 """
 
+from __future__ import annotations
+
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass

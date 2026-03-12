@@ -37,38 +37,63 @@ from dawn_kestrel.core.fsm import (
     WORKFLOW_TRANSITIONS,
     WorkflowFSMBuilder,
 )
-from dawn_kestrel.workflow.loggers import (
-    ConsoleLogger,
-    JsonLogger,
-)
-from dawn_kestrel.workflow.models import (
-    ActionType,
-    Confidence,
-    DecisionType,
-    ReactStep,
-    RunLog,
-    StructuredContext,
-    ThinkingFrame,
-    ThinkingStep,
-    Todo,
-)
+from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.workflow.loggers import ConsoleLogger, JsonLogger
+
+
+WORKFLOW_FSM_TRANSITIONS: dict[str, set[str]] = {
+    "intake": {"plan", "failed"},
+    "plan": {"act", "failed"},
+    "act": {"synthesize", "failed"},
+    "synthesize": {"evaluate", "failed"},
+    "evaluate": {"done", "plan", "failed"},
+    "done": {"intake"},
+    "failed": {"intake"},
+}
+
+
+def assert_transition(from_state: str, to_state: str) -> Result[str]:
+    if from_state not in WORKFLOW_FSM_TRANSITIONS:
+        return Err(
+            f"Invalid from_state: {from_state}. Valid states: {sorted(WORKFLOW_FSM_TRANSITIONS.keys())}",
+            code="INVALID_FROM_STATE",
+        )
+
+    if to_state not in WORKFLOW_FSM_TRANSITIONS[from_state]:
+        return Err(
+            (
+                f"Invalid state transition: {from_state} -> {to_state}. "
+                f"Valid transitions from {from_state}: {sorted(WORKFLOW_FSM_TRANSITIONS[from_state])}"
+            ),
+            code="INVALID_TRANSITION",
+        )
+
+    return Ok(to_state)
+
 
 __all__ = [
-    # Models
-    "Confidence",
-    "StructuredContext",
-    "ThinkingFrame",
-    "ThinkingStep",
-    "Todo",
-    "ActionType",
-    "DecisionType",
-    "ReactStep",
-    "RunLog",
     # FSM (from core.fsm)
     "WORKFLOW_STATES",
     "WORKFLOW_TRANSITIONS",
+    "WORKFLOW_FSM_TRANSITIONS",
+    "assert_transition",
     "WorkflowFSMBuilder",
     # Loggers
     "ConsoleLogger",
     "JsonLogger",
 ]
+
+from dawn_kestrel.workflow.multi_agent import (
+    AggregationSpec,
+    AggregationStrategy,
+    AgentExecutionResult,
+    AgentExecutor,
+    AgentSpec,
+    ConflictResolution,
+    ExecutionMode,
+    ExecutionStatus,
+    FindingsAggregator,
+    MultiAgentWorkflow,
+    ResultAggregator,
+    WorkflowResult,
+)

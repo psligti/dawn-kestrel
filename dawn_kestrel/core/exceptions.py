@@ -4,10 +4,12 @@ This module defines the exception hierarchy for domain-specific errors
 that occur during session management, message handling, and I/O operations.
 """
 
-from enum import StrEnum
+from __future__ import annotations
+
+from enum import Enum
 
 
-class ErrorCategory(StrEnum):
+class ErrorCategory(str, Enum):
     """Classification categories for errors.
 
     Categories map to observability use cases (metrics, logging, tracing).
@@ -102,3 +104,45 @@ class NotificationError(IOHandlerError):
     This includes errors when displaying notifications
     or handling notification events.
     """
+
+
+class ProviderRateLimitError(OpenCodeError):
+    """Exception raised when a provider returns a rate limit error.
+
+    This exception is raised when the API returns a rate limit error
+    (e.g., HTTP 429 or provider-specific rate limit codes).
+
+    Args:
+        message: Error description.
+        provider: The provider that returned the rate limit error.
+        retry_after: Suggested wait time in seconds before retrying.
+        error_code: Provider-specific error code.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: str | None = None,
+        retry_after: float | None = None,
+        error_code: str | int | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            category=ErrorCategory.RATE_LIMIT,
+            error_code=str(error_code) if error_code is not None else None,
+        )
+        self.provider = provider
+        self.retry_after = retry_after
+
+    def __repr__(self) -> str:
+        parts = [f"{self.__class__.__name__}({self.args[0]!r}"]
+        if self.provider is not None:
+            parts.append(f", provider={self.provider!r}")
+        if self.retry_after is not None:
+            parts.append(f", retry_after={self.retry_after}")
+        if self.error_code is not None:
+            parts.append(f", error_code={self.error_code!r}")
+        parts.append(")")
+        return "".join(parts)
+

@@ -53,7 +53,7 @@ The LLM must return valid JSON matching the `CheckOutput` schema:
 - **Required Fields**: None (all optional with defaults)
 - **Valid next_phase**: `act`, `plan`, `done`
 - **Confidence Range**: 0.0 to 1.0
-- **Schema**: `CheckOutput` Pydantic model with `extra="ignore"`
+- **Schema**: `CheckOutput` Pydantic model with `extra="forbid"`
 
 ## CONSTRAINTS
 

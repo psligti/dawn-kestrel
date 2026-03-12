@@ -27,7 +27,7 @@ The LLM must return valid JSON matching the `IntakeOutput` schema:
 
 - **Required Fields**: `intent` (string)
 - **Optional Fields**: `constraints` (list), `initial_evidence` (list)
-- **Schema**: `IntakeOutput` Pydantic model with `extra="ignore"`
+- **Schema**: `IntakeOutput` Pydantic model with `extra="forbid"`
 - **Error Handling**: `ValidationError` on missing required fields
 
 ## CONSTRAINTS

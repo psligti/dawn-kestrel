@@ -55,7 +55,7 @@ __all__ = [
 ]
 
 
-def get_event_bus():  # type: ignore[no-untyped-def]
+def get_event_bus():
     """Get event bus instance if available, None otherwise"""
     if _event_bus_available:
         from dawn_kestrel.core.event_bus import bus
@@ -64,7 +64,7 @@ def get_event_bus():  # type: ignore[no-untyped-def]
     return None
 
 
-def get_settings():  # type: ignore[no-untyped-def]
+def get_settings():
     """Get settings instance if available, None otherwise"""
     if _settings_available:
         from dawn_kestrel.core.settings import get_settings

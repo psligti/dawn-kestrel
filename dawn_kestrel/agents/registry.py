@@ -108,7 +108,7 @@ class AgentRegistry:
             # Handle Result type (from AgentBuilder.build())
             if isinstance(result, Ok):
                 agent_config = result.unwrap()
-                return agent_config.agent
+                return agent_config.agent  # type: ignore[union-attr]
 
             # Handle both Agent and AgentConfig instances
             if isinstance(result, Agent):

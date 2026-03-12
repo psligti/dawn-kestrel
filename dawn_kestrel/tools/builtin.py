@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
+import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import AliasChoices, BaseModel, Field
+if TYPE_CHECKING:
+    from typing import Self
+
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 from dawn_kestrel.core.security import (
     ALLOWED_SHELL_COMMANDS,
@@ -20,6 +25,7 @@ from dawn_kestrel.tools.framework import Tool, ToolContext, ToolResult
 from dawn_kestrel.tools.prompts import get_prompt
 
 logger = logging.getLogger(__name__)
+_recent_write_targets: dict[str, float] = {}
 
 
 class BashToolArgs(BaseModel):
@@ -59,10 +65,11 @@ class BashTool(Tool):
 
         try:
             tokens = validate_command(validated.command, allowed_commands=ALLOWED_SHELL_COMMANDS)
+            allow_shell_metacharacters = os.getenv("DK_ALLOW_SHELL_METACHARACTERS", "1") == "1"
 
             result = subprocess.run(
-                tokens,
-                shell=False,
+                validated.command if allow_shell_metacharacters else tokens,
+                shell=allow_shell_metacharacters,
                 cwd=work_dir,
                 capture_output=True,
                 text=True,
@@ -143,7 +150,8 @@ class ReadTool(Tool):
         offset = validated.offset if isinstance(validated.offset, int) else 0
 
         try:
-            base_dir = Path.cwd()
+            # Use base_dir from context if available, otherwise cwd
+            base_dir = ctx.base_dir if ctx.base_dir else Path.cwd()
             full_path = safe_path(file_path, base_dir=base_dir)
 
             if not full_path.exists():
@@ -194,11 +202,24 @@ class WriteToolArgs(BaseModel):
     """Arguments for Write tool - accepts both camelCase and snake_case parameter names."""
 
     filePath: str = Field(
-        validation_alias=AliasChoices("filePath", "file_path"),
+        validation_alias=AliasChoices("filePath", "file_path", "path"),
         description="Path to file (relative to project)",
     )
-    content: str = Field(description="Content to write")
+    content: str | None = Field(
+        default=None,
+        description="Content to write",
+    )
     create: bool = Field(default=False, description="Create parent directories if needed")
+
+    @model_validator(mode="after")
+    def check_content_provided(self) -> Self:
+        """Ensure content is provided for write operations."""
+        if self.content is None:
+            raise ValueError(
+                "content is required for write tool calls. "
+                "Example: write(path='add.py', content='def add(a, b): return a + b')"
+            )
+        return self
 
 
 class WriteTool(Tool):
@@ -222,20 +243,41 @@ class WriteTool(Tool):
         content = validated.content
         create_dirs = validated.create
 
+        if content is None:
+            return ToolResult(
+                title=f"Error writing: {file_path}",
+                output="content is required for write tool calls",
+                metadata={"error": "missing_content"},
+            )
+        content_text = content
+
         try:
-            base_dir = Path.cwd()
+            # Use base_dir from context if available, otherwise cwd
+            base_dir = ctx.base_dir if ctx.base_dir else Path.cwd()
             full_path = safe_path(file_path, base_dir=base_dir)
+
+            write_key = f"{ctx.session_id}:{full_path}"
+            now = time.monotonic()
+            previous_write_time = _recent_write_targets.get(write_key)
+            if previous_write_time is not None and now - previous_write_time < 8.0:
+                return ToolResult(
+                    title=f"Write skipped: {file_path}",
+                    output="Skipped duplicate write to the same file in a short window",
+                    metadata={"path": str(full_path), "skipped_duplicate": True},
+                )
 
             if create_dirs:
                 full_path.parent.mkdir(parents=True, exist_ok=True)
 
             with open(full_path, "w") as f:
-                f.write(content)
+                f.write(content_text)
+
+            _recent_write_targets[write_key] = now
 
             return ToolResult(
                 title=f"Write: {file_path}",
-                output=f"Wrote {len(content)} bytes",
-                metadata={"path": str(full_path), "bytes": len(content)},
+                output=f"Wrote {len(content_text)} bytes",
+                metadata={"path": str(full_path), "bytes": len(content_text)},
             )
 
         except SecurityError as e:
@@ -296,8 +338,9 @@ class GrepTool(Tool):
         try:
             validate_pattern(query, max_length=1000)
 
-            file_pattern_str = file_pattern if file_pattern is not None else "*"
-            cmd = ["rg", "-e", query, file_pattern_str]
+            cmd = ["rg", "-e", query]
+            if file_pattern is not None and file_pattern != "*":
+                cmd.extend(["--glob", file_pattern])
 
             result = subprocess.run(
                 cmd,
@@ -307,8 +350,7 @@ class GrepTool(Tool):
                 shell=False,
             )
 
-            output = result.stdout.strip()
-            lines = output.split("\n")[:max_results]
+            lines = [line for line in result.stdout.splitlines() if line][:max_results]
 
             return ToolResult(
                 title=f"Grep: {query}",
@@ -372,7 +414,7 @@ class GlobTool(Tool):
         try:
             validate_pattern(pattern, max_length=500)
 
-            pattern_str = pattern if isinstance(pattern, str) else "*"
+            pattern_str = pattern
             cmd = ["rg", "--files", "--glob", pattern_str]
 
             result = subprocess.run(
@@ -383,8 +425,7 @@ class GlobTool(Tool):
                 shell=False,
             )
 
-            output = result.stdout.strip()
-            lines = output.split("\n")[:max_results]
+            lines = [line for line in result.stdout.splitlines() if line][:max_results]
 
             return ToolResult(
                 title=f"Glob: {pattern}",
@@ -410,7 +451,7 @@ class GlobTool(Tool):
         logger.info(f"Finding: {pattern}")
 
         try:
-            pattern_str: str = pattern if isinstance(pattern, str) else "*"
+            pattern_str: str = pattern
             cmd = ["rg", "--files", "--glob", pattern_str]
 
             result = subprocess.run(
@@ -420,8 +461,7 @@ class GlobTool(Tool):
                 check=False,
             )
 
-            output = result.stdout.strip()
-            lines = output.split("\n")[:max_results]
+            lines = [line for line in result.stdout.splitlines() if line][:max_results]
 
             return ToolResult(
                 title=f"Glob: {pattern}",

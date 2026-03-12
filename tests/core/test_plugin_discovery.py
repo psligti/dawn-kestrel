@@ -106,7 +106,7 @@ class TestLoadProviders:
         from dawn_kestrel.core.plugin_discovery import load_providers
 
         # Test
-        providers = await load_providers()
+        providers = load_providers()
 
         # Assert
         assert isinstance(providers, dict)
@@ -125,7 +125,7 @@ class TestLoadProviders:
 
         from dawn_kestrel.core.plugin_discovery import load_providers
 
-        providers = await load_providers()
+        providers = load_providers()
 
         assert isinstance(providers, dict)
         assert len(providers) == 0
@@ -142,7 +142,7 @@ class TestLoadAgents:
         # Setup mock entry points
         mock_ep = Mock(spec=EntryPoint)
         mock_ep.name = "orchestrator"
-        mock_ep.value = "dawn_kestrel.agents.bolt_merlin:orchestrator"
+        mock_ep.value = "dawn_kestrel.agents.builtin:BUILD_AGENT"
         mock_ep.load.return_value = Mock()
 
         mock_eps = Mock()
@@ -257,7 +257,9 @@ class TestVersionCompatibility:
         from dawn_kestrel.core.plugin_discovery import load_tools
 
         # Test
-        tools = load_tools()
+        import asyncio
+
+        tools = asyncio.run(load_tools())
 
         # Assert - versioned plugin should be loaded
         assert "versioned_tool" in tools

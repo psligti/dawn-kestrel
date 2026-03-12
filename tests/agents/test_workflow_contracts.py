@@ -18,6 +18,7 @@ from dawn_kestrel.agents.workflow import (
     CheckOutput,
     IntakeOutput,
     PlanOutput,
+    ReasonOutput,
     SynthesizedFinding,
     SynthesizeOutput,
     TodoItem,
@@ -26,6 +27,7 @@ from dawn_kestrel.agents.workflow import (
     get_check_output_schema,
     get_intake_output_schema,
     get_plan_output_schema,
+    get_reason_output_schema,
     get_synthesize_output_schema,
 )
 
@@ -232,6 +234,92 @@ class TestPlanOutput:
         assert "CRITICAL RULES" in schema
 
 
+class TestReasonOutput:
+    """Test ReasonOutput Pydantic model."""
+
+    def test_reason_output_valid_with_all_fields(self):
+        """Test ReasonOutput with all fields provided."""
+        output = ReasonOutput(
+            todo_id="todo-1",
+            atomic_step="Read auth module",
+            why_now="Need to understand current implementation",
+            next_phase="act",
+            confidence=0.85,
+            evidence_used=["auth module exists"],
+            risks=["may need refactoring"],
+        )
+
+        assert output.todo_id == "todo-1"
+        assert output.atomic_step == "Read auth module"
+        assert output.why_now == "Need to understand current implementation"
+        assert output.next_phase == "act"
+        assert output.confidence == 0.85
+        assert output.evidence_used == ["auth module exists"]
+        assert output.risks == ["may need refactoring"]
+
+    def test_reason_output_valid_with_minimal_fields(self):
+        """Test ReasonOutput with only required fields."""
+        output = ReasonOutput(
+            todo_id="todo-2",
+            atomic_step="Search for tests",
+            why_now="Need to verify existing coverage",
+        )
+
+        assert output.todo_id == "todo-2"
+        assert output.atomic_step == "Search for tests"
+        assert output.why_now == "Need to verify existing coverage"
+        assert output.next_phase == "act"  # default
+        assert output.confidence is None
+        assert output.evidence_used is None
+        assert output.risks is None
+
+    def test_reason_output_missing_required_field(self):
+        """Test ReasonOutput rejects missing required fields."""
+        with pytest.raises(ValidationError) as exc_info:
+            ReasonOutput(todo_id="todo-1")  # missing atomic_step, why_now
+
+        errors = exc_info.value.errors()
+        error_fields = {error["loc"][0] for error in errors}
+        assert "atomic_step" in error_fields
+        assert "why_now" in error_fields
+
+    def test_reason_output_rejects_extra_fields(self):
+        """Test ReasonOutput with extra='forbid' rejects unknown fields."""
+        with pytest.raises(ValidationError) as exc_info:
+            ReasonOutput(
+                todo_id="todo-1",
+                atomic_step="Test",
+                why_now="Test reason",
+                unknown_field="should be rejected",
+            )
+
+        errors = exc_info.value.errors()
+        assert any("extra_forbidden" in error["type"] for error in errors)
+
+    def test_reason_output_invalid_next_phase(self):
+        """Test ReasonOutput rejects invalid next_phase value."""
+        with pytest.raises(ValidationError) as exc_info:
+            ReasonOutput(
+                todo_id="todo-1",
+                atomic_step="Test",
+                why_now="Test reason",
+                next_phase="invalid_phase",
+            )
+
+        errors = exc_info.value.errors()
+        assert any("next_phase" in error["loc"] for error in errors)
+
+    def test_get_reason_output_schema_returns_string(self):
+        """Test get_reason_output_schema returns a valid string."""
+        schema = get_reason_output_schema()
+
+        assert isinstance(schema, str)
+        assert "ReasonOutput" in schema
+        assert "todo_id" in schema
+        assert "atomic_step" in schema
+        assert "why_now" in schema
+        assert "CRITICAL RULES" in schema
+
 class TestToolExecution:
     """Test ToolExecution Pydantic model."""
 
@@ -239,6 +327,7 @@ class TestToolExecution:
         """Test ToolExecution with all fields provided."""
         execution = ToolExecution(
             tool_name="read",
+            selection_reason="Need to examine file structure",
             arguments={"file_path": "test.py"},
             status="success",
             result_summary="Read file successfully",
@@ -247,6 +336,7 @@ class TestToolExecution:
         )
 
         assert execution.tool_name == "read"
+        assert execution.selection_reason == "Need to examine file structure"
         assert execution.arguments == {"file_path": "test.py"}
         assert execution.status == "success"
         assert execution.duration_seconds == 1.5
@@ -256,10 +346,12 @@ class TestToolExecution:
         """Test ToolExecution with only required fields."""
         execution = ToolExecution(
             tool_name="grep",
+            selection_reason="Need to search for patterns",
             status="success",
         )
 
         assert execution.tool_name == "grep"
+        assert execution.selection_reason == "Need to search for patterns"
         assert execution.arguments == {}
         assert execution.result_summary == ""
         assert execution.duration_seconds == 0.0
@@ -270,6 +362,7 @@ class TestToolExecution:
         with pytest.raises(ValidationError) as exc_info:
             ToolExecution(
                 tool_name="test",
+                selection_reason="Test reason",
                 status="invalid_status",
             )
 
@@ -281,6 +374,7 @@ class TestToolExecution:
         with pytest.raises(ValidationError) as exc_info:
             ToolExecution(
                 tool_name="test",
+                selection_reason="Test reason",
                 status="success",
                 unknown_field="should be rejected",
             )
@@ -288,53 +382,65 @@ class TestToolExecution:
         errors = exc_info.value.errors()
         assert any("extra_forbidden" in error["type"] for error in errors)
 
+    def test_tool_execution_missing_selection_reason(self):
+        """Test ToolExecution rejects missing selection_reason field."""
+        with pytest.raises(ValidationError) as exc_info:
+            ToolExecution(
+                tool_name="test",
+                status="success",
+            )  # missing selection_reason
+
+        errors = exc_info.value.errors()
+        assert any("selection_reason" in error["loc"] for error in errors)
 
 class TestActOutput:
     """Test ActOutput Pydantic model."""
 
     def test_act_output_valid_with_all_fields(self):
         """Test ActOutput with all fields provided."""
-        actions = [
-            ToolExecution(tool_name="read", status="success"),
-            ToolExecution(tool_name="grep", status="failure"),
-        ]
-
-        output = ActOutput(
-            actions_attempted=actions,
-            todos_addressed=["1", "2"],
-            tool_results_summary="Test summary",
-            artifacts=["file1.py", "file2.py"],
-            failures=["Test failure"],
+        action = ToolExecution(
+            tool_name="read",
+            selection_reason="Need to examine file",
+            status="success",
         )
 
-        assert len(output.actions_attempted) == 2
-        assert output.todos_addressed == ["1", "2"]
-        assert output.tool_results_summary == "Test summary"
+        output = ActOutput(
+            action=action,
+            acted_todo_id="todo-1",
+            tool_result_summary="Test summary",
+            artifacts=["file1.py", "file2.py"],
+            failure="",
+        )
+
+        assert output.action is not None
+        assert output.action.tool_name == "read"
+        assert output.acted_todo_id == "todo-1"
+        assert output.tool_result_summary == "Test summary"
         assert output.artifacts == ["file1.py", "file2.py"]
-        assert output.failures == ["Test failure"]
+        assert output.failure == ""
 
     def test_act_output_valid_with_minimal_fields(self):
         """Test ActOutput with only required field."""
-        output = ActOutput(actions_attempted=[])
+        output = ActOutput()
 
-        assert output.actions_attempted == []
-        assert output.todos_addressed == []
-        assert output.tool_results_summary == ""
+        assert output.action is None
+        assert output.acted_todo_id == ""
+        assert output.tool_result_summary == ""
         assert output.artifacts == []
-        assert output.failures == []
+        assert output.failure == ""
 
-    def test_act_output_accepts_empty_actions_list(self):
-        """Test ActOutput accepts empty actions_attempted list with default."""
-        output = ActOutput(tool_results_summary="test")
+    def test_act_output_accepts_null_action(self):
+        """Test ActOutput accepts null action with default."""
+        output = ActOutput(acted_todo_id="todo-2")
 
-        assert output.tool_results_summary == "test"
-        # actions_attempted has default_factory=list, so empty list is accepted
-        assert output.actions_attempted == []
+        assert output.acted_todo_id == "todo-2"
+        # action defaults to None
+        assert output.action is None
 
     def test_act_output_rejects_extra_fields(self):
         """Test ActOutput with extra='forbid' rejects unknown fields."""
         with pytest.raises(ValidationError) as exc_info:
-            ActOutput(actions_attempted=[], unknown_field="should be rejected")
+            ActOutput(unknown_field="should be rejected")
 
         errors = exc_info.value.errors()
         assert any("extra_forbidden" in error["type"] for error in errors)
@@ -345,9 +451,18 @@ class TestActOutput:
 
         assert isinstance(schema, str)
         assert "ActOutput" in schema
-        assert "actions_attempted" in schema
+        assert "action" in schema
         assert "tool_name" in schema
+        assert "selection_reason" in schema
         assert "CRITICAL RULES" in schema
+
+    def test_get_act_output_schema_forbids_justification_in_arguments(self):
+        """Test get_act_output_schema explicitly forbids justification in action.arguments."""
+        schema = get_act_output_schema()
+
+        assert "DO NOT put justification" in schema
+        assert "action.arguments" in schema
+        assert "selection_reason" in schema
 
 
 class TestSynthesizedFinding:
@@ -554,91 +669,76 @@ class TestCheckOutput:
         budget = BudgetConsumed(iterations=4, subagent_calls=6)
 
         output = CheckOutput(
-            should_continue=False,
-            stop_reason="recommendation_ready",
+            current_todo_id="todo-1",
+            todo_complete=True,
+            next_phase="reason",
             confidence=0.85,
             budget_consumed=budget,
             blocking_question="",
             novelty_detected=False,
             stagnation_detected=False,
-            next_action="commit",
+            reasoning="Task completed successfully",
+            completed_todo_ids=["todo-1"],
         )
 
-        assert output.should_continue is False
-        assert output.stop_reason == "recommendation_ready"
+        assert output.current_todo_id == "todo-1"
+        assert output.todo_complete is True
+        assert output.next_phase == "reason"
         assert output.confidence == 0.85
         assert output.budget_consumed.iterations == 4
-        assert output.next_action == "commit"
+        assert output.completed_todo_ids == ["todo-1"]
 
     def test_check_output_valid_with_minimal_fields(self):
         """Test CheckOutput with only required field."""
-        output = CheckOutput(should_continue=True)
+        output = CheckOutput()
 
-        assert output.should_continue is True
-        assert output.stop_reason == "none"
+        assert output.current_todo_id == ""
+        assert output.todo_complete is False
+        assert output.next_phase == "act"
         assert output.confidence == 0.5
         assert output.budget_consumed.iterations == 0
 
-    def test_check_output_invalid_stop_reason(self):
-        """Test CheckOutput rejects invalid stop_reason value."""
+    def test_check_output_invalid_next_phase(self):
+        """Test CheckOutput rejects invalid next_phase value."""
         with pytest.raises(ValidationError) as exc_info:
             CheckOutput(
-                should_continue=False,
-                stop_reason="invalid_reason",
+                next_phase="invalid_phase",
             )
 
         errors = exc_info.value.errors()
-        assert any("stop_reason" in error["loc"] for error in errors)
-
-    def test_check_output_invalid_next_action(self):
-        """Test CheckOutput rejects invalid next_action value."""
-        with pytest.raises(ValidationError) as exc_info:
-            CheckOutput(
-                should_continue=True,
-                next_action="invalid_action",
-            )
-
-        errors = exc_info.value.errors()
-        assert any("next_action" in error["loc"] for error in errors)
+        assert any("next_phase" in error["loc"] for error in errors)
 
     def test_check_output_confidence_out_of_range(self):
         """Test CheckOutput rejects confidence outside 0.0-1.0 range."""
         with pytest.raises(ValueError) as exc_info:
             CheckOutput(
-                should_continue=True,
                 confidence=1.5,
             )
 
         assert "confidence must be between 0.0 and 1.0" in str(exc_info.value)
 
-    def test_check_output_all_valid_stop_reasons(self):
-        """Test CheckOutput accepts all valid stop_reason values."""
-        valid_stop_reasons = [
-            "recommendation_ready",
-            "blocking_question",
-            "budget_exhausted",
-            "stagnation",
-            "human_required",
-            "none",
-        ]
+    def test_check_output_all_valid_next_phases(self):
+        """Test CheckOutput accepts all valid next_phase values."""
+        valid_phases = ["act", "plan", "reason", "done"]
 
-        for reason in valid_stop_reasons:
-            output = CheckOutput(should_continue=False, stop_reason=reason)
-            assert output.stop_reason == reason
+        for phase in valid_phases:
+            output = CheckOutput(next_phase=phase)
+            assert output.next_phase == phase
 
-    def test_check_output_all_valid_next_actions(self):
-        """Test CheckOutput accepts all valid next_action values."""
-        valid_actions = ["continue", "switch_strategy", "escalate", "commit", "stop"]
+    def test_check_output_completed_todo_ids(self):
+        """Test CheckOutput accepts completed_todo_ids."""
+        output = CheckOutput(
+            todo_complete=True,
+            completed_todo_ids=["todo-1", "todo-2"],
+        )
 
-        for action in valid_actions:
-            output = CheckOutput(should_continue=True, next_action=action)
-            assert output.next_action == action
+        assert output.todo_complete is True
+        assert output.completed_todo_ids == ["todo-1", "todo-2"]
 
     def test_check_output_rejects_extra_fields(self):
         """Test CheckOutput with extra='forbid' rejects unknown fields."""
         with pytest.raises(ValidationError) as exc_info:
             CheckOutput(
-                should_continue=True,
                 unknown_field="should be rejected",
             )
 
@@ -651,18 +751,14 @@ class TestCheckOutput:
 
         assert isinstance(schema, str)
         assert "CheckOutput" in schema
-        assert "should_continue" in schema
-        assert "stop_reason" in schema
+        assert "current_todo_id" in schema
+        assert "next_phase" in schema
         assert "CRITICAL RULES" in schema
-        assert "STOP REASONS" in schema
 
-    def test_get_check_output_schema_includes_canonical_policy(self):
-        """Test get_check_output_schema includes canonical stop/loop policy."""
+    def test_get_check_output_schema_includes_routing_logic(self):
+        """Test get_check_output_schema includes routing logic."""
         schema = get_check_output_schema()
 
-        assert "docs/planning-agent-orchestration.md" in schema
-        assert "recommendation_ready" in schema
-        assert "blocking_question" in schema
-        assert "budget_exhausted" in schema
-        assert "stagnation" in schema
-        assert "human_required" in schema
+        assert "next_phase" in schema
+        assert "todo_complete" in schema
+        assert "completed_todo_ids" in schema

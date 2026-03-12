@@ -297,7 +297,7 @@ class MemorySummarizer:
             Tuple of (summary_text, key_points)
         """
         try:
-            import openai
+            import openai  # type: ignore[import-not-found]
 
             client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 

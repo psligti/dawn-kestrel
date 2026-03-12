@@ -5,6 +5,8 @@ Enables creating child sessions from specific messages and
 reverting sessions to previous snapshot states.
 """
 
+from __future__ import annotations
+
 import importlib.util
 import logging
 import time

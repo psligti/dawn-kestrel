@@ -1,0 +1,33 @@
+# Redis for dawn-kestrel rate limiting
+# 
+# This provides a shared Redis instance for cross-process rate limiting.
+# Your applications connect to this Redis to coordinate API rate limits.
+#
+# Usage:
+#   podman-compose up -d
+#
+# Then in your app's config:
+#   redis_url: redis://localhost:6379/0
+#   rate_limit_backend: redis
+
+version: "3.8"
+
+services:
+  redis:
+    image: docker.io/redis:7.2-alpine
+    container_name: dawn-kestrel-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:
+    driver: local

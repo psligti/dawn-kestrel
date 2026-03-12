@@ -5,6 +5,8 @@ Provides unified interface for AI sessions, model selection,
 and configuration management across all providers.
 """
 
+from __future__ import annotations
+
 
 import click
 import pendulum

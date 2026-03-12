@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 from collections.abc import AsyncIterator, Callable
@@ -274,7 +276,7 @@ class OpenAIProvider:
         self,
         model: ModelInfo,
         messages: list[dict[str, Any]],
-        tools: dict[str, Any],
+        tools: list[dict[str, Any]],
         options: dict[str, Any] | None = None,
     ) -> AsyncIterator[StreamEvent]:
         yield StreamEvent(event_type="start", data={"model": model.id}, timestamp=0)

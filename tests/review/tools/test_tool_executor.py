@@ -12,6 +12,8 @@ Tests cover:
 All tests follow Python 3.9 compatibility (typing.Optional[T] instead of T | None).
 """
 
+from __future__ import annotations
+
 import logging
 import subprocess
 from unittest.mock import Mock, patch

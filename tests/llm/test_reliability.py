@@ -330,22 +330,24 @@ class TestPatternOrdering:
         # Setup: Reset rate limiter and make 6 requests to hit rate limit
         await reliability_wrapper._rate_limiter.reset("test_provider")
 
-        for i in range(6):
-            mock_provider.generate_response.return_value = Ok(
-                Message(id=f"r{i}", session_id="s1", role="assistant", text=f"R{i}")
-            )
-
-        # Execute: Should fail on rate limit, not circuit
-        result = await reliability_wrapper.generate_with_resilience(
-            provider_adapter=mock_provider,
-            messages=[Message(id="m1", session_id="s1", role="user", text="Test")],
-            resource="test_provider",
+        mock_provider.generate_response.return_value = Ok(
+            Message(id="r1", session_id="s1", role="assistant", text="Response")
         )
 
-        # Verify
-        assert result.is_err()
-        assert result.code == "RATE_LIMIT_EXCEEDED"  # Not CIRCUIT_CLOSED
+        # Execute: Make 6 calls to exhaust rate limit (capacity=5)
+        results = []
+        for i in range(6):
+            result = await reliability_wrapper.generate_with_resilience(
+                provider_adapter=mock_provider,
+                messages=[Message(id=f"m{i}", session_id="s1", role="user", text="Test")],
+                resource="test_provider",
+            )
+            results.append(result)
 
+        # Verify: First 5 succeed, 6th fails with rate limit
+        assert all(r.is_ok() for r in results[:5])
+        assert results[5].is_err()
+        assert results[5].code == "RATE_LIMIT_EXCEEDED"  # Not CIRCUIT_CLOSED
     @pytest.mark.asyncio
     async def test_circuit_breaker_applies_after_rate_limit(
         self, rate_limiter, circuit_breaker, retry_executor, mock_provider

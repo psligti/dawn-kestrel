@@ -1,5 +1,7 @@
 """Tool permission filter for filtering tools based on agent permissions."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 

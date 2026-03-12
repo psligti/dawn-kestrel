@@ -23,6 +23,22 @@ from dawn_kestrel.evaluation.grader_specs import (
     GRADER_TYPE_TRANSCRIPT,
 )
 
+from dawn_kestrel.evaluation.hooks import (
+    BudgetCallback,
+    EvaluationHooks,
+    HookManager,
+    PhaseCallback,
+    ToolCallCallback,
+    TranscriptCallback,
+)
+
+from dawn_kestrel.evaluation.runner import (
+    AgentRunner,
+    AgentRunnerProtocol,
+    RunnerConfig,
+    RunnerResult,
+)
+
 __all__ = [
     "Task",
     "Trial",
@@ -37,4 +53,17 @@ __all__ = [
     "GRADER_TYPE_STATE_CHECK",
     "GRADER_TYPE_TOOL_CALLS",
     "GRADER_TYPE_TRANSCRIPT",
+    # Hooks for ash-hawk integration
+    "BudgetCallback",
+    "EvaluationHooks",
+    "HookManager",
+    "PhaseCallback",
+    "ToolCallCallback",
+    "TranscriptCallback",
+    # Runner for ash-hawk integration
+    "AgentRunner",
+    "AgentRunnerProtocol",
+    "RunnerConfig",
+    "RunnerResult",
 ]
+

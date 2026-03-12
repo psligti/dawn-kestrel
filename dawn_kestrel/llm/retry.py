@@ -19,6 +19,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from dawn_kestrel.core.result import Err, Ok, Result
+from dawn_kestrel.core.exceptions import ProviderRateLimitError
 from dawn_kestrel.llm.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
@@ -349,6 +350,11 @@ class RetryExecutorImpl:
                     # Direct value, return immediately
                     self._stats["successful_calls"] += 1
                     return Ok(result)
+
+            except ProviderRateLimitError as e:
+                # Rate limit errors should NOT be caught - re-raise to preserve retry_after
+                logger.warning(f"Rate limit error, re-raising: {e}")
+                raise
 
             except Exception as e:
                 # Check if exception is in transient_errors

@@ -48,14 +48,13 @@ class TestLoadPrompt:
         assert "{context_summary}" in prompt
         assert "{schema}" in prompt
 
-    def test_reason_prompt_contains_thought_action(self) -> None:
-        """Test that REASON prompt contains ReAct pattern elements."""
+    def test_reason_prompt_contains_atomic_step_context(self) -> None:
+        """Test that REASON prompt contains context-first reasoning elements."""
         prompt = load_prompt("fsm/reason")
-        assert "Thought" in prompt
-        assert "Action" in prompt
-        assert "next state" in prompt  # "Choose the next state" in template
-        assert "ReAct" in prompt
-
+        assert "atomic_step" in prompt
+        assert "why_now" in prompt
+        assert "tool-agnostic" in prompt
+        # todo_id and next_phase will be in the schema, not the template text
     def test_load_nonexistent_prompt_raises_error(self) -> None:
         with pytest.raises(FileNotFoundError) as exc_info:
             load_prompt("nonexistent/prompt")
